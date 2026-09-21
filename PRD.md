@@ -39,7 +39,8 @@ Tout est manuel, se perd dans des fils de discussion, et la com part en retard o
 | Disponibilités               | Déclaratives, par membre, par date candidate                                  |
 | Calendrier                   | Vue unifiée + flux iCal abonnable (Google Calendar, Apple…)                   |
 | Charte graphique             | Tokens au niveau collectif + surcharge par groupe                             |
-| Studio visuels               | Gabarits déterministes éditables, rendu image et vidéo multi-formats          |
+| Studio visuels               | **Éditeur visuel** sans code, ratios verrouillés, gabarits multi-formats      |
+| Vidéo                        | Plans et timeline décrits dans l'app, **rendu par CLI sur machines GPU**      |
 | Plan de com                  | Timelines instanciées automatiquement, propres à chaque type d'événement      |
 | Publication                  | Assignation à un membre, rappel à l'heure, **confirmation manuelle**          |
 | Comptes sociaux              | Inventaire des comptes et de **qui y a accès** (jamais les mots de passe)     |
@@ -52,9 +53,10 @@ Tout est manuel, se perd dans des fils de discussion, et la com part en retard o
 - **Argent** : cachets, budgets, factures, partage de revenus _(module entier, contaminerait tout le modèle)_
 - **Inventaire matériel** (qui possède quel ampli)
 - **Setlists** et **billetterie**
-- **Publication automatique via API** des réseaux sociaux → §10.2
+- **Publication automatique via API** des réseaux sociaux → §11.2
+- **Encodage vidéo sur le serveur** : jamais sur le VPS, le rendu est délégué à des machines locales → §10
 - **Génération d'images ou de vidéos par IA** : les médias sont **fournis et téléversés**. La chaîne de génération sera travaillée séparément, hors de cet outil ; l'app se contente d'accueillir les fichiers produits.
-- **Stockage des mots de passe** des comptes sociaux → §10.3
+- **Stockage des mots de passe** des comptes sociaux → §11.3
 - **Inscription libre, facturation, SaaS public** : l'instance est multi-collectif, mais chaque collectif est créé à la main
 
 ---
@@ -117,10 +119,14 @@ Instance (Backline)
       │    ├── PlanCom → TachePublication[]
       │    ├── DetailStream?          (si type = stream)
       │    └── Contacts du lieu + FicheTechnique rattachée
-      ├── Gabarit[]                   (collectif ou groupe, formats multiples)
-      └── Asset[]                     (médias téléversés, visuels rendus, PDF)
+      ├── Gabarit[]                   (collectif ou groupe)
+      │    └── Declinaison[]          (une par format, ratio verrouillé)
+      ├── CompositionVideo[]          (plans, calques, timeline, audio — déclaratif)
+      │    └── JobRendu[]             (réclamé et exécuté par une machine GPU)
+      └── Asset[]                     (médias téléversés, visuels rendus, vidéos, PDF)
 
 Utilisateur                           (transverse : nom, téléphone, e-mail, Telegram)
+MachineDeRendu                        (jeton, propriétaire, capacités GPU, dernier contact)
 ```
 
 ### Règles de domaine
@@ -132,6 +138,8 @@ Utilisateur                           (transverse : nom, téléphone, e-mail, Te
 - Un **groupe d'une personne** est un groupe comme un autre.
 - Un **rôle logistique est une chaîne libre**, saisie à l'événement. Pas de catalogue ; autocomplétion sur les libellés déjà utilisés dans le collectif.
 - Une **fiche technique est versionnée** ; l'événement pointe vers la version réellement envoyée au lieu.
+- Un **gabarit est conçu sur un format maître** et décliné ; chaque déclinaison a son ratio verrouillé et ses propres ajustements.
+- Une **composition vidéo est une description, pas un fichier** : le rendu en est une exécution, reproductible et rejouable.
 
 ---
 
@@ -198,10 +206,10 @@ Les types sont **paramétrables** par collectif ; chacun porte ses propres champ
 
 | Type                  | Spécificités                                                                                                                        | Timeline        |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| **Soirée DJ électro** | Line-up à créneaux (b2b, warm-up, closing), lieu, jauge                                                                             | §10.1           |
-| **Concert**           | Line-up scène, balances, fiche technique obligatoire                                                                                | §10.1           |
-| **Résidence**         | **Un seul événement** couvrant toute la plage de dates, présence partielle des membres, objectif de travail, restitution éventuelle | §10.1 (allégée) |
-| **Stream live**       | Voir ci-dessous                                                                                                                     | §10.1 (courte)  |
+| **Soirée DJ électro** | Line-up à créneaux (b2b, warm-up, closing), lieu, jauge                                                                             | §11.1           |
+| **Concert**           | Line-up scène, balances, fiche technique obligatoire                                                                                | §11.1           |
+| **Résidence**         | **Un seul événement** couvrant toute la plage de dates, présence partielle des membres, objectif de travail, restitution éventuelle | §11.1 (allégée) |
+| **Stream live**       | Voir ci-dessous                                                                                                                     | §11.1 (courte)  |
 
 ### Résidence
 
@@ -267,40 +275,105 @@ Modélisée comme **données éditables**, jamais codée en dur. Une charte par 
 
 ## 9. Studio visuels
 
-### 9.1 Gabarits
+### 9.1 Un éditeur visuel, pas un éditeur de code
 
-Un **gabarit déterministe** = une mise en page (HTML/CSS) + des **emplacements** typés :
+**Principe non négociable : aucune compétence technique n'est requise pour produire un visuel.** L'éditeur est un canevas manipulé à la souris — pas de HTML, pas de CSS, pas de JSON visible.
 
-- `texte` : nom d'artiste, date, lieu, mentions
-- `média` : image ou vidéo de fond, **téléversée** ou tirée du press kit
-- `logo` : résolu automatiquement depuis la charte du porteur
-- `champ automatique` : date, heure, ville, line-up, créneaux — pré-remplis depuis l'événement
+**Blocs disponibles** — texte, image, vidéo, logo, forme (rectangle, cercle, trait), dégradé, groupe.
 
-Le respect de la charte est **structurel** : un gabarit ne référence que des tokens, jamais des valeurs en dur.
+**Manipulation** — glisser-déposer, poignées de redimensionnement, rotation, ordre des calques, duplication, verrouillage d'un bloc, groupes.
 
-### 9.2 Éditeur de gabarits
+**Aides à l'alignement** — magnétisme sur la grille, guides d'alignement entre blocs, répartition, centrage, **zones de sécurité affichées** (par exemple les bandeaux d'interface d'une story Instagram, où le texte est masqué par les boutons de l'application).
 
-Écran dédié :
+**Palette de contenu** — un panneau liste les valeurs de la charte (couleurs, polices, logos) et les **champs automatiques** de l'événement (nom, date, heure, lieu, ville, line-up, créneaux, handles). On les dépose sur le canevas ; ils se remplissent tout seuls à la génération.
 
-- Édition de la mise en page avec **aperçu en direct sur les données réelles** d'un événement
-- Déclaration des emplacements (nom, type, obligatoire, longueur max)
-- Déclinaison **multi-formats** depuis un même gabarit : `1:1`, `4:5`, `9:16`, `16:9`
-- Gabarits partagés au niveau du collectif, ou propres à un groupe
-- Versionnement : modifier un gabarit ne casse aucun visuel déjà produit
+Seuls les tokens de la charte sont proposés dans les sélecteurs de couleur et de police. **On ne peut pas sortir de la charte par accident** — c'est une contrainte de l'éditeur, pas une règle à respecter de tête.
 
-### 9.3 Génération
+### 9.2 Formats et ratios verrouillés
 
-Depuis un événement : **« générer les visuels »** → produit en une passe tous les formats du plan de com, stockés dans la bibliothèque d'assets et attachés aux tâches de publication.
+Le cadre de travail est **toujours verrouillé au ratio** du format choisi. On ne redimensionne jamais le cadre librement : on choisit un format, et le canevas s'y conforme.
 
-### 9.4 Médias
+| Plateforme | Format | Ratio | Définition |
+|---|---|---|---|
+| Instagram | Carré | 1:1 | 1080 × 1080 |
+| Instagram | Portrait (recommandé) | 4:5 | 1080 × 1350 |
+| Instagram | Story / Reel | 9:16 | 1080 × 1920 |
+| TikTok | Vidéo / image | 9:16 | 1080 × 1920 |
+| YouTube | Miniature | 16:9 | 1280 × 720 |
+| YouTube | Shorts | 9:16 | 1080 × 1920 |
+| YouTube | Bannière de chaîne | 16:9 | 2560 × 1440 |
+| Facebook | Publication | 1:1 / 16:9 | 1080 × 1080 / 1920 × 1080 |
+| Affiche | Impression | A3 / A4 | 300 dpi, fonds perdus |
+| Libre | Personnalisé | au choix | ratio verrouillé une fois défini |
 
-**Téléversement uniquement** : photos, captations, visuels produits ailleurs. Bibliothèque par collectif et par groupe, avec étiquettes et réutilisation.
+Le catalogue est **éditable** : les plateformes changent leurs formats, ça ne doit jamais demander une modification de code.
 
-La **génération d'images par IA est hors périmètre** : elle sera travaillée avec des outils dédiés, en dehors de l'app, et les fichiers produits seront simplement téléversés. Aucun fournisseur d'IA n'est intégré, aucune clé à gérer, aucun coût variable.
+### 9.3 Un gabarit, plusieurs formats
+
+Un gabarit est conçu sur un **format maître**, puis décliné. À la création d'une déclinaison, l'app propose automatiquement une adaptation (repositionnement, ajustement des tailles de texte) que **l'on corrige à la main** — l'adaptation automatique est un point de départ, jamais un résultat final. Chaque déclinaison mémorise ses propres ajustements sans toucher au maître.
+
+Autres règles :
+
+- **Versionnement** : modifier un gabarit ne casse aucun visuel déjà produit.
+- **Duplication** : un gabarit se copie pour servir de base à un autre.
+- **Portée** : gabarits partagés au niveau du collectif, ou propres à un groupe.
+
+### 9.4 Le mode le plus fréquent : remplir, pas concevoir
+
+L'usage quotidien n'est pas de dessiner une affiche, c'est de **refaire la même avec d'autres noms**. Depuis un événement, **« générer les visuels »** produit en une passe tous les formats du plan de com, champs automatiques déjà remplis, sans ouvrir l'éditeur. On n'entre dans le canevas que pour créer ou retoucher un gabarit.
+
+### 9.5 Médias
+
+**Téléversement uniquement** : photos, captations, visuels produits ailleurs. Bibliothèque par collectif et par groupe, avec étiquettes, recherche et réutilisation.
+
+La **génération d'images par IA est hors périmètre** : elle sera travaillée avec des outils dédiés, en dehors de l'app, et les fichiers produits seront simplement téléversés. Aucun fournisseur d'IA intégré, aucune clé à gérer, aucun coût variable.
 
 ---
 
-## 10. Plan de com et publication
+## 10. Vidéo : composition dans Backline, rendu distribué
+
+### 10.1 Pourquoi cette séparation
+
+Encoder de la vidéo est l'opération la plus lourde de tout le projet, et un VPS mutualisé est le pire endroit pour le faire : un seul export saturerait la machine qui héberge l'application. En revanche, **les membres ont des machines équipées de GPU**.
+
+Backline **décrit** donc la vidéo ; **une CLI la fabrique**, sur un poste local. Le VPS ne fait jamais d'encodage.
+
+### 10.2 Décrire une vidéo : plans et timeline
+
+L'éditeur vidéo reprend le canevas des visuels et lui ajoute un **axe temporel**.
+
+- **Plans** (scènes) — une suite de plans, chacun avec sa durée et sa transition d'entrée (coupe, fondu, glissement)
+- **Calques par plan** — mêmes blocs que pour les images : vidéo, image, texte, logo, forme ; chacun avec un instant d'apparition et de disparition
+- **Animations** — jeu restreint et sûr : fondu, translation, zoom lent, apparition de texte. Pas de courbes de Bézier ni d'images clés à la main : le but est qu'Antoine ou Mathieu produisent un teaser correct en dix minutes.
+- **Audio** — piste unique, extrait téléversé, points d'entrée et de sortie, fondus
+- **Sortie** — format issu du catalogue (§9.2), durée totale, images par seconde
+- **Champs automatiques** — date, lieu, line-up, créneaux : identiques aux visuels fixes
+
+Le résultat est une **description déclarative et versionnée** de la vidéo, stockée dans Backline. C'est la recette, pas le plat : elle est légère, relisible, modifiable, et rejouable à l'identique.
+
+**Prévisualisation dans le navigateur** : la timeline se joue dans l'app, sans encodage, pour valider le rythme avant de lancer un rendu. Ce que montre l'aperçu correspond à ce que produira la CLI — même description, même moteur de mise en page.
+
+### 10.3 La CLI de rendu
+
+Un outil en ligne de commande, installé sur les machines des membres qui ont du GPU.
+
+```
+backline login                  # associe la machine au compte, via un jeton
+backline jobs                   # liste les rendus en attente
+backline render                 # prend un job, le rend, renvoie le résultat
+backline render --watch         # démon : traite les jobs au fil de l'eau
+backline render <id> --preview  # rendu rapide basse définition, pour vérifier
+```
+
+Déroulé d'un rendu : la machine **réclame** un job, télécharge la description et les médias sources, compose les plans, encode en **accélération matérielle** quand le GPU le permet (NVENC côté PC, VideoToolbox côté Mac), reverse le fichier fini, marque le job terminé. Progression et erreurs remontent en direct dans l'app.
+
+**Conséquences à assumer, écrites ici pour ne pas les découvrir en route :**
+
+- Si **personne ne fait tourner la CLI**, aucune vidéo ne sort. L'app affiche donc en permanence quelles machines sont connectées, et la tâche de com concernée **reste livrable avec son visuel fixe** — la com ne s'arrête jamais faute de rendu.
+- La machine qui rend a **accès aux médias du collectif** le temps du job. Jeton révocable par machine, journal des rendus.
+- Un job non réclamé au bout d'un délai **alerte l'admin** plutôt que de rester silencieusement en attente.
+
+## 11. Plan de com et publication
 
 ### 10.1 Timelines par type
 
@@ -362,7 +435,7 @@ L'app modélise donc, pour chaque compte : plateforme, handle, URL, **qui y a ac
 
 ---
 
-## 11. Fiches techniques
+## 12. Fiches techniques
 
 Données structurées par groupe, versionnées, exportables en **PDF** envoyable tel quel à un lieu.
 
@@ -384,7 +457,7 @@ C'est une **aide à la complétude**, pas une barrière : un concert se joue tr�
 
 ---
 
-## 12. Bot Telegram
+## 13. Bot Telegram
 
 Canal principal des membres : toute décision tient en deux appuis.
 
@@ -396,7 +469,7 @@ Canal principal des membres : toute décision tient en deux appuis.
 
 ---
 
-## 13. Interface web
+## 14. Interface web
 
 | Écran               | Contenu                                                                                |
 | ------------------- | -------------------------------------------------------------------------------------- |
@@ -407,7 +480,8 @@ Canal principal des membres : toute décision tient en deux appuis.
 | **Groupes**         | Membres, charte locale, comptes sociaux, press kit, fiches techniques                  |
 | **Membres**         | Administration : création, invitations, téléphone, appartenances, droits               |
 | **Lieux**           | Carnet d'adresses, contacts, historique des événements                                 |
-| **Studio**          | Gabarits, éditeur, bibliothèque d'assets                                               |
+| **Studio** | Éditeur visuel, gabarits et déclinaisons, éditeur vidéo, bibliothèque d'assets |
+| **Rendus** | File des jobs vidéo, machines connectées, progression, erreurs |
 | **Charte**          | Tokens du collectif, polices, logos                                                    |
 | **Réglages**        | Types d'événements, jalons de com, bot, flux iCal, sauvegardes                         |
 | **Instance**        | Admin d'instance uniquement : collectifs, création, santé technique                    |
@@ -416,7 +490,7 @@ Langue : **français**. Interface responsive — les admins travaillent aussi de
 
 ---
 
-## 14. Architecture technique
+## 15. Architecture technique
 
 **Contraintes posées :** VPS Ubuntu unique chez **OVH Cloud**, Docker, parité stricte avec le local.
 
@@ -429,7 +503,7 @@ Langue : **français**. Interface responsive — les admins travaillent aussi de
 | `bot`      | Bot Telegram (grammY) — webhook en production, long polling en local     |
 | `db`       | PostgreSQL                                                               |
 | `storage`  | MinIO (S3-compatible) — médias, visuels, PDF                             |
-| `renderer` | Chromium headless + ffmpeg — visuels et PDF                              |
+| `renderer` | Chromium headless — visuels fixes et PDF. **Aucun encodage vidéo.**      |
 | `proxy`    | Caddy — TLS automatique                                                  |
 
 Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. **`docker compose up` suffit à tout lancer en local**, bot compris.
@@ -438,7 +512,9 @@ Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. *
 
 - **ORM** : Drizzle — migrations SQL lisibles, versionnées dans le dépôt
 - **Files d'attente et planification** : **pg-boss**, adossé à PostgreSQL. Pas de Redis : un service de moins à administrer, et les jobs planifiés survivent aux redémarrages — indispensable pour un rappel programmé à J-30.
-- **Rendu** : les gabarits sont du HTML/CSS, Chromium les capture. **L'aperçu de l'éditeur et le rendu final utilisent le même moteur**, donc aucune dérive entre ce que voit l'admin et ce qui sort. `ffmpeg` compose les formats vidéo. Les PDF passent par la même chaîne.
+- **Rendu des visuels fixes** : l'éditeur produit une description de mise en page ; Chromium la compose et la capture. **L'aperçu de l'éditeur et le rendu final utilisent le même moteur**, donc aucune dérive entre ce que voit l'admin et ce qui sort. Les PDF passent par la même chaîne.
+- **Rendu vidéo : hors du serveur.** Le VPS n'embarque pas `ffmpeg` et n'encode jamais. Il expose une file de jobs que la **CLI Backline** réclame depuis les machines des membres (§10.3), avec accélération matérielle locale. C'est ce choix qui permet à une instance modeste d'héberger l'ensemble.
+- **CLI** : paquet TypeScript distribué séparément, authentification par jeton de machine révocable, réclamation de job, téléchargement des sources, encodage, renvoi du résultat, progression en direct.
 - **Authentification** : Auth.js — Telegram Login Widget pour tous, e-mail/mot de passe en secours pour les admins
 - **Cloisonnement** : `collectif_id` porté par chaque table concernée, filtre appliqué au niveau de la couche d'accès aux données, couvert par des tests dédiés
 - **Tests** : Vitest + **Testcontainers** (PostgreSQL et MinIO réels, jamais de simulacre) ; Playwright pour les parcours de bout en bout et la non-régression visuelle des gabarits
@@ -447,7 +523,7 @@ Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. *
 
 - VPS Ubuntu **déjà provisionné chez OVH**, privé ; accès SSH fournis ultérieurement, l'installation complète est faite depuis ce dépôt
 - **Instance unique** sur `backline.betafactory.co`, certificat TLS automatique par Caddy
-- **4 Go de RAM minimum, 8 Go recommandés** si les rendus vidéo sont fréquents ; swap configuré
+- **4 Go de RAM** suffisent : aucun encodage vidéo ne tourne sur le VPS ; swap configuré
 - `ufw` (22/80/443 uniquement), `fail2ban`, connexion SSH par clé, mises à jour de sécurité automatiques
 - Caddy pour le TLS et le renouvellement des certificats
 - **Sauvegarde quotidienne** : `pg_dump` + synchronisation du bucket vers OVH Object Storage, avec rétention et **restauration testée**
@@ -458,7 +534,7 @@ Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. *
 
 ---
 
-## 15. Données d'amorçage
+## 16. Données d'amorçage
 
 Le jeu de données installé par `docker compose up` sur une machine vierge, également utilisé par les tests de bout en bout :
 
@@ -469,13 +545,13 @@ Le jeu de données installé par `docker compose up` sur une machine vierge, ég
 | **Ramas** | Anas, Romain |
 | **Dante3p** | Mathieu |
 
-Les quatre personnes sont membres du collectif Bonsoir Techno. Ramas dispose de ses propres comptes Instagram, TikTok et YouTube ; les comptes du collectif sont détenus par Antoine (voir §10.3 — l'app recense les accès, pas les mots de passe).
+Les quatre personnes sont membres du collectif Bonsoir Techno. Ramas dispose de ses propres comptes Instagram, TikTok et YouTube ; les comptes du collectif sont détenus par Antoine (voir §11.3 — l'app recense les accès, pas les mots de passe).
 
 S'y ajoutent, en données de démonstration : un lieu avec contact, une opportunité à trois dates candidates avec un sondage partiellement rempli, un événement confirmé complet, une résidence et un stream.
 
 ---
 
-## 16. Ordre de construction
+## 17. Ordre de construction
 
 Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape est utilisable dès sa livraison.
 
@@ -484,19 +560,27 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 3. **Événements et logistique** — types, line-up, postes libres, volontariat, relances, feuille de route, calendrier, flux iCal
 4. **Streams** — champs de diffusion, créneaux, postes techniques, alerte de mise en ligne, replay
 5. **Fiches techniques** — saisie structurée, versions, export PDF _(déterministe, sans dépendance)_
-6. **Charte et gabarits** — tokens, éditeur, rendu multi-formats
+6. **Charte et éditeur visuel** — tokens, canevas, blocs, alignement, catalogue de formats, déclinaisons, rendu des visuels fixes
 7. **Plan de com** — timelines par type, génération des visuels, assignation, rappels, confirmation de publication
-8. **Press kit, tableau de bord, réglages fins**
+8. **Vidéo** — éditeur de plans et timeline, aperçu navigateur, file de jobs, **CLI de rendu GPU**
+9. **Press kit, tableau de bord, réglages fins**
 
 > **Dépendance dure :** l'étape 7 n'a de valeur qu'après la 6, qui exige les **vraies valeurs de charte**. C'est le seul point où le projet dépend d'une entrée extérieure au code.
+>
+> **Poste le plus lourd :** l'étape 6. Un éditeur visuel est un produit en soi, pas un écran de formulaire — c'est le seul endroit du projet où la complexité est réellement élevée. L'étape 8 réutilise tout son canevas : la faire avant obligerait à la refaire.
 
 ---
 
-## 17. Critères d'acceptation
+## 18. Critères d'acceptation
 
 - Une date est arrêtée avec un lieu **sans aucun message manuel** : sondage ouvert → matrice → date retenue.
 - Aucun poste logistique n'arrive vacant au jour J sans qu'au moins **trois relances** aient été envoyées.
 - Tous les visuels d'un événement sont produits **en une action**, à tous les formats, conformes à la charte.
+- Un membre **sans compétence technique** crée un gabarit complet à la souris, sans jamais voir de code.
+- Le cadre d'un visuel **ne peut pas quitter le ratio** du format choisi.
+- Une vidéo se décrit entièrement dans l'app et s'aperçoit dans le navigateur **sans lancer d'encodage**.
+- Une composition vidéo rendue deux fois donne **deux fichiers identiques**.
+- Si aucune machine GPU n'est connectée, la tâche de com reste livrable **avec son visuel fixe**, et l'admin est prévenu.
 - Aucune tâche de publication ne peut être marquée publiée sans action humaine explicite ; toute tâche non confirmée **alerte un admin**.
 - Une tâche de publication ne peut être assignée qu'à un membre **ayant accès au compte** visé.
 - Un stream déclenche l'alerte **« on est en ligne »** à tous les membres 15 minutes avant, sans intervention.
@@ -509,21 +593,23 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 
 ---
 
-## 18. Risques
+## 19. Risques
 
 | Risque                                   | Impact                                     | Traitement                                                                                                               |
 | ---------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | Chartes non formalisées                  | Bloque le studio visuels                   | Tokens d'exemple livrés ; saisie des vraies valeurs sans toucher au code                                                 |
-| Pas de comptes professionnels            | Pas de publication automatique             | Mode assisté (§10.2) ; adaptateur prêt pour plus tard                                                                    |
+| Pas de comptes professionnels            | Pas de publication automatique             | Mode assisté (§11.2) ; adaptateur prêt pour plus tard                                                                    |
 | **Mots de passe partagés entre membres** | Un départ ou une brouille bloque un compte | L'app recense **qui a accès** ; le partage reste dans un gestionnaire externe ; coffre-fort explicitement hors périmètre |
 | Adoption du bot                          | Tout le flux d'entrée en dépend            | Zéro friction : pas de mot de passe, deux appuis par décision, web en doublon complet                                    |
-| Rendu vidéo sur un VPS modeste           | Exports lents                              | Rendus en file d'attente, jamais en synchrone ; dimensionnement RAM anticipé                                             |
+| **Éditeur visuel : ampleur du chantier** | C'est le plus gros poste du projet | Construit en avant-dernier, sur un jeu de blocs volontairement restreint ; la bibliothèque de gabarits prêts couvre l'usage courant sans ouvrir l'éditeur |
+| Aucune machine GPU connectée | Aucune vidéo ne sort | Machines connectées visibles en permanence, alerte sur job non réclamé, repli systématique sur le visuel fixe |
+| Machine de rendu = accès aux médias | Fuite possible par un poste personnel | Jeton par machine, révocable ; journal des rendus ; accès limité aux médias du job |
 | Fuite inter-collectifs                   | Grave, structurelle                        | Filtre au niveau de la couche de données, tests d'isolation obligatoires                                                 |
 | Téléphones des membres en base           | Donnée personnelle                         | Visibilité restreinte (§3), jamais exposée publiquement ni dans les exports                                              |
 
 ---
 
-## 19. Décisions actées
+## 20. Décisions actées
 
 - **Multi-collectif** sur une instance ; création manuelle, aucune inscription publique. Premier collectif : Bonsoir Techno.
 - Un seul concept `Groupe` ; appartenances multiples et libres ; rattachement à un collectif principal.
@@ -532,7 +618,10 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - Telegram comme canal de notification ; WhatsApp derrière une interface, non implémenté.
 - Types d'événements : soirée DJ, concert, résidence, **stream live** — paramétrables, chacun avec sa timeline.
 - Charte par collectif + surcharge par groupe.
-- Gabarits déterministes éditables ; **aucune IA générative** — les médias sont téléversés.
+- **Éditeur visuel sans code**, ratios verrouillés par format, catalogue de formats éditable ; gabarit conçu sur un format maître puis décliné.
+- **Aucune IA générative** — les médias sont téléversés.
+- **Vidéo décrite dans Backline, rendue par une CLI sur des machines GPU locales.** Le VPS n'encode jamais.
+- **Un seul bot Telegram** pour toute l'instance ; `/collectif` bascule le contexte.
 - Publication en mode assisté avec confirmation humaine ; comptes sociaux recensés **sans mots de passe**.
 - Rôles logistiques en texte libre, sans catalogue.
 - Créneaux horaires du line-up **optionnels**, avec un réglage distinct pour leur publication dans les visuels.
