@@ -453,7 +453,8 @@ Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. *
 - **Sauvegarde quotidienne** : `pg_dump` + synchronisation du bucket vers OVH Object Storage, avec rétention et **restauration testée**
 - Journalisation structurée, page de santé des services, alerte Telegram en cas de service tombé
 - Configuration entièrement en variables d'environnement, `.env.example` versionné
-- Déploiement : `git pull && docker compose up -d --build`
+- Déploiement : `git pull && docker compose up -d --build`, **déclenché à la main**
+- **Aucune intégration continue** : pas de GitHub Actions, pas de pipeline. Les tests se lancent en local (`docker compose run test`) et le push se fait manuellement. Conséquence assumée : rien n'empêche mécaniquement de pousser du rouge — la discipline remplace la barrière, et un script `make check` unique regroupe typage, lint et tests pour qu'il n'y ait qu'une commande à retenir avant de pousser.
 
 ---
 
@@ -542,6 +543,6 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - Produit nommé **Backline**, marque compacte **BCKLN**.
 - **Une seule instance partagée** sur `backline.betafactory.co`, VPS OVH privé — jamais un déploiement par collectif.
 - **Aucun profil réservé** : le rôle d'admin est un droit attribuable à n'importe quel utilisateur, et retirable.
-- Dépôt Git hébergé sur **GitHub, en privé**.
+- Dépôt Git hébergé sur **GitHub, en privé** ; push manuel, **aucune CI**, déploiement déclenché à la main.
 - VPS Ubuntu OVH, Docker Compose, parité locale/production, Testcontainers.
 - Hors périmètre : argent, inventaire, setlists, billetterie, IA générative, coffre-fort de mots de passe, SaaS public.
