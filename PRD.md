@@ -503,14 +503,14 @@ Langue : **français**. Interface responsive — les admins travaillent aussi de
 
 ## 15. Architecture technique
 
-**Contraintes posées :** VPS Ubuntu unique chez **OVH Cloud**, Docker, parité stricte avec le local, **backend Rust**, **frontend Svelte en TypeScript**, **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour la vidéo.
+**Contraintes posées :** VPS Ubuntu unique chez **OVH Cloud**, Docker, parité stricte avec le local, **backend Rust**, **frontend React en TypeScript**, **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour la vidéo.
 
 ### Services (Docker Compose)
 
 | Service    | Technologie                    | Rôle                                                               |
 | ---------- | ------------------------------ | ------------------------------------------------------------------ |
 | `api`      | **Rust** (Axum, sqlx)          | API JSON, règles métier, files de jobs, planification, iCal, PDF   |
-| `web`      | **SvelteKit**, TypeScript, Tailwind | Interface, éditeur visuel, éditeur vidéo                      |
+| `web`      | **React** (Vite), TypeScript, Tailwind | Interface, éditeur visuel, éditeur vidéo                   |
 | `bot`      | **Rust** (teloxide)            | Bot Telegram — webhook en production, long polling en local        |
 | `db`       | **PostgreSQL**                 | Données et files d'attente                                         |
 | `storage`  | MinIO (S3-compatible)          | Médias téléversés, rushes, visuels rendus, vidéos, PDF             |
@@ -519,16 +519,16 @@ Langue : **français**. Interface responsive — les admins travaillent aussi de
 
 Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. **`docker compose up` suffit à tout lancer en local**, bot compris.
 
-### Le point délicat : un seul moteur de rendu
+### Un seul moteur de rendu
 
-L'éditeur est en Svelte, Remotion est en React. Le risque évident serait d'écrire **deux fois** la mise en page — une fois pour éditer, une fois pour rendre — et de les voir diverger à la première évolution. C'est le piège principal de cette pile, et il se désamorce ainsi :
+Le front est en **React**, Remotion l'est aussi. Il n'y a donc **qu'une seule implémentation de la mise en page** dans tout le projet, et c'est une propriété structurelle, pas une discipline à tenir :
 
-- La mise en page est une **description JSON**, seule source de vérité. Personne ne la réécrit.
-- **Une seule implémentation visuelle existe** : un jeu de composants Remotion qui consomme cette description.
-- L'éditeur Svelte **embarque le lecteur Remotion** comme îlot React pour l'aperçu, et se contente d'ajouter par-dessus la couche d'édition : poignées, guides, calques, panneaux. Le canevas est rendu par le moteur final, jamais par une imitation.
-- Conséquence directe : **les visuels fixes passent aussi par Remotion** (rendu d'image fixe), donc images et vidéos partagent exactement le même code de mise en page. La seule différence entre les deux est la durée.
+- La mise en page est une **description JSON**, seule source de vérité.
+- Un jeu de **composants Remotion** la rend. Ces composants sont les mêmes partout : dans l'éditeur, dans le rendu des visuels fixes sur le serveur, et dans la CLI vidéo.
+- L'éditeur affiche ces composants tels quels et ajoute par-dessus la couche d'édition : poignées, guides, calques, panneaux de propriétés.
+- Conséquence : **les visuels fixes passent aussi par Remotion** (rendu d'image fixe). La seule différence entre une image et une vidéo devient la durée.
 
-C'est ce qui permet de garantir le critère « ce que voit l'admin est ce qui sort ».
+C'est ce qui garantit le critère « ce que voit l'admin est exactement ce qui sort », sans aucun mécanisme de synchronisation entre deux moteurs.
 
 ### Choix techniques
 
@@ -539,7 +539,7 @@ C'est ce qui permet de garantir le critère « ce que voit l'admin est ce qui so
 - **iCal** : généré côté Rust, flux à jeton secret
 - **Cloisonnement** : `collectif_id` porté par chaque table concernée, filtre imposé dans la couche d'accès aux données, couvert par des tests dédiés
 - **Outillage** : **mise** épingle les versions (Rust, Node, pnpm) et porte les tâches — `mise run dev`, `mise run check`, `mise run test`. Une seule commande à retenir avant de pousser, puisqu'il n'y a pas de CI.
-- **Tests** : tests d'intégration Rust avec **testcontainers-rs** (PostgreSQL et MinIO réels, jamais de simulacre) ; Vitest côté Svelte ; Playwright pour les parcours de bout en bout et la non-régression visuelle des gabarits
+- **Tests** : tests d'intégration Rust avec **testcontainers-rs** (PostgreSQL et MinIO réels, jamais de simulacre) ; Vitest côté React ; Playwright pour les parcours de bout en bout et la non-régression visuelle des gabarits
 
 ### La CLI
 
@@ -564,12 +564,12 @@ Paquet Node distribué séparément, embarquant **Remotion** et les mêmes compo
 
 Le jeu de données installé par `docker compose up` sur une machine vierge, également utilisé par les tests de bout en bout :
 
-**Collectif : Bonsoir Techno** — créé par **Antoine**, admin du collectif.
+**Collectif : Bonsoir Techno** — créé par **Antoine**, admin du collectif, **sans groupe** _(hypothèse à confirmer)_.
 
 | Groupe | Membres |
 |---|---|
 | **Ramas** | Anas, Romain |
-| **Dante3p** | Mathieu |
+| **Dante3p** | Mathieu _(seul, hypothèse à confirmer)_ |
 
 Les quatre personnes sont membres du collectif Bonsoir Techno. Ramas dispose de ses propres comptes Instagram, TikTok et YouTube ; les comptes du collectif sont détenus par Antoine (voir §11.3 — l'app recense les accès, pas les mots de passe).
 
@@ -628,7 +628,6 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 | Pas de comptes professionnels            | Pas de publication automatique             | Mode assisté (§11.2) ; adaptateur prêt pour plus tard                                                                    |
 | **Mots de passe partagés entre membres** | Un départ ou une brouille bloque un compte | L'app recense **qui a accès** ; le partage reste dans un gestionnaire externe ; coffre-fort explicitement hors périmètre |
 | Adoption du bot                          | Tout le flux d'entrée en dépend            | Zéro friction : pas de mot de passe, deux appuis par décision, web en doublon complet                                    |
-| **Deux écosystèmes : Svelte pour éditer, React pour rendre** | Mise en page écrite deux fois, divergence garantie à terme | Une seule implémentation visuelle, en composants Remotion ; l'éditeur embarque le lecteur Remotion et n'ajoute que la couche d'édition (§15) |
 | **Licence Remotion** | Usage commercial encadré selon l'effectif | À vérifier avant mise en production ; la composition étant déclarative, seul le moteur de rendu serait à remplacer en cas de blocage |
 | **Éditeur visuel : ampleur du chantier** | C'est le plus gros poste du projet | Construit en avant-dernier, sur un jeu de blocs volontairement restreint ; la bibliothèque de gabarits prêts couvre l'usage courant sans ouvrir l'éditeur |
 | Aucune machine GPU connectée | Aucune vidéo ne sort | Machines connectées visibles en permanence, alerte sur job non réclamé, repli systématique sur le visuel fixe |
@@ -651,8 +650,8 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - **Aucune IA générative** — les médias sont téléversés.
 - **Vidéo décrite dans Backline, rendue par une CLI sur les machines des membres** — GPU si disponible, CPU sinon. Le VPS n'encode jamais.
 - **Rushes hébergés** : téléversés par les membres dans l'espace média de leur groupe ou du collectif ; la CLI les télécharge depuis l'instance de production.
-- **Pile technique** : backend **Rust** (Axum, sqlx), frontend **SvelteKit** en TypeScript avec **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour le rendu des images fixes et des vidéos, **Typst** pour les PDF.
-- **Une seule implémentation de mise en page**, en composants Remotion, partagée par l'aperçu, les visuels fixes et la vidéo.
+- **Pile technique** : backend **Rust** (Axum, sqlx), frontend **React** (Vite) en TypeScript avec **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour le rendu des images fixes et des vidéos, **Typst** pour les PDF.
+- **Une seule implémentation de mise en page**, en composants Remotion React, partagée par l'éditeur, les visuels fixes et la vidéo.
 - Sous-titres dédiés et impression professionnelle : hors périmètre.
 - **Un seul bot Telegram** pour toute l'instance ; `/collectif` bascule le contexte.
 - Publication en mode assisté avec confirmation humaine ; comptes sociaux recensés **sans mots de passe**.
@@ -668,3 +667,93 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - Dépôt Git hébergé sur **GitHub, en privé** ; push manuel, **aucune CI**, déploiement déclenché à la main.
 - VPS Ubuntu OVH, Docker Compose, parité locale/production, Testcontainers.
 - Hors périmètre : argent, inventaire, setlists, billetterie, IA générative, coffre-fort de mots de passe, SaaS public.
+
+---
+
+## 21. Démarrage
+
+Cette section existe pour qu'une session de travail neuve puisse commencer sans rien relire d'autre que ce document.
+
+### État actuel
+
+Le dépôt ne contient que ce PRD. **Aucune ligne de code n'a été écrite.** Le dépôt Git est initialisé en local, sans remote — à créer sur GitHub, en privé, poussé à la main.
+
+Prochaine action : **étape 1 de §17** — outillage, Compose, squelette API et web, migrations, modèle utilisateurs / collectifs / groupes, liaison Telegram, et les tests d'intégration correspondants.
+
+### Organisation du dépôt
+
+```
+backline/
+├── PRD.md                  ce document — la référence
+├── mise.toml               versions épinglées (Rust, Node, pnpm) + tâches
+├── docker-compose.yml      + compose.local.yml / compose.prod.yml
+├── api/                    Rust — Axum, sqlx, règles métier, files de jobs, iCal
+│   ├── migrations/         SQL versionné
+│   ├── src/
+│   └── tests/              intégration, testcontainers-rs
+├── bot/                    Rust — teloxide (peut vivre dans api/ au début)
+├── layout/                 composants Remotion : description JSON → rendu
+├── web/                    React + Vite + TypeScript + Tailwind
+├── stills/                 service Node — rendu des visuels fixes via layout/
+├── cli/                    paquet Node — `backline render`, via layout/
+├── pdf/                    modèles Typst (fiches techniques)
+└── infra/                  Caddyfile, sauvegardes, déploiement
+```
+
+**`layout/` est le cœur du système visuel.** C'est le seul endroit où la mise en page est écrite ; `web/`, `stills/` et `cli/` le consomment. Toute tentation de réimplémenter un rendu ailleurs est une régression.
+
+### Commandes
+
+```
+mise run dev        # tout l'environnement local
+mise run check      # typage + lint + tests — la commande avant de pousser
+mise run test
+mise run migrate
+mise run seed       # données d'amorçage (§16)
+```
+
+### Conventions
+
+- **Interface en français.** Code, identifiants et noms de tables **en anglais**.
+- Migrations SQL versionnées, jamais de modification de schéma hors migration.
+- Chaque module métier arrive avec ses tests d'intégration sur base réelle.
+- Pas de CI : `mise run check` doit passer avant tout push.
+
+### Glossaire métier — français vers code
+
+| Métier                   | Code                        |
+| ------------------------ | --------------------------- |
+| Collectif                | `collective`                |
+| Groupe                   | `group`                     |
+| Membre / utilisateur     | `user`, `membership`        |
+| Lieu                     | `venue`                     |
+| Opportunité              | `opportunity`               |
+| Date candidate           | `candidate_date`            |
+| Sondage de dispos        | `availability_poll`         |
+| Disponibilité            | `availability`              |
+| Événement                | `event`                     |
+| Participation / line-up  | `participation`             |
+| Poste logistique         | `logistics_slot`            |
+| Feuille de route         | `run_sheet`                 |
+| Plan de com              | `comms_plan`                |
+| Tâche de publication     | `publication_task`          |
+| Compte social            | `social_account`            |
+| Charte graphique         | `brand`, `brand_token`      |
+| Gabarit                  | `template`                  |
+| Déclinaison de format    | `template_variant`          |
+| Composition vidéo        | `video_composition`         |
+| Job de rendu             | `render_job`                |
+| Machine de rendu         | `render_machine`            |
+| Fiche technique          | `tech_rider`                |
+| Press kit                | `press_kit`                 |
+| Média / asset            | `asset`                     |
+
+### Questions ouvertes
+
+1. **Taille du disque du VPS** — conditionne les seuils de téléversement et d'alerte (§15).
+2. **Licence Remotion** — à vérifier avant mise en production (§10.3).
+3. **Antoine** appartient-il à un groupe, ou est-il seulement admin du collectif ?
+4. **Dante3p** — Mathieu seul, ou d'autres membres ?
+5. **Chartes graphiques** de Bonsoir Techno et de Ramas — logos, polices, couleurs à fournir (§8).
+6. **Accès SSH** au VPS OVH — à transmettre au moment du déploiement.
+7. **Dépôt GitHub** — compte personnel ou organisation, à créer.
