@@ -57,6 +57,8 @@ Tout est manuel, se perd dans des fils de discussion, et la com part en retard o
 - **Encodage vidéo sur le serveur** : jamais sur le VPS, le rendu est délégué à des machines locales → §10
 - **Génération d'images ou de vidéos par IA** : les médias sont **fournis et téléversés**. La chaîne de génération sera travaillée séparément, hors de cet outil ; l'app se contente d'accueillir les fichiers produits.
 - **Stockage des mots de passe** des comptes sociaux → §11.3
+- **Piste de sous-titres dédiée** dans les vidéos : les blocs texte temporisés suffisent
+- **Impression professionnelle** (CMJN, fonds perdus, profils colorimétriques) : export PDF haute définition en RVB uniquement, sans conformité imprimeur
 - **Inscription libre, facturation, SaaS public** : l'instance est multi-collectif, mais chaque collectif est créé à la main
 
 ---
@@ -303,7 +305,7 @@ Le cadre de travail est **toujours verrouillé au ratio** du format choisi. On n
 | YouTube | Shorts | 9:16 | 1080 × 1920 |
 | YouTube | Bannière de chaîne | 16:9 | 2560 × 1440 |
 | Facebook | Publication | 1:1 / 16:9 | 1080 × 1080 / 1920 × 1080 |
-| Affiche | Impression | A3 / A4 | 300 dpi, fonds perdus |
+| Affiche | Export PDF | A3 / A4 | haute définition, RVB |
 | Libre | Personnalisé | au choix | ratio verrouillé une fois défini |
 
 Le catalogue est **éditable** : les plateformes changent leurs formats, ça ne doit jamais demander une modification de code.
@@ -338,6 +340,10 @@ Encoder de la vidéo est l'opération la plus lourde de tout le projet, et un VP
 
 Backline **décrit** donc la vidéo ; **une CLI la fabrique**, sur un poste local. Le VPS ne fait jamais d'encodage.
 
+**Les rushes sont hébergés.** Les membres téléversent leurs vidéos et leurs photos dans l'espace média de leur **groupe** ou du **collectif**, comme n'importe quel autre asset. La CLI se connecte à l'instance de production, récupère la description de la composition, **télécharge les médias dont elle a besoin**, rend en local, puis renvoie le fichier fini. Aucune dépendance à un dossier local ou à un drive tiers : n'importe quelle machine autorisée peut rendre n'importe quelle composition.
+
+Contrepartie assumée : les rushes transitent par le serveur et occupent du disque. C'est ce qui rend le rendu réellement partageable entre membres — et la purge automatique des rendus (§16) compense.
+
 ### 10.2 Décrire une vidéo : plans et timeline
 
 L'éditeur vidéo reprend le canevas des visuels et lui ajoute un **axe temporel**.
@@ -351,11 +357,11 @@ L'éditeur vidéo reprend le canevas des visuels et lui ajoute un **axe temporel
 
 Le résultat est une **description déclarative et versionnée** de la vidéo, stockée dans Backline. C'est la recette, pas le plat : elle est légère, relisible, modifiable, et rejouable à l'identique.
 
-**Prévisualisation dans le navigateur** : la timeline se joue dans l'app, sans encodage, pour valider le rythme avant de lancer un rendu. Ce que montre l'aperçu correspond à ce que produira la CLI — même description, même moteur de mise en page.
+**Prévisualisation dans le navigateur** : la timeline se joue dans l'app, sans encodage, pour valider le rythme avant de lancer un rendu. L'aperçu utilise **le lecteur Remotion**, c'est-à-dire exactement le composant qui servira au rendu final — ce que l'on voit est ce que l'on obtient, sans réimplémentation parallèle.
 
 ### 10.3 La CLI de rendu
 
-Un outil en ligne de commande, installé sur les machines des membres qui ont du GPU.
+Un outil en ligne de commande installé sur les machines des membres. Il s'authentifie auprès de l'instance de production, réclame un job, et rend en local.
 
 ```
 backline login                  # associe la machine au compte, via un jeton
@@ -365,17 +371,22 @@ backline render --watch         # démon : traite les jobs au fil de l'eau
 backline render <id> --preview  # rendu rapide basse définition, pour vérifier
 ```
 
-Déroulé d'un rendu : la machine **réclame** un job, télécharge la description et les médias sources, compose les plans, encode en **accélération matérielle** quand le GPU le permet (NVENC côté PC, VideoToolbox côté Mac), reverse le fichier fini, marque le job terminé. Progression et erreurs remontent en direct dans l'app.
+Déroulé d'un rendu : la machine **réclame** un job auprès de l'API, télécharge la description et les médias sources, compose avec **Remotion**, encode, renvoie le fichier fini, marque le job terminé. Progression et erreurs remontent en direct dans l'application.
+
+**Matériel** — la CLI **utilise le GPU quand la machine en a un**, et retombe sur le CPU sinon. Aucune machine n'est exclue : un rendu sur processeur est simplement plus lent. Le nombre de tâches parallèles s'adapte à la machine.
 
 **Conséquences à assumer, écrites ici pour ne pas les découvrir en route :**
 
-- Si **personne ne fait tourner la CLI**, aucune vidéo ne sort. L'app affiche donc en permanence quelles machines sont connectées, et la tâche de com concernée **reste livrable avec son visuel fixe** — la com ne s'arrête jamais faute de rendu.
-- La machine qui rend a **accès aux médias du collectif** le temps du job. Jeton révocable par machine, journal des rendus.
+- Si **personne ne fait tourner la CLI**, aucune vidéo ne sort. L'application affiche donc en permanence quelles machines sont connectées, et la tâche de com concernée **reste livrable avec son visuel fixe** — la com ne s'arrête jamais faute de rendu.
+- La machine qui rend **télécharge les médias** du job. Jeton révocable par machine, journal des rendus, accès limité aux médias nécessaires.
 - Un job non réclamé au bout d'un délai **alerte l'admin** plutôt que de rester silencieusement en attente.
+- **Licence Remotion** : gratuite pour les particuliers et les petites structures, payante au-delà d'un certain seuil d'effectif. À vérifier avant la mise en production — un collectif de quatre personnes est a priori dans le cadre gratuit, mais ce n'est pas à moi d'en décider.
+
+---
 
 ## 11. Plan de com et publication
 
-### 10.1 Timelines par type
+### 11.1 Timelines par type
 
 Instanciées automatiquement à la confirmation d'un événement, **entièrement modifiables** dans les réglages du collectif.
 
@@ -409,7 +420,7 @@ Instanciées automatiquement à la confirmation d'un événement, **entièrement
 
 Toute tâche naît au statut **`brouillon`** : un humain valide toujours. _(Une affiche partie avec la mauvaise date est irrattrapable.)_
 
-### 10.2 Publication : mode assisté
+### 11.2 Publication : mode assisté
 
 **Constat bloquant assumé.** Le collectif n'a pas de comptes professionnels. La publication programmée par API est donc **impossible** sur Instagram (elle exige un compte Business relié à une Page Facebook), restreinte sur TikTok, et de toute façon fermée pour les stories.
 
@@ -425,7 +436,7 @@ Un tableau de bord montre, par événement, l'état de chaque case : `brouillon`
 
 > **Évolution prévue, non incluse.** Le modèle `CompteSocial` et l'interface `Publisher` sont conçus pour accueillir une publication automatique le jour où des comptes professionnels existeront : un adaptateur, aucune migration de données.
 
-### 10.3 Comptes sociaux et accès
+### 11.3 Comptes sociaux et accès
 
 État réel : chaque groupe a **un seul compte par plateforme**, dont le mot de passe est partagé entre ses membres. Ramas dispose de ses comptes Instagram, TikTok et YouTube ; les comptes de Bonsoir Techno sont détenus par d'autres membres du collectif.
 
@@ -492,32 +503,47 @@ Langue : **français**. Interface responsive — les admins travaillent aussi de
 
 ## 15. Architecture technique
 
-**Contraintes posées :** VPS Ubuntu unique chez **OVH Cloud**, Docker, parité stricte avec le local.
+**Contraintes posées :** VPS Ubuntu unique chez **OVH Cloud**, Docker, parité stricte avec le local, **backend Rust**, **frontend Svelte en TypeScript**, **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour la vidéo.
 
 ### Services (Docker Compose)
 
-| Service    | Rôle                                                                     |
-| ---------- | ------------------------------------------------------------------------ |
-| `web`      | Next.js (App Router, TypeScript) — interface + API                       |
-| `worker`   | Jobs : rendus, relances, envois Telegram, instanciation des plans de com |
-| `bot`      | Bot Telegram (grammY) — webhook en production, long polling en local     |
-| `db`       | PostgreSQL                                                               |
-| `storage`  | MinIO (S3-compatible) — médias, visuels, PDF                             |
-| `renderer` | Chromium headless — visuels fixes et PDF. **Aucun encodage vidéo.**      |
-| `proxy`    | Caddy — TLS automatique                                                  |
+| Service    | Technologie                    | Rôle                                                               |
+| ---------- | ------------------------------ | ------------------------------------------------------------------ |
+| `api`      | **Rust** (Axum, sqlx)          | API JSON, règles métier, files de jobs, planification, iCal, PDF   |
+| `web`      | **SvelteKit**, TypeScript, Tailwind | Interface, éditeur visuel, éditeur vidéo                      |
+| `bot`      | **Rust** (teloxide)            | Bot Telegram — webhook en production, long polling en local        |
+| `db`       | **PostgreSQL**                 | Données et files d'attente                                         |
+| `storage`  | MinIO (S3-compatible)          | Médias téléversés, rushes, visuels rendus, vidéos, PDF             |
+| `stills`   | Node + **Remotion**            | Rendu des **visuels fixes** uniquement. Aucun encodage vidéo.      |
+| `proxy`    | Caddy                          | TLS automatique                                                    |
 
 Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. **`docker compose up` suffit à tout lancer en local**, bot compris.
 
+### Le point délicat : un seul moteur de rendu
+
+L'éditeur est en Svelte, Remotion est en React. Le risque évident serait d'écrire **deux fois** la mise en page — une fois pour éditer, une fois pour rendre — et de les voir diverger à la première évolution. C'est le piège principal de cette pile, et il se désamorce ainsi :
+
+- La mise en page est une **description JSON**, seule source de vérité. Personne ne la réécrit.
+- **Une seule implémentation visuelle existe** : un jeu de composants Remotion qui consomme cette description.
+- L'éditeur Svelte **embarque le lecteur Remotion** comme îlot React pour l'aperçu, et se contente d'ajouter par-dessus la couche d'édition : poignées, guides, calques, panneaux. Le canevas est rendu par le moteur final, jamais par une imitation.
+- Conséquence directe : **les visuels fixes passent aussi par Remotion** (rendu d'image fixe), donc images et vidéos partagent exactement le même code de mise en page. La seule différence entre les deux est la durée.
+
+C'est ce qui permet de garantir le critère « ce que voit l'admin est ce qui sort ».
+
 ### Choix techniques
 
-- **ORM** : Drizzle — migrations SQL lisibles, versionnées dans le dépôt
-- **Files d'attente et planification** : **pg-boss**, adossé à PostgreSQL. Pas de Redis : un service de moins à administrer, et les jobs planifiés survivent aux redémarrages — indispensable pour un rappel programmé à J-30.
-- **Rendu des visuels fixes** : l'éditeur produit une description de mise en page ; Chromium la compose et la capture. **L'aperçu de l'éditeur et le rendu final utilisent le même moteur**, donc aucune dérive entre ce que voit l'admin et ce qui sort. Les PDF passent par la même chaîne.
-- **Rendu vidéo : hors du serveur.** Le VPS n'embarque pas `ffmpeg` et n'encode jamais. Il expose une file de jobs que la **CLI Backline** réclame depuis les machines des membres (§10.3), avec accélération matérielle locale. C'est ce choix qui permet à une instance modeste d'héberger l'ensemble.
-- **CLI** : paquet TypeScript distribué séparément, authentification par jeton de machine révocable, réclamation de job, téléchargement des sources, encodage, renvoi du résultat, progression en direct.
-- **Authentification** : Auth.js — Telegram Login Widget pour tous, e-mail/mot de passe en secours pour les admins
-- **Cloisonnement** : `collectif_id` porté par chaque table concernée, filtre appliqué au niveau de la couche d'accès aux données, couvert par des tests dédiés
-- **Tests** : Vitest + **Testcontainers** (PostgreSQL et MinIO réels, jamais de simulacre) ; Playwright pour les parcours de bout en bout et la non-régression visuelle des gabarits
+- **API** : Axum, **sqlx** (requêtes vérifiées à la compilation), migrations SQL versionnées dans le dépôt
+- **Files d'attente et planification** : table de jobs PostgreSQL avec `FOR UPDATE SKIP LOCKED`. Pas de Redis, pas de service supplémentaire, et les rappels programmés à J-30 survivent aux redémarrages. **Le même mécanisme sert à la CLI** pour réclamer un job de rendu — une seule file, pas deux systèmes à comprendre.
+- **Authentification** : vérification du Telegram Login Widget côté Rust (signature HMAC des données), sessions en cookie signé, Argon2 pour les rares mots de passe d'admin
+- **PDF des fiches techniques** : **Typst**, pilotable depuis Rust. Sortie déterministe, typographie propre, aucun navigateur dans la boucle — c'est un document structuré, pas une affiche.
+- **iCal** : généré côté Rust, flux à jeton secret
+- **Cloisonnement** : `collectif_id` porté par chaque table concernée, filtre imposé dans la couche d'accès aux données, couvert par des tests dédiés
+- **Outillage** : **mise** épingle les versions (Rust, Node, pnpm) et porte les tâches — `mise run dev`, `mise run check`, `mise run test`. Une seule commande à retenir avant de pousser, puisqu'il n'y a pas de CI.
+- **Tests** : tests d'intégration Rust avec **testcontainers-rs** (PostgreSQL et MinIO réels, jamais de simulacre) ; Vitest côté Svelte ; Playwright pour les parcours de bout en bout et la non-régression visuelle des gabarits
+
+### La CLI
+
+Paquet Node distribué séparément, embarquant **Remotion** et les mêmes composants de mise en page que le serveur. Elle s'authentifie par jeton de machine révocable, réclame un job sur l'API Rust, télécharge les médias par URL signées, rend avec le GPU s'il est présent et le CPU sinon, renvoie le résultat et remonte sa progression.
 
 ### Exploitation sur OVH
 
@@ -525,12 +551,12 @@ Un `docker-compose.yml` + surcharges `compose.local.yml` / `compose.prod.yml`. *
 - **Instance unique** sur `backline.betafactory.co`, certificat TLS automatique par Caddy
 - **4 Go de RAM** suffisent : aucun encodage vidéo ne tourne sur le VPS ; swap configuré
 - `ufw` (22/80/443 uniquement), `fail2ban`, connexion SSH par clé, mises à jour de sécurité automatiques
-- Caddy pour le TLS et le renouvellement des certificats
 - **Sauvegarde quotidienne** : `pg_dump` + synchronisation du bucket vers OVH Object Storage, avec rétention et **restauration testée**
+- **Purge automatique** des visuels rendus de plus de 6 mois : ils se régénèrent à l'identique depuis leur description. Les médias téléversés, eux, ne sont jamais purgés automatiquement.
 - Journalisation structurée, page de santé des services, alerte Telegram en cas de service tombé
 - Configuration entièrement en variables d'environnement, `.env.example` versionné
 - Déploiement : `git pull && docker compose up -d --build`, **déclenché à la main**
-- **Aucune intégration continue** : pas de GitHub Actions, pas de pipeline. Les tests se lancent en local (`docker compose run test`) et le push se fait manuellement. Conséquence assumée : rien n'empêche mécaniquement de pousser du rouge — la discipline remplace la barrière, et un script `make check` unique regroupe typage, lint et tests pour qu'il n'y ait qu'une commande à retenir avant de pousser.
+- **Aucune intégration continue** : pas de GitHub Actions, pas de pipeline. `mise run check` regroupe typage, lint et tests, et le push se fait manuellement. Conséquence assumée : rien n'empêche mécaniquement de pousser du rouge — la discipline remplace la barrière.
 
 ---
 
@@ -562,7 +588,7 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 5. **Fiches techniques** — saisie structurée, versions, export PDF _(déterministe, sans dépendance)_
 6. **Charte et éditeur visuel** — tokens, canevas, blocs, alignement, catalogue de formats, déclinaisons, rendu des visuels fixes
 7. **Plan de com** — timelines par type, génération des visuels, assignation, rappels, confirmation de publication
-8. **Vidéo** — éditeur de plans et timeline, aperçu navigateur, file de jobs, **CLI de rendu GPU**
+8. **Vidéo** — éditeur de plans et timeline, aperçu par le lecteur Remotion, file de jobs, **CLI de rendu**
 9. **Press kit, tableau de bord, réglages fins**
 
 > **Dépendance dure :** l'étape 7 n'a de valeur qu'après la 6, qui exige les **vraies valeurs de charte**. C'est le seul point où le projet dépend d'une entrée extérieure au code.
@@ -580,7 +606,8 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - Le cadre d'un visuel **ne peut pas quitter le ratio** du format choisi.
 - Une vidéo se décrit entièrement dans l'app et s'aperçoit dans le navigateur **sans lancer d'encodage**.
 - Une composition vidéo rendue deux fois donne **deux fichiers identiques**.
-- Si aucune machine GPU n'est connectée, la tâche de com reste livrable **avec son visuel fixe**, et l'admin est prévenu.
+- Si aucune machine n'est connectée, la tâche de com reste livrable **avec son visuel fixe**, et l'admin est prévenu.
+- Un rendu vidéo aboutit **sur une machine sans GPU**, simplement plus lentement.
 - Aucune tâche de publication ne peut être marquée publiée sans action humaine explicite ; toute tâche non confirmée **alerte un admin**.
 - Une tâche de publication ne peut être assignée qu'à un membre **ayant accès au compte** visé.
 - Un stream déclenche l'alerte **« on est en ligne »** à tous les membres 15 minutes avant, sans intervention.
@@ -601,6 +628,8 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 | Pas de comptes professionnels            | Pas de publication automatique             | Mode assisté (§11.2) ; adaptateur prêt pour plus tard                                                                    |
 | **Mots de passe partagés entre membres** | Un départ ou une brouille bloque un compte | L'app recense **qui a accès** ; le partage reste dans un gestionnaire externe ; coffre-fort explicitement hors périmètre |
 | Adoption du bot                          | Tout le flux d'entrée en dépend            | Zéro friction : pas de mot de passe, deux appuis par décision, web en doublon complet                                    |
+| **Deux écosystèmes : Svelte pour éditer, React pour rendre** | Mise en page écrite deux fois, divergence garantie à terme | Une seule implémentation visuelle, en composants Remotion ; l'éditeur embarque le lecteur Remotion et n'ajoute que la couche d'édition (§15) |
+| **Licence Remotion** | Usage commercial encadré selon l'effectif | À vérifier avant mise en production ; la composition étant déclarative, seul le moteur de rendu serait à remplacer en cas de blocage |
 | **Éditeur visuel : ampleur du chantier** | C'est le plus gros poste du projet | Construit en avant-dernier, sur un jeu de blocs volontairement restreint ; la bibliothèque de gabarits prêts couvre l'usage courant sans ouvrir l'éditeur |
 | Aucune machine GPU connectée | Aucune vidéo ne sort | Machines connectées visibles en permanence, alerte sur job non réclamé, repli systématique sur le visuel fixe |
 | Machine de rendu = accès aux médias | Fuite possible par un poste personnel | Jeton par machine, révocable ; journal des rendus ; accès limité aux médias du job |
@@ -620,7 +649,11 @@ Le périmètre n'est pas réduit : c'est l'ordre des dépendances. Chaque étape
 - Charte par collectif + surcharge par groupe.
 - **Éditeur visuel sans code**, ratios verrouillés par format, catalogue de formats éditable ; gabarit conçu sur un format maître puis décliné.
 - **Aucune IA générative** — les médias sont téléversés.
-- **Vidéo décrite dans Backline, rendue par une CLI sur des machines GPU locales.** Le VPS n'encode jamais.
+- **Vidéo décrite dans Backline, rendue par une CLI sur les machines des membres** — GPU si disponible, CPU sinon. Le VPS n'encode jamais.
+- **Rushes hébergés** : téléversés par les membres dans l'espace média de leur groupe ou du collectif ; la CLI les télécharge depuis l'instance de production.
+- **Pile technique** : backend **Rust** (Axum, sqlx), frontend **SvelteKit** en TypeScript avec **Tailwind**, **PostgreSQL**, **mise** pour l'outillage, **Testcontainers** pour les tests, **Remotion** pour le rendu des images fixes et des vidéos, **Typst** pour les PDF.
+- **Une seule implémentation de mise en page**, en composants Remotion, partagée par l'aperçu, les visuels fixes et la vidéo.
+- Sous-titres dédiés et impression professionnelle : hors périmètre.
 - **Un seul bot Telegram** pour toute l'instance ; `/collectif` bascule le contexte.
 - Publication en mode assisté avec confirmation humaine ; comptes sociaux recensés **sans mots de passe**.
 - Rôles logistiques en texte libre, sans catalogue.
