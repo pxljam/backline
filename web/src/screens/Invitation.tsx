@@ -12,7 +12,7 @@ interface Peek {
   bot_username: string | null;
 }
 
-/** Lien d'invitation a usage unique (§3). Il se consomme une fois. */
+/** Single-use invitation link (§3). It is consumed once. */
 export const Invitation: React.FC = () => {
   const { code = "" } = useParams();
   const { data, loading, error } = useResource<Peek>(`/api/auth/invitation/${code}`);
@@ -22,7 +22,7 @@ export const Invitation: React.FC = () => {
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
 
-  const accepter = async (body: unknown) => {
+  const accept = async (body: unknown) => {
     const ok = await run(() => api.post(`/api/auth/invitation/${code}`, body));
     if (ok !== null) {
       await reload();
@@ -59,7 +59,7 @@ export const Invitation: React.FC = () => {
         <div className="my-6">
           <TelegramLogin
             botUsername={data.bot_username}
-            onAuth={(user) => void accepter({ telegram: user })}
+            onAuth={(user) => void accept({ telegram: user })}
           />
         </div>
       )}
@@ -68,7 +68,7 @@ export const Invitation: React.FC = () => {
         className="mt-4 space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          void accepter({ password, email: email || undefined });
+          void accept({ password, email: email || undefined });
         }}
       >
         <p className="text-xs uppercase tracking-wide text-ink-soft">

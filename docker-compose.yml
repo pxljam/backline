@@ -1,4 +1,4 @@
-# Backline — pile complete. `docker compose up` suffit (voir compose.local.yml).
+# Backline — the full stack. `docker compose up` is enough (see compose.local.yml).
 name: backline
 
 x-api-env: &api-env

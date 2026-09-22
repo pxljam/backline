@@ -3,18 +3,18 @@ import { Link } from "react-router-dom";
 import { useResource } from "../lib/hooks";
 import { useCollectiveBase } from "../lib/session";
 import type { CalendarEntry, Group } from "../lib/types";
-import { dateCourte, heure } from "../lib/format";
+import { shortDate, time } from "../lib/format";
 import { Badge, Button, Card, Empty, ErrorNote, Loading, PageTitle, Select } from "../components/ui";
 
-type Vue = "mois" | "semaine" | "liste";
+type View = "mois" | "semaine" | "liste";
 
-/** Vue mois / semaine / liste, filtrable (§7). L'application est maitre. */
+/** Month / week / list view, filterable (§7). The application is the master. */
 export const Calendar: React.FC = () => {
   const base = useCollectiveBase();
-  const [vue, setVue] = useState<Vue>("mois");
+  const [view, setView] = useState<View>("mois");
   const [groupId, setGroupId] = useState("");
   const [mine, setMine] = useState(false);
-  const [ancre, setAncre] = useState(() => new Date());
+  const [anchor, setAnchor] = useState(() => new Date());
 
   const { data: groups } = useResource<Group[]>(`${base}/groups`);
   const params = new URLSearchParams();
@@ -28,13 +28,13 @@ export const Calendar: React.FC = () => {
     `${base}/calendar/feeds`,
   );
 
-  const entrees = data ?? [];
+  const entries = data ?? [];
 
-  const decaler = (n: number) => {
-    const d = new Date(ancre);
-    if (vue === "semaine") d.setDate(d.getDate() + n * 7);
+  const shift = (n: number) => {
+    const d = new Date(anchor);
+    if (view === "semaine") d.setDate(d.getDate() + n * 7);
     else d.setMonth(d.getMonth() + n);
-    setAncre(d);
+    setAnchor(d);
   };
 
   return (
@@ -45,12 +45,12 @@ export const Calendar: React.FC = () => {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(["mois", "semaine", "liste"] as Vue[]).map((v) => (
+        {(["mois", "semaine", "liste"] as View[]).map((v) => (
           <button
             key={v}
-            onClick={() => setVue(v)}
+            onClick={() => setView(v)}
             className={`rounded-lg px-3 py-1.5 text-sm capitalize ${
-              vue === v ? "bg-ink text-paper" : "border border-line"
+              view === v ? "bg-ink text-paper" : "border border-line"
             }`}
           >
             {v}
@@ -72,13 +72,13 @@ export const Calendar: React.FC = () => {
           <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
           mes evenements
         </label>
-        {vue !== "liste" && (
+        {view !== "liste" && (
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" onClick={() => decaler(-1)}>
+            <Button size="sm" onClick={() => shift(-1)}>
               ‹
             </Button>
-            <span className="text-sm">{titreAncre(ancre, vue)}</span>
-            <Button size="sm" onClick={() => decaler(1)}>
+            <span className="text-sm">{anchorTitle(anchor, view)}</span>
+            <Button size="sm" onClick={() => shift(1)}>
               ›
             </Button>
           </div>
@@ -90,10 +90,10 @@ export const Calendar: React.FC = () => {
 
       {!loading && (
         <Card>
-          {vue === "liste" ? (
-            <ListeVue entrees={entrees} />
+          {view === "liste" ? (
+            <ListView entries={entries} />
           ) : (
-            <GrilleVue entrees={entrees} ancre={ancre} semaine={vue === "semaine"} />
+            <GridView entries={entries} anchor={anchor} week={view === "semaine"} />
           )}
         </Card>
       )}
@@ -129,35 +129,35 @@ export const Calendar: React.FC = () => {
   );
 };
 
-function titreAncre(d: Date, vue: Vue): string {
-  const mois = [
+function anchorTitle(d: Date, view: View): string {
+  const months = [
     "janvier", "fevrier", "mars", "avril", "mai", "juin",
     "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
   ];
-  if (vue === "semaine") {
-    const debut = debutSemaine(d);
-    const fin = new Date(debut);
-    fin.setDate(fin.getDate() + 6);
-    return `${debut.getDate()}–${fin.getDate()} ${mois[fin.getMonth()]}`;
+  if (view === "semaine") {
+    const start = startOfWeek(d);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return `${start.getDate()}–${end.getDate()} ${months[end.getMonth()]}`;
   }
-  return `${mois[d.getMonth()]} ${d.getFullYear()}`;
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function debutSemaine(d: Date): Date {
-  const copie = new Date(d);
-  // Semaine francaise : lundi en premier.
-  const jour = (copie.getDay() + 6) % 7;
-  copie.setDate(copie.getDate() - jour);
-  copie.setHours(0, 0, 0, 0);
-  return copie;
+function startOfWeek(d: Date): Date {
+  const copy = new Date(d);
+  // French week: Monday first.
+  const weekday = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - weekday);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
 }
 
-const ListeVue: React.FC<{ entrees: CalendarEntry[] }> = ({ entrees }) =>
-  entrees.length === 0 ? (
+const ListView: React.FC<{ entries: CalendarEntry[] }> = ({ entries }) =>
+  entries.length === 0 ? (
     <Empty>Rien a afficher.</Empty>
   ) : (
     <ul className="divide-y divide-line">
-      {entrees.map((e) => (
+      {entries.map((e) => (
         <li key={`${e.kind}-${e.id}`}>
           <Link
             to={e.kind === "event" ? `/evenements/${e.id}` : `/opportunites/${e.opportunity_id}`}
@@ -166,7 +166,7 @@ const ListeVue: React.FC<{ entrees: CalendarEntry[] }> = ({ entrees }) =>
             <div>
               <p className="text-sm font-medium">{e.title}</p>
               <p className="text-xs text-ink-soft">
-                {dateCourte(e.starts_at)} a {heure(e.starts_at)}
+                {shortDate(e.starts_at)} a {time(e.starts_at)}
                 {e.venue && ` · ${e.venue}`}
               </p>
             </div>
@@ -177,37 +177,37 @@ const ListeVue: React.FC<{ entrees: CalendarEntry[] }> = ({ entrees }) =>
     </ul>
   );
 
-const GrilleVue: React.FC<{ entrees: CalendarEntry[]; ancre: Date; semaine: boolean }> = ({
-  entrees,
-  ancre,
-  semaine,
+const GridView: React.FC<{ entries: CalendarEntry[]; anchor: Date; week: boolean }> = ({
+  entries,
+  anchor,
+  week,
 }) => {
-  const jours = useMemo(() => {
-    if (semaine) {
-      const debut = debutSemaine(ancre);
+  const days = useMemo(() => {
+    if (week) {
+      const start = startOfWeek(anchor);
       return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(debut);
+        const d = new Date(start);
         d.setDate(d.getDate() + i);
         return d;
       });
     }
-    const premier = new Date(ancre.getFullYear(), ancre.getMonth(), 1);
-    const debut = debutSemaine(premier);
+    const firstOfMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const start = startOfWeek(firstOfMonth);
     return Array.from({ length: 42 }, (_, i) => {
-      const d = new Date(debut);
+      const d = new Date(start);
       d.setDate(d.getDate() + i);
       return d;
     });
-  }, [ancre, semaine]);
+  }, [anchor, week]);
 
-  const parJour = useMemo(() => {
+  const byDay = useMemo(() => {
     const map = new Map<string, CalendarEntry[]>();
-    for (const e of entrees) {
-      const cle = new Date(e.starts_at).toDateString();
-      map.set(cle, [...(map.get(cle) ?? []), e]);
+    for (const e of entries) {
+      const key = new Date(e.starts_at).toDateString();
+      map.set(key, [...(map.get(key) ?? []), e]);
     }
     return map;
-  }, [entrees]);
+  }, [entries]);
 
   return (
     <div className="overflow-x-auto">
@@ -217,22 +217,22 @@ const GrilleVue: React.FC<{ entrees: CalendarEntry[]; ancre: Date; semaine: bool
             {j}
           </div>
         ))}
-        {jours.map((d) => {
-          const du = parJour.get(d.toDateString()) ?? [];
-          const horsMois = !semaine && d.getMonth() !== ancre.getMonth();
-          const aujourdhui = d.toDateString() === new Date().toDateString();
+        {days.map((d) => {
+          const dayEntries = byDay.get(d.toDateString()) ?? [];
+          const outsideMonth = !week && d.getMonth() !== anchor.getMonth();
+          const isToday = d.toDateString() === new Date().toDateString();
           return (
             <div
               key={d.toISOString()}
-              className={`min-h-24 bg-panel p-1.5 ${horsMois ? "opacity-40" : ""}`}
+              className={`min-h-24 bg-panel p-1.5 ${outsideMonth ? "opacity-40" : ""}`}
             >
               <span
-                className={`text-xs ${aujourdhui ? "rounded bg-ink px-1.5 text-paper" : "text-ink-soft"}`}
+                className={`text-xs ${isToday ? "rounded bg-ink px-1.5 text-paper" : "text-ink-soft"}`}
               >
                 {d.getDate()}
               </span>
               <ul className="mt-1 space-y-1">
-                {du.map((e) => (
+                {dayEntries.map((e) => (
                   <li key={`${e.kind}-${e.id}`}>
                     <Link
                       to={

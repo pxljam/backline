@@ -4,12 +4,12 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Group, Opportunity, Venue } from "../lib/types";
-import { dateCourte, STATUT_OPPORTUNITE } from "../lib/format";
+import { shortDate, OPPORTUNITY_STATUS_LABELS } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
 } from "../components/ui";
 
-const TON: Record<string, "neutral" | "good" | "warn" | "bad"> = {
+const TONES: Record<string, "neutral" | "good" | "warn" | "bad"> = {
   discussing: "neutral",
   poll_open: "warn",
   date_chosen: "warn",
@@ -70,10 +70,10 @@ export const Opportunities: React.FC = () => {
                       {o.candidate_dates.length} date{o.candidate_dates.length > 1 ? "s" : ""} candidate
                       {o.candidate_dates.length > 1 ? "s" : ""}
                       {o.candidate_dates.length > 0 &&
-                        ` (${o.candidate_dates.map((d) => dateCourte(d.day)).join(", ")})`}
+                        ` (${o.candidate_dates.map((d) => shortDate(d.day)).join(", ")})`}
                     </p>
                   </div>
-                  <Badge tone={TON[o.status]}>{STATUT_OPPORTUNITE[o.status]}</Badge>
+                  <Badge tone={TONES[o.status]}>{OPPORTUNITY_STATUS_LABELS[o.status]}</Badge>
                 </Link>
               </li>
             ))}
@@ -94,7 +94,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const [venueId, setVenueId] = useState("");
   const [conditions, setConditions] = useState("");
   const [hosts, setHosts] = useState<string[]>([]);
-  // N dates candidates proposees par le lieu (§5.1).
+  // N candidate dates proposed by the venue (§5.1).
   const [dates, setDates] = useState<{ day: string; start_time: string }[]>([
     { day: "", start_time: "22:00" },
   ]);

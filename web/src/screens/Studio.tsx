@@ -4,15 +4,15 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Asset, BacklineEvent, Format, Group, Template, VideoCompositionRow } from "../lib/types";
-import { poids } from "../lib/format";
+import { fileSize } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select,
 } from "../components/ui";
 
-type Onglet = "gabarits" | "videos" | "medias";
+type Tab = "gabarits" | "videos" | "medias";
 
 export const Studio: React.FC = () => {
-  const [onglet, setOnglet] = useState<Onglet>("gabarits");
+  const [tab, setTab] = useState<Tab>("gabarits");
 
   return (
     <>
@@ -26,13 +26,13 @@ export const Studio: React.FC = () => {
             ["gabarits", "Gabarits"],
             ["videos", "Videos"],
             ["medias", "Medias"],
-          ] as [Onglet, string][]
+          ] as [Tab, string][]
         ).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setOnglet(key)}
+            onClick={() => setTab(key)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              onglet === key ? "bg-ink text-paper" : "border border-line"
+              tab === key ? "bg-ink text-paper" : "border border-line"
             }`}
           >
             {label}
@@ -40,9 +40,9 @@ export const Studio: React.FC = () => {
         ))}
       </nav>
 
-      {onglet === "gabarits" && <Templates />}
-      {onglet === "videos" && <Videos />}
-      {onglet === "medias" && <Medias />}
+      {tab === "gabarits" && <Templates />}
+      {tab === "videos" && <Videos />}
+      {tab === "medias" && <MediaLibrary />}
     </>
   );
 };
@@ -168,7 +168,7 @@ const Videos: React.FC = () => {
 
   if (comps.loading) return <Loading />;
 
-  const formatsVideo = formats.data?.filter((f) => f.kind === "video") ?? [];
+  const videoFormats = formats.data?.filter((f) => f.kind === "video") ?? [];
 
   return (
     <>
@@ -183,7 +183,7 @@ const Videos: React.FC = () => {
               void run(async () => {
                 await api.post(`${base}/video-compositions`, {
                   name,
-                  format_id: formatId || formatsVideo[0]?.id,
+                  format_id: formatId || videoFormats[0]?.id,
                   event_id: eventId || undefined,
                 });
                 setName("");
@@ -199,7 +199,7 @@ const Videos: React.FC = () => {
             <div className="min-w-44 flex-1">
               <Field label="Format">
                 <Select value={formatId} onChange={(e) => setFormatId(e.target.value)}>
-                  {formatsVideo.map((f) => (
+                  {videoFormats.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.platform} — {f.label} ({f.ratio})
                     </option>
@@ -253,8 +253,8 @@ const Videos: React.FC = () => {
   );
 };
 
-/** Televersement uniquement — aucune generation par IA (§9.5). */
-const Medias: React.FC = () => {
+/** Upload only — no AI generation (§9.5). */
+const MediaLibrary: React.FC = () => {
   const base = useCollectiveBase();
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
   const { data: groups } = useResource<Group[]>(`${base}/groups`);
@@ -334,7 +334,7 @@ const Medias: React.FC = () => {
                   {a.filename}
                 </p>
                 <p className="text-[11px] text-ink-soft">
-                  {poids(a.bytes)}
+                  {fileSize(a.bytes)}
                   {a.tags.length > 0 && ` · ${a.tags.join(", ")}`}
                 </p>
               </li>

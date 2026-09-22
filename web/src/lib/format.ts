@@ -1,64 +1,64 @@
-/** Mise en forme francaise : l'interface est en francais (§14). */
+/** French formatting: the interface is in French (§14). */
 
-const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-const MOIS = [
+const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const MONTHS = [
   "janvier", "fevrier", "mars", "avril", "mai", "juin",
   "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
 ];
 
-export function dateLongue(iso: string): string {
+export function longDate(iso: string): string {
   const d = new Date(iso);
-  return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-export function dateCourte(iso: string): string {
+export function shortDate(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-export function heure(iso: string): string {
+export function time(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function dateEtHeure(iso: string): string {
-  return `${dateCourte(iso)} a ${heure(iso)}`;
+export function dateAndTime(iso: string): string {
+  return `${shortDate(iso)} a ${time(iso)}`;
 }
 
-/** « dans 12 jours », « il y a 3 h » — utile pour dire ce qui presse. */
-export function relatif(iso: string): string {
+/** "dans 12 jours", "il y a 3 h" — useful for saying what is pressing. */
+export function relativeTime(iso: string): string {
   const diff = new Date(iso).getTime() - Date.now();
   const abs = Math.abs(diff);
-  const jours = Math.round(abs / 86_400_000);
-  const heures = Math.round(abs / 3_600_000);
+  const days = Math.round(abs / 86_400_000);
+  const hours = Math.round(abs / 3_600_000);
   const minutes = Math.round(abs / 60_000);
 
-  const valeur =
-    jours >= 1 ? `${jours} jour${jours > 1 ? "s" : ""}`
-    : heures >= 1 ? `${heures} h`
+  const amount =
+    days >= 1 ? `${days} jour${days > 1 ? "s" : ""}`
+    : hours >= 1 ? `${hours} h`
     : `${minutes} min`;
 
-  return diff >= 0 ? `dans ${valeur}` : `il y a ${valeur}`;
+  return diff >= 0 ? `dans ${amount}` : `il y a ${amount}`;
 }
 
-export function joursAvant(iso: string): number {
+export function daysUntil(iso: string): number {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 }
 
-export function poids(octets: number): string {
-  if (octets < 1024) return `${octets} o`;
-  if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} ko`;
-  return `${(octets / (1024 * 1024)).toFixed(1)} Mo`;
+export function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-export const STATUT_EVENEMENT: Record<string, string> = {
+export const EVENT_STATUS_LABELS: Record<string, string> = {
   draft: "brouillon",
   confirmed: "confirme",
   past: "passe",
   cancelled: "annule",
 };
 
-export const STATUT_OPPORTUNITE: Record<string, string> = {
+export const OPPORTUNITY_STATUS_LABELS: Record<string, string> = {
   discussing: "en discussion",
   poll_open: "sondage ouvert",
   date_chosen: "date retenue",
@@ -66,7 +66,7 @@ export const STATUT_OPPORTUNITE: Record<string, string> = {
   abandoned: "abandonnee",
 };
 
-export const STATUT_TACHE: Record<string, string> = {
+export const TASK_STATUS_LABELS: Record<string, string> = {
   draft: "brouillon",
   ready: "pret",
   assigned: "assigne",
@@ -74,13 +74,13 @@ export const STATUT_TACHE: Record<string, string> = {
   missed: "rate",
 };
 
-export const REPONSE_DISPO: Record<string, string> = {
+export const AVAILABILITY_LABELS: Record<string, string> = {
   yes: "dispo",
   maybe: "peut-etre",
   no: "non",
 };
 
-export const PRESENCE_RESIDENCE: Record<string, string> = {
+export const RESIDENCY_PRESENCE_LABELS: Record<string, string> = {
   coming: "je viens",
   not_coming: "je ne viens pas",
   unsure: "je ne sais pas encore",

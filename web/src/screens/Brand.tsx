@@ -6,8 +6,8 @@ import type { BrandToken, BrandView, Group } from "../lib/types";
 import { Button, Card, ErrorNote, Field, Input, Loading, PageTitle, Select } from "../components/ui";
 
 /**
- * La charte est **de la donnee, jamais du code** (§8). Saisir les vraies
- * valeurs de Bonsoir Techno ne demandera aucune modification de code.
+ * A brand is **data, never code** (§8). Entering Bonsoir Techno's real values
+ * will require no code change at all.
  */
 export const Brand: React.FC = () => {
   const base = useCollectiveBase();
@@ -27,12 +27,12 @@ export const Brand: React.FC = () => {
 
   if (brand.loading) return <Loading />;
 
-  const modifier = (index: number, patch: Partial<BrandToken>) =>
+  const update = (index: number, patch: Partial<BrandToken>) =>
     setTokens((t) => t.map((x, i) => (i === index ? { ...x, ...patch } : x)));
 
-  const couleurs = tokens.filter((t) => t.kind === "color");
-  const polices = tokens.filter((t) => t.kind === "font");
-  const regles = tokens.filter((t) => t.kind === "rule");
+  const colors = tokens.filter((t) => t.kind === "color");
+  const fonts = tokens.filter((t) => t.kind === "font");
+  const rules = tokens.filter((t) => t.kind === "rule");
 
   return (
     <>
@@ -62,10 +62,10 @@ export const Brand: React.FC = () => {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Couleurs">
           <ul className="space-y-2">
-            {couleurs.map((t) => {
+            {colors.map((t) => {
               const index = tokens.indexOf(t);
               const hex = String((t.value as { hex?: string }).hex ?? "#000000");
-              const herite = brand.data?.inherited?.find(
+              const inherited = brand.data?.inherited?.find(
                 (i) => i.kind === "color" && i.key === t.key,
               );
               return (
@@ -74,17 +74,17 @@ export const Brand: React.FC = () => {
                     type="color"
                     value={hex}
                     disabled={!isAdmin}
-                    onChange={(e) => modifier(index, { value: { hex: e.target.value } })}
+                    onChange={(e) => update(index, { value: { hex: e.target.value } })}
                     className="h-9 w-12 cursor-pointer rounded border border-line"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{t.label}</p>
                     <p className="text-xs text-ink-soft">
                       {t.key} · {hex}
-                      {herite &&
-                        herite.value &&
-                        (herite.value as { hex?: string }).hex !== hex &&
-                        ` · collectif : ${(herite.value as { hex?: string }).hex}`}
+                      {inherited &&
+                        inherited.value &&
+                        (inherited.value as { hex?: string }).hex !== hex &&
+                        ` · collectif : ${(inherited.value as { hex?: string }).hex}`}
                     </p>
                   </div>
                 </li>
@@ -95,7 +95,7 @@ export const Brand: React.FC = () => {
 
         <Card title="Typographies">
           <ul className="space-y-3">
-            {polices.map((t) => {
+            {fonts.map((t) => {
               const index = tokens.indexOf(t);
               const v = t.value as { family?: string; weight?: string; stack?: string };
               return (
@@ -106,7 +106,7 @@ export const Brand: React.FC = () => {
                         value={v.family ?? ""}
                         disabled={!isAdmin}
                         onChange={(e) =>
-                          modifier(index, {
+                          update(index, {
                             value: { ...v, family: e.target.value, stack: `${e.target.value}, Helvetica, Arial, sans-serif` },
                           })
                         }
@@ -115,7 +115,7 @@ export const Brand: React.FC = () => {
                         className="max-w-24"
                         value={v.weight ?? ""}
                         disabled={!isAdmin}
-                        onChange={(e) => modifier(index, { value: { ...v, weight: e.target.value } })}
+                        onChange={(e) => update(index, { value: { ...v, weight: e.target.value } })}
                       />
                     </div>
                   </Field>
@@ -136,7 +136,7 @@ export const Brand: React.FC = () => {
 
         <Card title="Regles">
           <ul className="space-y-2 text-sm">
-            {regles.map((t) => (
+            {rules.map((t) => (
               <li key={t.key} className="flex items-start justify-between gap-3">
                 <span>{t.label}</span>
                 <code className="text-xs text-ink-soft">{JSON.stringify(t.value)}</code>

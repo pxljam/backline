@@ -1,6 +1,6 @@
-//! Boucle de traitement des jobs. C'est ici que vivent les comportements que
-//! le PRD exige « sans intervention » : relances logistiques, feuille de route,
-//! rappels de publication, alerte de mise en ligne, purge des rendus.
+//! The job processing loop. This is where the behaviours the PRD demands
+//! "without intervention" live: logistics reminders, run sheet, publication
+//! reminders, going-live alert, render purge.
 
 use crate::error::AppResult;
 use crate::services::{jobs, notify, run_sheet};
@@ -16,14 +16,13 @@ pub async fn run_forever(state: AppState) {
     loop {
         ticker.tick().await;
         if let Err(e) = tick(&state).await {
-            tracing::error!(error = %e, "boucle de jobs");
+            tracing::error!(error = %e, "job loop");
         }
     }
 }
 
-/// Un passage : reclame les jobs echus, les execute, delivre les
-/// notifications en attente. Expose pour que les tests la declenchent a la
-/// demande plutot que d'attendre une horloge.
+/// One pass: claims due jobs, runs them, delivers pending notifications.
+/// Exposed so tests can trigger it on demand rather than waiting on a clock.
 pub async fn tick(state: &AppState) -> AppResult<usize> {
     let claimed = jobs::claim(&state.db, 20).await?;
     let n = claimed.len();
@@ -78,14 +77,14 @@ async fn dispatch(state: &AppState, job: &jobs::Job) -> AppResult<()> {
             crate::routes::comms::run_generate_visuals(state, uuid("event_id")?).await
         }
         other => {
-            tracing::warn!(kind = other, "job de type inconnu, ignore");
+            tracing::warn!(kind = other, "unknown job kind, ignored");
             Ok(())
         }
     }
 }
 
-/// Relance ciblee sur les postes vacants (§5.4) : on ne reveille que les
-/// membres qui ne se sont **encore engages sur rien** pour cet evenement.
+/// Targeted reminder about vacant slots (§5.4): only members who have
+/// **committed to nothing yet** for this event are woken up.
 async fn logistics_reminder(db: &PgPool, event_id: Uuid, milestone: &str) -> AppResult<()> {
     let ev: Option<(Uuid, String, chrono::DateTime<Utc>, String)> =
         sqlx::query_as("SELECT collective_id, title, starts_at, status FROM events WHERE id = $1")
@@ -168,8 +167,8 @@ async fn logistics_reminder(db: &PgPool, event_id: Uuid, milestone: &str) -> App
     Ok(())
 }
 
-/// Rappel **unique** a J-14 aux referents des groupes sans fiche technique,
-/// puis plus rien (§12).
+/// A **single** reminder at D-14 to the leads of groups without a tech rider,
+/// then nothing more (§12).
 async fn tech_rider_missing(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     let rows: Vec<(Uuid, String, Uuid)> = sqlx::query_as(
         "SELECT etr.group_id, g.name, e.collective_id
@@ -183,7 +182,7 @@ async fn tech_rider_missing(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     .await?;
 
     for (group_id, group_name, collective_id) in rows {
-        // Referents du groupe, ou a defaut tous ses membres.
+        // The group's leads, or failing that all of its members.
         let mut targets: Vec<(Uuid,)> = sqlx::query_as(
             "SELECT user_id FROM group_members WHERE group_id = $1 AND is_admin = TRUE",
         )
@@ -228,8 +227,8 @@ async fn send_run_sheet(state: &AppState, event_id: Uuid) -> AppResult<()> {
         return Ok(());
     }
 
-    // Destinataires : line-up et titulaires de postes. Ce sont exactement les
-    // gens autorises a voir les telephones (§3).
+    // Recipients: the line-up and the slot holders. These are exactly the
+    // people allowed to see phone numbers (§3).
     let targets: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT DISTINCT u.id FROM users u WHERE u.id IN (
              SELECT COALESCE(p.user_id, gm.user_id) FROM participations p
@@ -275,7 +274,7 @@ async fn send_run_sheet(state: &AppState, event_id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// « On est en ligne » — a tous les membres, 15 minutes avant, sans
+/// "On est en ligne" — to every member, 15 minutes ahead, with no
 /// intervention (§18).
 async fn stream_live_alert(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     let ev: Option<(Uuid, String, String)> =
@@ -310,8 +309,8 @@ async fn stream_live_alert(db: &PgPool, event_id: Uuid) -> AppResult<()> {
             notify::Notice {
                 user_id,
                 collective_id: Some(collective_id),
-                // `stream_live` traverse le silence nocturne : un live ne se
-                // rattrape pas le lendemain matin.
+                // `stream_live` cuts through quiet hours: you cannot catch up
+                // on a live stream the next morning.
                 kind: "stream_live",
                 title: format!("On passe en live dans 15 min — {title}"),
                 body: links.clone(),
@@ -331,8 +330,8 @@ async fn stream_live_alert(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// A l'heure dite : le visuel, la legende et les hashtags partent au
-/// responsable, prets a coller (§11.2, point 3).
+/// At the appointed time: the visual, the caption and the hashtags go to the
+/// owner, ready to paste (§11.2, point 3).
 async fn publication_due(db: &PgPool, task_id: Uuid) -> AppResult<()> {
     let t: Option<(
         Uuid,
@@ -375,7 +374,7 @@ async fn publication_due(db: &PgPool, task_id: Uuid) -> AppResult<()> {
                 },
             )
             .await?;
-            // Sans confirmation : relance a +1 h (§11.2, point 5).
+            // No confirmation: reminder at +1 h (§11.2, point 5).
             jobs::enqueue(
                 db,
                 "publication_reminder",
@@ -386,7 +385,7 @@ async fn publication_due(db: &PgPool, task_id: Uuid) -> AppResult<()> {
             .await?;
         }
         None => {
-            // Personne d'assigne : c'est l'admin qui doit le savoir, pas le silence.
+            // Nobody assigned: the admin must hear about it, not silence.
             for user_id in notify::collective_admin_ids(db, collective_id).await? {
                 notify::push(
                     db,
@@ -448,7 +447,7 @@ async fn publication_reminder(db: &PgPool, task_id: Uuid) -> AppResult<()> {
         .execute(db)
         .await?;
 
-    // …alerte a l'admin a +3 h.
+    // …alert the admin at +3 h.
     jobs::enqueue(
         db,
         "publication_admin_alert",
@@ -500,8 +499,7 @@ async fn publication_admin_alert(db: &PgPool, task_id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// Un job non reclame alerte l'admin plutot que de rester silencieusement en
-/// attente (§10.3).
+/// An unclaimed job alerts the admin rather than waiting silently (§10.3).
 async fn render_unclaimed_alert(db: &PgPool, render_job_id: Uuid) -> AppResult<()> {
     let j: Option<(String, Uuid, Option<String>)> = sqlx::query_as(
         "SELECT r.status, r.collective_id, c.name
@@ -553,9 +551,9 @@ async fn render_unclaimed_alert(db: &PgPool, render_job_id: Uuid) -> AppResult<(
     Ok(())
 }
 
-/// Purge des visuels rendus de plus de six mois : ils se regenerent a
-/// l'identique depuis leur description. Les medias televerses ne sont **jamais**
-/// purges automatiquement (§15).
+/// Purges rendered visuals older than six months: they regenerate identically
+/// from their description. Uploaded media is **never** purged automatically
+/// (§15).
 pub async fn purge_renders(state: &AppState) -> AppResult<()> {
     let rows: Vec<(Uuid, String)> = sqlx::query_as(
         "SELECT id, storage_key FROM assets
@@ -567,7 +565,7 @@ pub async fn purge_renders(state: &AppState) -> AppResult<()> {
 
     for (id, key) in rows {
         if let Err(e) = state.storage.delete(&key).await {
-            tracing::warn!(error = %e, key, "purge: suppression objet");
+            tracing::warn!(error = %e, key, "purge: object deletion");
         }
         sqlx::query("DELETE FROM assets WHERE id = $1")
             .bind(id)

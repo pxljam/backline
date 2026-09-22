@@ -1,5 +1,5 @@
-//! Catalogue de formats (§9.2). Editable en base : les plateformes changent
-//! leurs formats, cela ne doit jamais demander une modification de code.
+//! Format catalogue (§9.2). Editable in the database: platforms change their
+//! formats, and that must never require a code change.
 
 pub struct FormatDef {
     pub key: &'static str,
@@ -91,7 +91,7 @@ pub const CATALOG: &[FormatDef] = &[
         height: 1080,
         kind: "image",
     },
-    // Affiche : export PDF haute definition, RVB uniquement (hors perimetre CMJN).
+    // Poster: high-resolution PDF export, RGB only (CMYK is out of scope).
     FormatDef {
         key: "poster_a3",
         platform: "Affiche",
@@ -110,8 +110,9 @@ pub const CATALOG: &[FormatDef] = &[
     },
 ];
 
-/// Le ratio est **derive** de la definition : il n'est jamais saisi a part, ce
-/// qui rend impossible un cadre incoherent avec son format (§9.2).
+/// The ratio is **derived** from the resolution: it is never entered
+/// separately, which makes a frame inconsistent with its format impossible
+/// (§9.2).
 pub fn ratio(width: i32, height: i32) -> f64 {
     width as f64 / height as f64
 }
@@ -134,7 +135,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn les_ratios_annonces_par_le_prd_sont_respectes() {
+    fn the_ratios_the_prd_announces_are_respected() {
         assert_eq!(ratio_label(1080, 1080), "1:1");
         assert_eq!(ratio_label(1080, 1350), "4:5");
         assert_eq!(ratio_label(1080, 1920), "9:16");

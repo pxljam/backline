@@ -2,14 +2,14 @@ import React, { useState } from "react";
 import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useSession } from "../lib/session";
-import { poids } from "../lib/format";
+import { fileSize } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle,
 } from "../components/ui";
 
 /**
- * Administration d'instance (§14). Une seule instance partagee heberge tous
- * les collectifs ; leur creation est **manuelle**, donc elle vit ici.
+ * Instance administration (§14). A single shared instance hosts every
+ * collective; creating one is **manual**, so it lives here.
  */
 
 interface CollectiveRow {
@@ -62,24 +62,24 @@ export const Instance: React.FC = () => {
       <ErrorNote>{collectives.error ?? health.error ?? error}</ErrorNote>
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Indicateur
-          titre="Jobs en attente"
-          valeur={health.data?.jobs.pending ?? 0}
-          alerte={(health.data?.jobs.failed ?? 0) > 0}
+        <Indicator
+          label="Jobs en attente"
+          value={health.data?.jobs.pending ?? 0}
+          alert={(health.data?.jobs.failed ?? 0) > 0}
           detail={`${health.data?.jobs.failed ?? 0} en echec`}
         />
-        <Indicateur
-          titre="Machines de rendu"
-          valeur={health.data?.render.machines_online ?? 0}
-          alerte={
+        <Indicator
+          label="Machines de rendu"
+          value={health.data?.render.machines_online ?? 0}
+          alert={
             (health.data?.render.queued ?? 0) > 0 && (health.data?.render.machines_online ?? 0) === 0
           }
           detail={`${health.data?.render.queued ?? 0} rendu(s) en file`}
         />
-        <Indicateur
-          titre="Medias"
-          valeur={health.data?.storage.assets ?? 0}
-          detail={poids(health.data?.storage.bytes ?? 0)}
+        <Indicator
+          label="Medias"
+          value={health.data?.storage.assets ?? 0}
+          detail={fileSize(health.data?.storage.bytes ?? 0)}
         />
         <Card title="Services">
           <ul className="space-y-1 text-sm">
@@ -134,7 +134,7 @@ export const Instance: React.FC = () => {
           </form>
           <p className="mt-2 text-xs text-ink-soft">
             Le collectif nait avec ses types d'evenements, son catalogue de formats et une charte
-            d'exemple. Lui donner un premier admin se fait ensuite depuis ses membres.
+            d'exemple. Lui donner un first admin se fait ensuite depuis ses membres.
           </p>
         </Card>
       </div>
@@ -164,14 +164,14 @@ export const Instance: React.FC = () => {
   );
 };
 
-const Indicateur: React.FC<{
-  titre: string;
-  valeur: number;
+const Indicator: React.FC<{
+  label: string;
+  value: number;
   detail?: string;
-  alerte?: boolean;
-}> = ({ titre, valeur, detail, alerte }) => (
-  <Card title={titre}>
-    <p className={`text-2xl font-semibold ${alerte ? "text-accent" : ""}`}>{valeur}</p>
+  alert?: boolean;
+}> = ({ label, value, detail, alert }) => (
+  <Card title={label}>
+    <p className={`text-2xl font-semibold ${alert ? "text-accent" : ""}`}>{value}</p>
     {detail && <p className="mt-1 text-xs text-ink-soft">{detail}</p>}
   </Card>
 );

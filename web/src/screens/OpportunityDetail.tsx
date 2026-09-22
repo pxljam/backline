@@ -4,23 +4,23 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { CollectiveDetail, Matrix, Opportunity } from "../lib/types";
-import { dateCourte, STATUT_OPPORTUNITE } from "../lib/format";
+import { shortDate, OPPORTUNITY_STATUS_LABELS } from "../lib/format";
 import {
   Badge, Button, Card, ErrorNote, Field, Loading, PageTitle, Select,
 } from "../components/ui";
 
-type Reponse = "yes" | "maybe" | "no";
+type Answer = "yes" | "maybe" | "no";
 
-const BOUTONS: { value: Reponse; label: string; title: string }[] = [
+const BUTTONS: { value: Answer; label: string; title: string }[] = [
   { value: "yes", label: "✅", title: "dispo" },
   { value: "maybe", label: "❔", title: "peut-etre" },
   { value: "no", label: "❌", title: "non" },
 ];
 
 /**
- * La matrice `membres x dates candidates` (§5.2) — l'ecran qui supprime les
- * allers-retours. On y lit d'un coup d'oeil quels groupes sont **complets**,
- * et qui manque dans les autres.
+ * The `members x candidate dates` matrix (§5.2) — the screen that removes the
+ * back and forth. It shows at a glance which groups are **complete**, and who
+ * is missing from the others.
  */
 export const OpportunityDetail: React.FC = () => {
   const { id = "" } = useParams();
@@ -35,7 +35,7 @@ export const OpportunityDetail: React.FC = () => {
   const o = opp.data;
   const m = matrix.data;
 
-  const moi = useMemo(
+  const myRow = useMemo(
     () => m?.members.find((x) => x.user_id === me?.id) ?? null,
     [m, me],
   );
@@ -44,29 +44,29 @@ export const OpportunityDetail: React.FC = () => {
   if (opp.error) return <ErrorNote>{opp.error}</ErrorNote>;
   if (!o || !m) return null;
 
-  const rafraichir = async () => {
+  const refresh = async () => {
     await Promise.all([opp.reload(), matrix.reload()]);
   };
 
-  const repondre = (dateId: string, patch: { status?: Reponse; wants_to_play?: boolean }) => {
-    const actuel = moi?.answers[dateId];
+  const answer = (dateId: string, patch: { status?: Answer; wants_to_play?: boolean }) => {
+    const current = myRow?.answers[dateId];
     void run(async () => {
       await api.put(`${base}/opportunities/${id}/availabilities`, {
         user_id: me?.id,
         answers: [
           {
             candidate_date_id: dateId,
-            status: patch.status ?? actuel?.status ?? "no",
-            wants_to_play: patch.wants_to_play ?? actuel?.wants_to_play ?? false,
+            status: patch.status ?? current?.status ?? "no",
+            wants_to_play: patch.wants_to_play ?? current?.wants_to_play ?? false,
           },
         ],
       });
-      await rafraichir();
+      await refresh();
     });
   };
 
-  const nomGroupe = (gid: string) => m.groups.find((g) => g.id === gid)?.name ?? "?";
-  const nomMembre = (uid: string) =>
+  const groupName = (gid: string) => m.groups.find((g) => g.id === gid)?.name ?? "?";
+  const memberName = (uid: string) =>
     m.members.find((x) => x.user_id === uid)?.display_name ?? "?";
 
   return (
@@ -77,7 +77,7 @@ export const OpportunityDetail: React.FC = () => {
           <>
             {o.venue ? `${o.venue.name}${o.venue.city ? ` — ${o.venue.city}` : ""}` : "sans lieu"}
             {" · "}
-            <Badge>{STATUT_OPPORTUNITE[o.status]}</Badge>
+            <Badge>{OPPORTUNITY_STATUS_LABELS[o.status]}</Badge>
           </>
         }
         action={
@@ -91,7 +91,7 @@ export const OpportunityDetail: React.FC = () => {
                   onClick={() =>
                     void run(async () => {
                       await api.post(`${base}/opportunities/${id}/poll`);
-                      await rafraichir();
+                      await refresh();
                     })
                   }
                 >
@@ -103,7 +103,7 @@ export const OpportunityDetail: React.FC = () => {
                   onClick={() =>
                     void run(async () => {
                       await api.del(`${base}/opportunities/${id}/poll`);
-                      await rafraichir();
+                      await refresh();
                     })
                   }
                 >
@@ -134,30 +134,30 @@ export const OpportunityDetail: React.FC = () => {
       )}
 
       {/* Ma reponse : seule la personne concernee ecrit sa disponibilite. */}
-      {o.poll_open && moi && (
+      {o.poll_open && myRow && (
         <div className="mb-5">
           <Card title="Mes disponibilites">
             <div className="space-y-2">
               {m.dates.map((d) => {
-                const rep = moi.answers[d.id];
+                const reply = myRow.answers[d.id];
                 return (
                   <div
                     key={d.id}
                     className="flex flex-wrap items-center gap-3 rounded-lg border border-line px-3 py-2"
                   >
-                    <span className="min-w-28 text-sm font-medium">{dateCourte(d.day)}</span>
+                    <span className="min-w-28 text-sm font-medium">{shortDate(d.day)}</span>
                     {d.start_time && (
                       <span className="text-xs text-ink-soft">{d.start_time.slice(0, 5)}</span>
                     )}
                     <div className="flex gap-1">
-                      {BOUTONS.map((b) => (
+                      {BUTTONS.map((b) => (
                         <button
                           key={b.value}
                           title={b.title}
                           disabled={busy}
-                          onClick={() => repondre(d.id, { status: b.value })}
+                          onClick={() => answer(d.id, { status: b.value })}
                           className={`rounded-lg border px-2.5 py-1 text-sm ${
-                            rep?.status === b.value ? "border-ink bg-ink text-paper" : "border-line"
+                            reply?.status === b.value ? "border-ink bg-ink text-paper" : "border-line"
                           }`}
                         >
                           {b.label}
@@ -166,9 +166,9 @@ export const OpportunityDetail: React.FC = () => {
                     </div>
                     <button
                       disabled={busy}
-                      onClick={() => repondre(d.id, { wants_to_play: !rep?.wants_to_play })}
+                      onClick={() => answer(d.id, { wants_to_play: !reply?.wants_to_play })}
                       className={`rounded-lg border px-2.5 py-1 text-sm ${
-                        rep?.wants_to_play ? "border-ink bg-ink text-paper" : "border-line"
+                        reply?.wants_to_play ? "border-ink bg-ink text-paper" : "border-line"
                       }`}
                     >
                       🎸 je veux jouer
@@ -193,7 +193,7 @@ export const OpportunityDetail: React.FC = () => {
                 </th>
                 {m.dates.map((d) => (
                   <th key={d.id} className="border-b border-line px-2 py-2 text-center">
-                    <div className="font-medium">{dateCourte(d.day)}</div>
+                    <div className="font-medium">{shortDate(d.day)}</div>
                     <div className="text-xs font-normal text-ink-soft">
                       {d.yes} dispo{d.yes > 1 ? "s" : ""}
                     </div>
@@ -208,13 +208,13 @@ export const OpportunityDetail: React.FC = () => {
                     {membre.stage_name ?? membre.display_name}
                     {membre.group_ids.length > 0 && (
                       <span className="ml-1 text-xs text-ink-soft">
-                        ({membre.group_ids.map(nomGroupe).join(", ")})
+                        ({membre.group_ids.map(groupName).join(", ")})
                       </span>
                     )}
                   </td>
                   {m.dates.map((d) => {
                     const a = membre.answers[d.id];
-                    const fond =
+                    const background =
                       a?.status === "yes"
                         ? "bg-emerald-100"
                         : a?.status === "maybe"
@@ -225,7 +225,7 @@ export const OpportunityDetail: React.FC = () => {
                     return (
                       <td
                         key={d.id}
-                        className={`border-b border-line px-2 py-2 text-center ${fond}`}
+                        className={`border-b border-line px-2 py-2 text-center ${background}`}
                         title={a ? a.status : "sans reponse"}
                       >
                         {a?.status === "yes" ? "✅" : a?.status === "maybe" ? "❔" : a?.status === "no" ? "❌" : "·"}
@@ -243,14 +243,14 @@ export const OpportunityDetail: React.FC = () => {
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {m.dates.map((d) => (
             <div key={d.id} className="rounded-lg border border-line px-3 py-3">
-              <p className="font-medium">{dateCourte(d.day)}</p>
+              <p className="font-medium">{shortDate(d.day)}</p>
               <p className="mt-1 text-xs text-ink-soft">
                 {d.yes} dispo · {d.maybe} peut-etre · {d.no} non · {d.no_answer} sans reponse
               </p>
               {d.complete_groups.length > 0 ? (
                 <p className="mt-2 text-sm">
                   <Badge tone="good">groupe complet</Badge>{" "}
-                  {d.complete_groups.map(nomGroupe).join(", ")}
+                  {d.complete_groups.map(groupName).join(", ")}
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-ink-soft">Aucun groupe complet.</p>
@@ -259,14 +259,14 @@ export const OpportunityDetail: React.FC = () => {
                 <ul className="mt-2 space-y-0.5 text-xs text-ink-soft">
                   {d.partial_groups.map((p) => (
                     <li key={p.group_id}>
-                      {nomGroupe(p.group_id)} — manque {p.missing.map(nomMembre).join(", ")}
+                      {groupName(p.group_id)} — manque {p.missing.map(memberName).join(", ")}
                     </li>
                   ))}
                 </ul>
               )}
               {d.volunteers.length > 0 && (
                 <p className="mt-2 text-xs">
-                  🎸 {d.volunteers.map(nomMembre).join(", ")}
+                  🎸 {d.volunteers.map(memberName).join(", ")}
                 </p>
               )}
             </div>
@@ -276,7 +276,7 @@ export const OpportunityDetail: React.FC = () => {
 
       {isAdmin && o.status !== "confirmed" && m.dates.length > 0 && (
         <div className="mt-5">
-          <Arbitrage
+          <Arbitration
             opportunityId={id}
             matrix={m}
             onDone={(eventId) => navigate(`/evenements/${eventId}`)}
@@ -287,8 +287,8 @@ export const OpportunityDetail: React.FC = () => {
   );
 };
 
-/** Arbitrage : choisir la date, composer le line-up, confirmer (§5.3). */
-const Arbitrage: React.FC<{
+/** Arbitration: pick the date, build the line-up, confirm (§5.3). */
+const Arbitration: React.FC<{
   opportunityId: string;
   matrix: Matrix;
   onDone: (eventId: string) => void;
@@ -302,8 +302,8 @@ const Arbitrage: React.FC<{
   const [lineUp, setLineUp] = useState<string[]>([]);
 
   const date = matrix.dates.find((d) => d.id === dateId);
-  // On propose en premier les groupes complets : ce sont les line-up jouables.
-  const groupes = matrix.groups.filter((g) => g.member_ids.length > 0);
+  // Complete groups come first: those are the line-ups that can actually play.
+  const groups = matrix.groups.filter((g) => g.member_ids.length > 0);
 
   return (
     <Card title="Arbitrer et confirmer">
@@ -312,7 +312,7 @@ const Arbitrage: React.FC<{
           <Select value={dateId} onChange={(e) => setDateId(e.target.value)}>
             {matrix.dates.map((d) => (
               <option key={d.id} value={d.id}>
-                {dateCourte(d.day)} — {d.yes} dispo
+                {shortDate(d.day)} — {d.yes} dispo
               </option>
             ))}
           </Select>
@@ -332,26 +332,26 @@ const Arbitrage: React.FC<{
 
         <Field label="Line-up" hint="Les groupes complets a cette date sont marques.">
           <div className="flex flex-wrap gap-2">
-            {groupes.map((g) => {
-              const complet = date?.complete_groups.includes(g.id);
-              const choisi = lineUp.includes(g.id);
+            {groups.map((g) => {
+              const full = date?.complete_groups.includes(g.id);
+              const chosen = lineUp.includes(g.id);
               return (
                 <label
                   key={g.id}
                   className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                    choisi ? "border-ink bg-ink text-paper" : complet ? "border-emerald-500" : "border-line"
+                    chosen ? "border-ink bg-ink text-paper" : full ? "border-emerald-500" : "border-line"
                   }`}
                 >
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={choisi}
+                    checked={chosen}
                     onChange={() =>
                       setLineUp((l) => (l.includes(g.id) ? l.filter((x) => x !== g.id) : [...l, g.id]))
                     }
                   />
                   {g.name}
-                  {complet && " ✓"}
+                  {full && " ✓"}
                 </label>
               );
             })}

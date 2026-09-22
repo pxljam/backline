@@ -1,9 +1,9 @@
 /**
- * Service de rendu des visuels fixes.
+ * Still visual rendering service.
  *
- * L'API Rust lui envoie une description JSON, la charte et les champs
- * automatiques ; il renvoie un PNG. Il ne connait ni la base de donnees ni le
- * metier : c'est un moteur de rendu, rien d'autre.
+ * The Rust API sends it a JSON description, the brand and the automatic
+ * fields; it returns a PNG. It knows nothing of the database or the domain:
+ * it is a render engine, nothing more.
  */
 
 import http from "node:http";
@@ -18,8 +18,8 @@ const PORT = Number(process.env.PORT ?? 3000);
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Le bundle Remotion est construit **une fois**, au premier rendu, puis
- * reutilise : le construire a chaque requete couterait plusieurs secondes.
+ * The Remotion bundle is built **once**, on the first render, then reused:
+ * rebuilding it per request would cost several seconds each time.
  */
 let bundlePromise: Promise<string> | null = null;
 
@@ -27,7 +27,7 @@ function serveUrl(): Promise<string> {
   bundlePromise ??= bundle({
     entryPoint: path.join(here, "remotion", "index.ts"),
     onProgress: (p) => {
-      if (p === 100) console.log("[stills] bundle Remotion pret");
+      if (p === 100) console.log("[stills] Remotion bundle ready");
     },
   });
   return bundlePromise;
@@ -69,7 +69,7 @@ async function render(body: RenderRequest): Promise<Buffer> {
       output,
       inputProps,
       imageFormat: "png",
-      // Un rendu doit etre reproductible : meme description, meme fichier (§18).
+      // A render must be reproducible: same description, same file (§18).
       chromiumOptions: { gl: "swangle" },
     });
     return await fs.readFile(output);
@@ -95,7 +95,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method !== "POST" || req.url !== "/render") {
     res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "route inconnue" }));
+    res.end(JSON.stringify({ error: "unknown route" }));
     return;
   }
 
@@ -103,25 +103,24 @@ const server = http.createServer(async (req, res) => {
     const body = JSON.parse(await readBody(req)) as RenderRequest;
     if (!body.layout) {
       res.writeHead(400, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "description de mise en page absente" }));
+      res.end(JSON.stringify({ error: "missing layout description" }));
       return;
     }
     const png = await render(body);
     res.writeHead(200, { "content-type": "image/png", "content-length": png.length });
     res.end(png);
   } catch (err) {
-    // Un visuel qui echoue est signale, jamais avale : l'API le remonte dans
-    // le plan de com.
+    // A failed visual is reported, never swallowed: the API surfaces it in
+    // the comms plan.
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[stills] rendu en echec :", message);
+    console.error("[stills] render failed:", message);
     res.writeHead(500, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: message }));
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`[stills] a l'ecoute sur :${PORT}`);
-  // Chauffe le bundle des le demarrage : le premier visuel ne doit pas payer
-  // l'addition.
-  serveUrl().catch((e) => console.error("[stills] bundle initial :", e));
+  console.log(`[stills] listening on :${PORT}`);
+  // Warm the bundle at startup: the first visual should not foot the bill.
+  serveUrl().catch((e) => console.error("[stills] initial bundle:", e));
 });

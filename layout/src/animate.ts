@@ -2,9 +2,9 @@ import { interpolate as remotionInterpolate, Easing } from "remotion";
 import type { Animation } from "./types";
 
 /**
- * Jeu d'animations **restreint et sur** (§10.2) : fondu, translation, zoom
- * lent, apparition. Pas de courbes de Bezier ni d'images cles a la main — le
- * but est qu'un membre produise un teaser correct en dix minutes.
+ * A **small, safe** set of animations (§10.2): fade, slide, slow zoom, reveal.
+ * No Bezier curves and no hand-placed keyframes — the goal is for a member to
+ * produce a decent teaser in ten minutes.
  */
 export interface AnimatedStyle {
   opacity: number;
@@ -32,8 +32,8 @@ export function animatedStyle(
   return animations.reduce<AnimatedStyle>((acc, anim) => {
     const from = anim.from ?? 0;
     const to = anim.to ?? from + 15;
-    // Une animation de duree nulle serait une division par zero cote
-    // interpolation : on la traite comme deja terminee.
+    // A zero-length animation would divide by zero when interpolating: treat
+    // it as already finished.
     if (to <= from) return acc;
 
     const t = remotionInterpolate(frame, [from, to], [0, 1], {

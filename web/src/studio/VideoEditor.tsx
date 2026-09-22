@@ -10,15 +10,15 @@ import type { Asset, BrandView, VideoCompositionRow } from "../lib/types";
 import { Badge, Button, Card, ErrorNote, Field, Input, Loading, Select } from "../components/ui";
 import { Canvas } from "./Canvas";
 import { Inspector } from "./Inspector";
-import { FondEditeur } from "./TemplateEditor";
+import { BackgroundEditor } from "./TemplateEditor";
 import { toBrand, useMediaMap } from "./brand";
-import { DONNEES_EXEMPLE } from "./fields";
-import { NOMS_BLOCS, deplacerCalque, dupliquer, nouveauBloc } from "./blocks";
+import { SAMPLE_DATA } from "./fields";
+import { BLOCK_NAMES, moveLayer, duplicateBlock, newBlock } from "./blocks";
 
 /**
- * Editeur video (§10.2) : **une video se decrit entierement dans l'app et
- * s'apercoit dans le navigateur sans lancer d'encodage**. Le rendu, lui, part
- * dans une file que des machines reclament (§10.3).
+ * Video editor (§10.2): **a video is described entirely in the app and
+ * previewed in the browser without starting any encoding**. The render itself
+ * goes into a queue that machines claim from (§10.3).
  */
 export const VideoEditor: React.FC = () => {
   const { id = "" } = useParams();
@@ -31,9 +31,9 @@ export const VideoEditor: React.FC = () => {
   const [spec, setSpec] = useState<VideoSpec | null>(null);
   const [scene, setScene] = useState(0);
   const [selection, setSelection] = useState<string | null>(null);
-  const [modifie, setModifie] = useState(false);
-  const [magnetisme, setMagnetisme] = useState(true);
-  const [file, setFile] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [snap, setSnap] = useState(true);
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
 
   const brand = useResource<BrandView>(
     comp.data
@@ -49,7 +49,7 @@ export const VideoEditor: React.FC = () => {
   useEffect(() => {
     if (comp.data) {
       setSpec(structuredClone(comp.data.spec));
-      setModifie(false);
+      setDirty(false);
     }
   }, [comp.data]);
 
@@ -72,30 +72,30 @@ export const VideoEditor: React.FC = () => {
 
   const media = useMediaMap(base, assetIds);
   const tokens = brand.data ? [...(brand.data.inherited ?? []), ...brand.data.tokens] : [];
-  const charte = brand.data ? toBrand(brand.data.tokens, brand.data.inherited) : {};
-  const donnees: FieldData = fields.data ?? DONNEES_EXEMPLE;
+  const brandTokens = brand.data ? toBrand(brand.data.tokens, brand.data.inherited) : {};
+  const data: FieldData = fields.data ?? SAMPLE_DATA;
 
   if (comp.loading || !spec) return <Loading />;
 
-  const courant: Scene | undefined = spec.scenes[scene];
-  const bloc = courant?.blocks.find((b) => b.id === selection) ?? null;
-  const duree = totalDuration(spec);
+  const current: Scene | undefined = spec.scenes[scene];
+  const block = current?.blocks.find((b) => b.id === selection) ?? null;
+  const duration = totalDuration(spec);
 
-  const majSpec = (suivant: VideoSpec) => {
-    setSpec(suivant);
-    setModifie(true);
+  const updateSpec = (next: VideoSpec) => {
+    setSpec(next);
+    setDirty(true);
   };
 
-  const majScene = (patch: Partial<Scene>) =>
-    majSpec({
+  const updateScene = (patch: Partial<Scene>) =>
+    updateSpec({
       ...spec,
       scenes: spec.scenes.map((s, i) => (i === scene ? { ...s, ...patch } : s)),
     });
 
-  const majBlocks = (blocks: Block[]) => majScene({ blocks });
+  const updateBlocks = (blocks: Block[]) => updateScene({ blocks });
 
-  const ajouterPlan = () =>
-    majSpec({
+  const addScene = () =>
+    updateSpec({
       ...spec,
       scenes: [
         ...spec.scenes,
@@ -109,41 +109,41 @@ export const VideoEditor: React.FC = () => {
       ],
     });
 
-  const ajouterBloc = (type: BlockType) => {
-    if (!courant) return;
-    const b = nouveauBloc(type, courant.blocks.length);
-    majBlocks([...courant.blocks, b]);
+  const addBlock = (type: BlockType) => {
+    if (!current) return;
+    const b = newBlock(type, current.blocks.length);
+    updateBlocks([...current.blocks, b]);
     setSelection(b.id);
   };
 
-  const enregistrer = () =>
+  const save = () =>
     void run(async () => {
       await api.put(`${base}/video-compositions/${id}`, { spec });
-      setModifie(false);
+      setDirty(false);
       await comp.reload();
     });
 
-  const lancerRendu = () =>
+  const startRender = () =>
     void run(async () => {
-      if (modifie) await api.put(`${base}/video-compositions/${id}`, { spec });
+      if (dirty) await api.put(`${base}/video-compositions/${id}`, { spec });
       const r = await api.post<{ id: string; machines_online: number }>(
         `${base}/video-compositions/${id}/render`,
       );
-      setModifie(false);
-      setFile(
+      setDirty(false);
+      setQueueNotice(
         r.machines_online > 0
           ? "Rendu en file — une machine va le reclamer."
           : "Rendu en file, mais aucune machine connectee : un admin sera prevenu.",
       );
     });
 
-  const layout: Layout | null = courant
+  const layout: Layout | null = current
     ? {
         version: spec.version,
         width: spec.width,
         height: spec.height,
-        background: courant.background ?? null,
-        blocks: courant.blocks,
+        background: current.background ?? null,
+        blocks: current.blocks,
         fps: spec.fps,
       }
     : null;
@@ -161,24 +161,24 @@ export const VideoEditor: React.FC = () => {
           <h1 className="text-2xl font-semibold tracking-tight">{comp.data?.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
             {spec.width} × {spec.height} · {spec.fps} img/s · {spec.scenes.length} plan(s) ·{" "}
-            {(duree / spec.fps).toFixed(1)} s · v{comp.data?.version}
+            {(duration / spec.fps).toFixed(1)} s · v{comp.data?.version}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {modifie && <Badge tone="warn">non enregistre</Badge>}
-          <Button disabled={busy || !modifie} onClick={enregistrer}>
+          {dirty && <Badge tone="warn">non enregistre</Badge>}
+          <Button disabled={busy || !dirty} onClick={save}>
             Enregistrer
           </Button>
-          <Button variant="primary" disabled={busy || spec.scenes.length === 0} onClick={lancerRendu}>
+          <Button variant="primary" disabled={busy || spec.scenes.length === 0} onClick={startRender}>
             Lancer le rendu
           </Button>
         </div>
       </header>
 
       <ErrorNote>{comp.error ?? brand.error ?? error}</ErrorNote>
-      {file && (
+      {queueNotice && (
         <p className="mb-4 rounded-lg border border-line bg-panel px-3 py-2 text-sm">
-          {file}{" "}
+          {queueNotice}{" "}
           <Link to="/rendus" className="underline">
             suivre la file
           </Link>
@@ -187,7 +187,7 @@ export const VideoEditor: React.FC = () => {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div>
-          {/* Timeline : les plans dans l'ordre, chacun avec sa duree. */}
+          {/* Timeline: the scenes in order, each with its duration. */}
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {spec.scenes.map((s, i) => (
               <button
@@ -204,26 +204,26 @@ export const VideoEditor: React.FC = () => {
                 <span className="ml-1.5 opacity-70">{(s.durationInFrames / spec.fps).toFixed(1)}s</span>
               </button>
             ))}
-            <Button size="sm" onClick={ajouterPlan}>
+            <Button size="sm" onClick={addScene}>
               + plan
             </Button>
           </div>
 
-          {layout && courant ? (
+          {layout && current ? (
             <>
               <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                {(Object.keys(NOMS_BLOCS) as BlockType[])
+                {(Object.keys(BLOCK_NAMES) as BlockType[])
                   .filter((t) => t !== "group")
                   .map((t) => (
-                    <Button key={t} size="sm" onClick={() => ajouterBloc(t)}>
-                      + {NOMS_BLOCS[t]}
+                    <Button key={t} size="sm" onClick={() => addBlock(t)}>
+                      + {BLOCK_NAMES[t]}
                     </Button>
                   ))}
                 <label className="ml-auto flex items-center gap-1.5 text-xs">
                   <input
                     type="checkbox"
-                    checked={magnetisme}
-                    onChange={(e) => setMagnetisme(e.target.checked)}
+                    checked={snap}
+                    onChange={(e) => setSnap(e.target.checked)}
                   />
                   magnetisme
                 </label>
@@ -231,14 +231,14 @@ export const VideoEditor: React.FC = () => {
 
               <Canvas
                 layout={layout}
-                brand={charte}
-                data={donnees}
+                brand={brandTokens}
+                data={data}
                 media={media}
                 selection={selection}
                 onSelect={setSelection}
-                onBlocks={majBlocks}
-                magnetisme={magnetisme}
-                zonesSures={false}
+                onBlocks={updateBlocks}
+                snap={snap}
+                safeAreas={false}
               />
             </>
           ) : (
@@ -251,11 +251,11 @@ export const VideoEditor: React.FC = () => {
 
           <div className="mt-4">
             <Card title="Apercu">
-              {duree > 0 ? (
+              {duration > 0 ? (
                 <Player
                   component={VideoComposition}
-                  inputProps={{ spec, brand: charte, data: donnees, media }}
-                  durationInFrames={duree}
+                  inputProps={{ spec, brand: brandTokens, data: data, media }}
+                  durationInFrames={duration}
                   fps={spec.fps}
                   compositionWidth={spec.width}
                   compositionHeight={spec.height}
@@ -272,7 +272,7 @@ export const VideoEditor: React.FC = () => {
         </div>
 
         <div className="space-y-4">
-          {courant && (
+          {current && (
             <Card title={`Plan ${scene + 1}`}>
               <div className="space-y-2">
                 <Field label="Duree (secondes)">
@@ -280,9 +280,9 @@ export const VideoEditor: React.FC = () => {
                     type="number"
                     step={0.1}
                     min={0.1}
-                    value={(courant.durationInFrames / spec.fps).toFixed(1)}
+                    value={(current.durationInFrames / spec.fps).toFixed(1)}
                     onChange={(e) =>
-                      majScene({
+                      updateScene({
                         durationInFrames: Math.max(1, Math.round(Number(e.target.value) * spec.fps)),
                       })
                     }
@@ -290,12 +290,12 @@ export const VideoEditor: React.FC = () => {
                 </Field>
                 <Field label="Transition d'entree">
                   <Select
-                    value={courant.transition?.type ?? "cut"}
+                    value={current.transition?.type ?? "cut"}
                     onChange={(e) =>
-                      majScene({
+                      updateScene({
                         transition: {
                           type: e.target.value as "cut" | "fade" | "slide",
-                          durationInFrames: courant.transition?.durationInFrames ?? 12,
+                          durationInFrames: current.transition?.durationInFrames ?? 12,
                         },
                       })
                     }
@@ -306,22 +306,22 @@ export const VideoEditor: React.FC = () => {
                   </Select>
                 </Field>
 
-                <FondEditeur
-                  background={courant.background ?? null}
+                <BackgroundEditor
+                  background={current.background ?? null}
                   tokens={tokens}
                   assets={assets.data ?? []}
-                  onChange={(background) => majScene({ background })}
+                  onChange={(background) => updateScene({ background })}
                 />
 
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   <Button
                     size="sm"
                     onClick={() =>
-                      majSpec({
+                      updateSpec({
                         ...spec,
                         scenes: [
                           ...spec.scenes.slice(0, scene + 1),
-                          { ...structuredClone(courant), id: `s${Date.now().toString(36)}` },
+                          { ...structuredClone(current), id: `s${Date.now().toString(36)}` },
                           ...spec.scenes.slice(scene + 1),
                         ],
                       })
@@ -335,7 +335,7 @@ export const VideoEditor: React.FC = () => {
                     onClick={() => {
                       const scenes = [...spec.scenes];
                       [scenes[scene - 1], scenes[scene]] = [scenes[scene], scenes[scene - 1]];
-                      majSpec({ ...spec, scenes });
+                      updateSpec({ ...spec, scenes });
                       setScene(scene - 1);
                     }}
                   >
@@ -347,7 +347,7 @@ export const VideoEditor: React.FC = () => {
                     onClick={() => {
                       const scenes = [...spec.scenes];
                       [scenes[scene + 1], scenes[scene]] = [scenes[scene], scenes[scene + 1]];
-                      majSpec({ ...spec, scenes });
+                      updateSpec({ ...spec, scenes });
                       setScene(scene + 1);
                     }}
                   >
@@ -357,7 +357,7 @@ export const VideoEditor: React.FC = () => {
                     size="sm"
                     variant="danger"
                     onClick={() => {
-                      majSpec({ ...spec, scenes: spec.scenes.filter((_, i) => i !== scene) });
+                      updateSpec({ ...spec, scenes: spec.scenes.filter((_, i) => i !== scene) });
                       setScene(Math.max(0, scene - 1));
                       setSelection(null);
                     }}
@@ -375,7 +375,7 @@ export const VideoEditor: React.FC = () => {
                 <Select
                   value={spec.audio?.assetId ?? ""}
                   onChange={(e) =>
-                    majSpec({
+                    updateSpec({
                       ...spec,
                       audio: e.target.value ? { ...spec.audio, assetId: e.target.value } : null,
                     })
@@ -398,7 +398,7 @@ export const VideoEditor: React.FC = () => {
                       type="number"
                       value={spec.audio.startFrom ?? 0}
                       onChange={(e) =>
-                        majSpec({
+                        updateSpec({
                           ...spec,
                           audio: { ...spec.audio, startFrom: Number(e.target.value) },
                         })
@@ -413,7 +413,7 @@ export const VideoEditor: React.FC = () => {
                       max={1}
                       value={spec.audio.volume ?? 1}
                       onChange={(e) =>
-                        majSpec({
+                        updateSpec({
                           ...spec,
                           audio: { ...spec.audio, volume: Number(e.target.value) },
                         })
@@ -425,10 +425,10 @@ export const VideoEditor: React.FC = () => {
             </div>
           </Card>
 
-          {courant && (
+          {current && (
             <Card title="Calques">
               <ul className="space-y-1">
-                {[...courant.blocks]
+                {[...current.blocks]
                   .sort((a, b) => (b.z ?? 0) - (a.z ?? 0))
                   .map((b) => (
                     <li key={b.id}>
@@ -438,7 +438,7 @@ export const VideoEditor: React.FC = () => {
                           b.id === selection ? "bg-ink text-paper" : "hover:bg-paper"
                         }`}
                       >
-                        <span className="truncate">{NOMS_BLOCS[b.type]}</span>
+                        <span className="truncate">{BLOCK_NAMES[b.type]}</span>
                       </button>
                     </li>
                   ))}
@@ -446,33 +446,33 @@ export const VideoEditor: React.FC = () => {
             </Card>
           )}
 
-          {bloc && courant && (
-            <Card title={NOMS_BLOCS[bloc.type]}>
+          {block && current && (
+            <Card title={BLOCK_NAMES[block.type]}>
               <Inspector
-                block={bloc}
+                block={block}
                 tokens={tokens}
                 assets={assets.data ?? []}
-                temporel
+                timeline
                 onChange={(patch) =>
-                  majBlocks(courant.blocks.map((b) => (b.id === bloc.id ? { ...b, ...patch } : b)))
+                  updateBlocks(current.blocks.map((b) => (b.id === block.id ? { ...b, ...patch } : b)))
                 }
                 onProps={(patch) =>
-                  majBlocks(
-                    courant.blocks.map((b) =>
-                      b.id === bloc.id ? { ...b, props: { ...(b.props as object), ...patch } } : b,
+                  updateBlocks(
+                    current.blocks.map((b) =>
+                      b.id === block.id ? { ...b, props: { ...(b.props as object), ...patch } } : b,
                     ),
                   )
                 }
                 onDelete={() => {
-                  majBlocks(courant.blocks.filter((b) => b.id !== bloc.id));
+                  updateBlocks(current.blocks.filter((b) => b.id !== block.id));
                   setSelection(null);
                 }}
                 onDuplicate={() => {
-                  const copie = dupliquer(bloc);
-                  majBlocks([...courant.blocks, copie]);
-                  setSelection(copie.id);
+                  const copy = duplicateBlock(block);
+                  updateBlocks([...current.blocks, copy]);
+                  setSelection(copy.id);
                 }}
-                onLayer={(sens) => majBlocks(deplacerCalque(courant.blocks, bloc.id, sens))}
+                onLayer={(direction) => updateBlocks(moveLayer(current.blocks, block.id, direction))}
               />
             </Card>
           )}

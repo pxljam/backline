@@ -1,15 +1,15 @@
-//! Canal Telegram (§13). L'API n'ecrit jamais directement dans Telegram depuis
-//! une requete HTTP : elle depose une notification, un job la delivre.
+//! Telegram channel (§13). The API never writes straight to Telegram from an
+//! HTTP request: it drops off a notification, and a job delivers it.
 //!
-//! Sans `TELEGRAM_BOT_TOKEN`, l'implementation est un journal : l'application
-//! reste entierement utilisable par le web, qui est un doublon complet (§19).
+//! Without `TELEGRAM_BOT_TOKEN` the implementation is a log: the application
+//! stays fully usable through the web, which is a complete mirror (§19).
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::Value;
 
-/// Une mise a jour recue du bot : un message ou l'appui sur un bouton.
+/// An update received from the bot: a message, or a button press.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Update {
     pub update_id: i64,
@@ -64,7 +64,7 @@ pub struct OutgoingDocument {
 pub struct OutgoingMessage {
     pub chat_id: i64,
     pub text: String,
-    /// Clavier en ligne : `[[{ text, callback_data }]]`
+    /// Inline keyboard: `[[{ text, callback_data }]]`
     pub keyboard: Option<Value>,
     pub photo_url: Option<String>,
 }
@@ -73,19 +73,19 @@ pub struct OutgoingMessage {
 pub trait Telegram: Send + Sync {
     async fn send(&self, msg: OutgoingMessage) -> Result<()>;
 
-    /// Envoie un fichier — une fiche technique part en PDF depuis la
-    /// conversation, sans passer par le web (§13 `/fiche`).
+    /// Sends a file — a tech rider goes out as a PDF straight from the chat,
+    /// without going through the web (§13 `/fiche`).
     async fn send_document(&self, _doc: OutgoingDocument) -> Result<()> {
         Ok(())
     }
 
-    /// Long polling. Sans jeton, la boucle du bot n'a rien a lire.
+    /// Long polling. Without a token, the bot loop has nothing to read.
     async fn poll_updates(&self, _offset: i64, _timeout_s: u64) -> Result<Vec<Update>> {
         Ok(Vec::new())
     }
 
-    /// Acquitte l'appui sur un bouton : sans cela, Telegram laisse tourner
-    /// l'animation de chargement sur le telephone du membre.
+    /// Acknowledges a button press: without it, Telegram leaves the loading
+    /// spinner running on the member's phone.
     async fn answer_callback(&self, _callback_id: &str, _text: &str) -> Result<()> {
         Ok(())
     }
@@ -95,13 +95,13 @@ pub trait Telegram: Send + Sync {
     }
 }
 
-/// Repli quand aucun jeton n'est configure.
+/// Fallback when no token is configured.
 pub struct LoggingTelegram;
 
 #[async_trait]
 impl Telegram for LoggingTelegram {
     async fn send(&self, msg: OutgoingMessage) -> Result<()> {
-        tracing::info!(chat_id = msg.chat_id, text = %msg.text, "telegram desactive — message journalise");
+        tracing::info!(chat_id = msg.chat_id, text = %msg.text, "telegram disabled — message logged");
         Ok(())
     }
     fn enabled(&self) -> bool {
@@ -118,8 +118,8 @@ impl HttpTelegram {
     pub fn new(token: String) -> Self {
         Self {
             token,
-            // Le long polling tient une requete ouverte : le client doit lui
-            // laisser plus de temps que le timeout demande a Telegram.
+            // Long polling holds a request open: the client must allow more
+            // time than the timeout asked of Telegram.
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(90))
                 .build()
@@ -195,7 +195,7 @@ impl Telegram for HttpTelegram {
 
     async fn poll_updates(&self, offset: i64, timeout_s: u64) -> Result<Vec<Update>> {
         #[derive(Deserialize)]
-        struct Reponse {
+        struct ApiResponse {
             ok: bool,
             #[serde(default)]
             result: Vec<Update>,
@@ -213,7 +213,7 @@ impl Telegram for HttpTelegram {
             }))
             .send()
             .await?
-            .json::<Reponse>()
+            .json::<ApiResponse>()
             .await?;
 
         if !resp.ok {

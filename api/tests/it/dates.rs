@@ -1,15 +1,15 @@
-//! §18 : « Une date est arretee avec un lieu **sans aucun message manuel** :
-//! sondage ouvert → matrice → date retenue. »
+//! §18: "A date is settled with a venue **without a single manual message**:
+//! poll opened → matrix → date chosen."
 //!
-//! Et l'invariant qui donne sa valeur a la matrice : « Une disponibilite ne
-//! peut etre ecrite que par la personne concernee, y compris par un admin. »
+//! Plus the invariant that gives the matrix its value: "An availability can
+//! only be written by the person it belongs to, an admin included"
 
 use crate::harness::TestApp;
 use serde_json::json;
 use uuid::Uuid;
 
-/// Monte une opportunite a trois dates, sondage ouvert.
-async fn opportunite(app: &TestApp) -> (Uuid, Uuid, Vec<Uuid>) {
+/// Sets up an opportunity with three dates and an open poll.
+async fn opportunity(app: &TestApp) -> (Uuid, Uuid, Vec<Uuid>) {
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.user_id("Antoine").await;
     let admin = app.login_as(antoine).await;
@@ -61,19 +61,19 @@ async fn opportunite(app: &TestApp) -> (Uuid, Uuid, Vec<Uuid>) {
 }
 
 #[tokio::test]
-async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
+async fn from_poll_to_event_without_a_single_manual_message() {
     let app = TestApp::seeded().await;
-    let (cid, oid, dates) = opportunite(&app).await;
+    let (cid, oid, dates) = opportunity(&app).await;
 
-    // 1. Ouvrir le sondage a prevenu tout le monde, tout seul.
-    let (notifs,): (i64,) =
+    // 1. Opening the poll told everyone, on its own.
+    let (notices,): (i64,) =
         sqlx::query_as("SELECT count(*) FROM notifications WHERE kind = 'poll_open'")
             .fetch_one(&app.db)
             .await
             .unwrap();
-    assert_eq!(notifs, 5, "un message par membre du collectif");
+    assert_eq!(notices, 5, "one message per member of the collective");
 
-    // 2. Chacun repond pour lui-meme, web ou bot, peu importe.
+    // 2. Everyone answers for themselves, web or bot, it makes no difference.
     for (nom, reponses, veut_jouer) in [
         ("Anas", ["no", "yes", "yes"], true),
         ("Romain", ["maybe", "yes", "yes"], true),
@@ -95,7 +95,7 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
             .expect_ok();
     }
 
-    // 3. La matrice designe la date : celle ou un groupe est **complet**.
+    // 3. The matrix points at the date: the one where a group is **complete**.
     let anas = app.login_named("Anas").await;
     let matrix = anas
         .get(&format!(
@@ -109,40 +109,40 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
     let d1 = &matrix["dates"][1];
     let d2 = &matrix["dates"][2];
 
-    assert_eq!(d1["yes"], 4, "le 14 : tout le monde est dispo");
-    let complets: Vec<String> = d1["complete_groups"]
+    assert_eq!(d1["yes"], 4, "on the 14th: everyone is available");
+    let complete: Vec<String> = d1["complete_groups"]
         .as_array()
         .unwrap()
         .iter()
         .map(|g| g.as_str().unwrap().to_string())
         .collect();
     assert!(
-        complets.contains(&ramas.to_string()),
+        complete.contains(&ramas.to_string()),
         "Ramas doit etre complet le 14"
     );
 
-    // Le 7, Anas dit non : Ramas est incomplet, et l'app dit **qui** manque.
-    let partiels = d0["partial_groups"].as_array().unwrap();
-    let ramas_partiel = partiels
+    // On the 7th, Anas says no: Ramas is incomplete, and the app says **who** is missing.
+    let partial = d0["partial_groups"].as_array().unwrap();
+    let ramas_partial = partial
         .iter()
         .find(|p| p["group_id"] == json!(ramas.to_string()))
-        .expect("Ramas doit apparaitre comme incomplet le 7");
+        .expect("Ramas must show up as incomplete on the 7th");
     let anas_id = app.user_id("Anas").await;
-    assert_eq!(ramas_partiel["missing"][0], json!(anas_id.to_string()));
+    assert_eq!(ramas_partial["missing"][0], json!(anas_id.to_string()));
 
-    // Le 21, Mathieu manque : Dante3p est incomplet, Ramas non.
-    let complets_21: Vec<String> = d2["complete_groups"]
+    // On the 21st, Mathieu is missing: Dante3p is incomplete, Ramas is not.
+    let complete_on_the_21st: Vec<String> = d2["complete_groups"]
         .as_array()
         .unwrap()
         .iter()
         .map(|g| g.as_str().unwrap().to_string())
         .collect();
-    assert!(complets_21.contains(&ramas.to_string()));
+    assert!(complete_on_the_21st.contains(&ramas.to_string()));
 
-    // Les volontaires sont identifies : c'est le line-up possible.
+    // The volunteers are identified: that is the possible line-up.
     assert_eq!(d1["volunteers"].as_array().unwrap().len(), 3);
 
-    // 4. Conversion : la date est arretee.
+    // 4. Conversion: the date is settled.
     let antoine = app.login_named("Antoine").await;
     let converted = antoine
         .post(
@@ -159,7 +159,7 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
         .unwrap()
         .to_string();
 
-    // 5. Tout ce que la confirmation doit declencher (§5.3) est la.
+    // 5. Everything confirmation must set off (§5.3) is there.
     let event = antoine
         .get(&format!("/api/collectives/{cid}/events/{event_id}"))
         .await;
@@ -187,8 +187,8 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
         "fiche technique rattachee"
     );
 
-    // Retenus **et** non-retenus sont prevenus.
-    let (retenus,): (i64,) =
+    // Those selected **and** those not are told.
+    let (selected,): (i64,) =
         sqlx::query_as("SELECT count(*) FROM notifications WHERE kind = 'lineup_retained'")
             .fetch_one(&app.db)
             .await
@@ -198,10 +198,10 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
             .fetch_one(&app.db)
             .await
             .unwrap();
-    assert_eq!(retenus, 2, "Anas et Romain");
+    assert_eq!(selected, 2, "Anas and Romain");
     assert_eq!(non_retenus, 1, "Mathieu s'etait porte volontaire");
 
-    // Le sondage se ferme, l'opportunite est confirmee.
+    // The poll closes, the opportunity is confirmed.
     let opp = antoine
         .get(&format!("/api/collectives/{cid}/opportunities/{oid}"))
         .await;
@@ -211,14 +211,14 @@ async fn du_sondage_a_l_evenement_sans_un_seul_message_manuel() {
 }
 
 #[tokio::test]
-async fn une_disponibilite_n_est_ecrite_que_par_son_auteur_admin_compris() {
+async fn an_availability_is_written_only_by_its_author_admins_included() {
     let app = TestApp::seeded().await;
-    let (cid, oid, dates) = opportunite(&app).await;
+    let (cid, oid, dates) = opportunity(&app).await;
 
     let anas = app.user_id("Anas").await;
     let antoine = app.login_named("Antoine").await; // admin du collectif
 
-    // L'admin tente de repondre a la place d'Anas.
+    // The admin tries to answer in Anas's place.
     let res = antoine
         .put(
             &format!("/api/collectives/{cid}/opportunities/{oid}/availabilities"),
@@ -235,8 +235,8 @@ async fn une_disponibilite_n_est_ecrite_que_par_son_auteur_admin_compris() {
         res.text
     );
 
-    // Rien n'a ete ecrit sur CE sondage (les donnees d'amorcage en contiennent
-    // d'autres, deja remplies par leurs auteurs).
+    // Nothing was written on THIS poll (the seed data contains others, already
+    // filled in by their authors).
     let (n,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM availabilities a
          JOIN candidate_dates d ON d.id = a.candidate_date_id
@@ -249,7 +249,7 @@ async fn une_disponibilite_n_est_ecrite_que_par_son_auteur_admin_compris() {
     .unwrap();
     assert_eq!(n, 0);
 
-    // Anas repond pour lui : accepte.
+    // Anas answers for themselves: accepted.
     let anas_client = app.login_as(anas).await;
     anas_client
         .put(
@@ -264,9 +264,9 @@ async fn une_disponibilite_n_est_ecrite_que_par_son_auteur_admin_compris() {
 }
 
 #[tokio::test]
-async fn les_disponibilites_sont_visibles_par_tous_les_membres() {
+async fn availabilities_are_visible_to_every_member() {
     let app = TestApp::seeded().await;
-    let (cid, oid, dates) = opportunite(&app).await;
+    let (cid, oid, dates) = opportunity(&app).await;
 
     let romain = app.login_named("Romain").await;
     romain
@@ -277,8 +277,8 @@ async fn les_disponibilites_sont_visibles_par_tous_les_membres() {
         .await
         .expect_ok();
 
-    // Mathieu, simple membre, voit la reponse de Romain : chacun voit que la
-    // date est en train de se jouer (§5.2).
+    // Mathieu, a plain member, sees Romain's answer: everyone can see the date
+    // being decided (§5.2).
     let mathieu = app.login_named("Mathieu").await;
     let matrix = mathieu
         .get(&format!(
@@ -287,21 +287,21 @@ async fn les_disponibilites_sont_visibles_par_tous_les_membres() {
         .await;
     let matrix = matrix.expect_ok();
     let romain_id = app.user_id("Romain").await;
-    let ligne = matrix["members"]
+    let line = matrix["members"]
         .as_array()
         .unwrap()
         .iter()
         .find(|m| m["user_id"] == json!(romain_id.to_string()))
         .unwrap();
-    assert_eq!(ligne["answers"][dates[0].to_string()]["status"], "yes");
+    assert_eq!(line["answers"][dates[0].to_string()]["status"], "yes");
 }
 
 #[tokio::test]
-async fn on_ne_peut_pas_ecrire_dans_le_sondage_d_une_autre_opportunite() {
+async fn you_cannot_write_into_another_opportunitys_poll() {
     let app = TestApp::seeded().await;
-    let (cid, oid, _) = opportunite(&app).await;
+    let (cid, oid, _) = opportunity(&app).await;
 
-    // Date candidate appartenant a l'opportunite d'amorcage, pas a celle-ci.
+    // A candidate date belonging to the seeded opportunity, not this one.
     let (autre_date,): (Uuid,) = sqlx::query_as(
         "SELECT d.id FROM candidate_dates d JOIN opportunities o ON o.id = d.opportunity_id
          WHERE o.id <> $1 LIMIT 1",
@@ -322,7 +322,7 @@ async fn on_ne_peut_pas_ecrire_dans_le_sondage_d_une_autre_opportunite() {
 }
 
 #[tokio::test]
-async fn un_sondage_sans_date_candidate_ne_s_ouvre_pas() {
+async fn a_poll_without_a_candidate_date_does_not_open() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;

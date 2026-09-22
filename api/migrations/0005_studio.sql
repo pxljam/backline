@@ -1,6 +1,6 @@
--- Etape 6 du §17 : charte, catalogue de formats, gabarits, assets.
+-- Step 6 of §17: brand, format catalogue, templates, assets.
 
--- Une charte par collectif, surcharge partielle par groupe.
+-- One brand per collective, partially overridden per group.
 CREATE TABLE brands (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id UUID NOT NULL REFERENCES collectives(id) ON DELETE CASCADE,
@@ -11,7 +11,7 @@ CREATE TABLE brands (
 CREATE UNIQUE INDEX brands_collective_unique ON brands(collective_id) WHERE group_id IS NULL;
 CREATE UNIQUE INDEX brands_group_unique ON brands(group_id) WHERE group_id IS NOT NULL;
 
--- Tokens : donnees editables, jamais du code (§8).
+-- Tokens: editable data, never code (§8).
 CREATE TABLE brand_tokens (
     id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -23,7 +23,7 @@ CREATE TABLE brand_tokens (
     UNIQUE (brand_id, kind, key)
 );
 
--- Catalogue editable : les plateformes changent leurs formats sans toucher au code.
+-- Editable catalogue: platforms change their formats without touching the code.
 CREATE TABLE formats (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id UUID REFERENCES collectives(id) ON DELETE CASCADE,  -- NULL = catalogue d'instance
@@ -54,13 +54,13 @@ CREATE TABLE assets (
     tags          TEXT[] NOT NULL DEFAULT '{}',
     uploaded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- purge automatique des rendus a 6 mois : ils se regenerent a l'identique (§15).
+    -- renders are purged automatically at 6 months: they regenerate identically (§15).
     purge_after   TIMESTAMPTZ
 );
 CREATE INDEX assets_collective_idx ON assets(collective_id, created_at DESC);
 CREATE INDEX assets_purge_idx ON assets(purge_after) WHERE purge_after IS NOT NULL;
 
--- Un gabarit est concu sur un format maitre puis decline (§9.3).
+-- A template is designed on a master format then derived (§9.3).
 CREATE TABLE templates (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id    UUID NOT NULL REFERENCES collectives(id) ON DELETE CASCADE,
@@ -75,7 +75,7 @@ CREATE TABLE templates (
 );
 CREATE INDEX templates_collective_idx ON templates(collective_id);
 
--- Une declinaison par format, ratio verrouille, ajustements propres.
+-- One variant per format, ratio locked, with its own adjustments.
 CREATE TABLE template_variants (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     template_id UUID NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
@@ -86,7 +86,7 @@ CREATE TABLE template_variants (
     UNIQUE (template_id, format_id)
 );
 
--- Modifier un gabarit ne casse aucun visuel deja produit.
+-- Editing a template breaks no visual already produced.
 CREATE TABLE template_versions (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     template_id UUID NOT NULL REFERENCES templates(id) ON DELETE CASCADE,

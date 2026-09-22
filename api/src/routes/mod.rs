@@ -1,7 +1,7 @@
-//! Assemblage du routeur. Tout ce qui touche a un collectif vit sous
-//! `/api/collectives/:collective_id/…` — l'identifiant est dans l'URL parce
-//! qu'un utilisateur appartient a plusieurs collectifs et bascule de l'un a
-//! l'autre (§3, §13 `/collectif`).
+//! Router assembly. Everything that touches a collective lives under
+//! `/api/collectives/:collective_id/…` — the identifier is in the URL because a
+//! user belongs to several collectives and switches between them (§3, §13
+//! `/collectif`).
 
 use crate::state::AppState;
 use axum::routing::get;
@@ -55,8 +55,8 @@ async fn health() -> &'static str {
     "ok"
 }
 
-/// Ce que l'interface doit savoir **avant** toute connexion : y a-t-il un bot
-/// Telegram sur cette instance, et sous quel nom ? Rien de secret ici.
+/// What the interface must know **before** any sign-in: is there a Telegram
+/// bot on this instance, and under what name? Nothing secret here.
 async fn public_config(
     axum::extract::State(state): axum::extract::State<AppState>,
 ) -> axum::Json<serde_json::Value> {

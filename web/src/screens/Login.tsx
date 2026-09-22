@@ -21,7 +21,7 @@ export const Login: React.FC = () => {
 
   if (!loading && me) return <Navigate to="/" replace />;
 
-  const entrer = async (fn: () => Promise<unknown>) => {
+  const submit = async (fn: () => Promise<unknown>) => {
     const ok = await run(fn);
     if (ok !== null) {
       await reload();
@@ -45,7 +45,7 @@ export const Login: React.FC = () => {
           <p className="mb-2 text-xs uppercase tracking-wide text-ink-soft">Connexion Telegram</p>
           <TelegramLogin
             botUsername={config.telegram_bot_username}
-            onAuth={(user) => void entrer(() => api.post("/api/auth/login/telegram", user))}
+            onAuth={(user) => void submit(() => api.post("/api/auth/login/telegram", user))}
           />
         </div>
       )}
@@ -54,7 +54,7 @@ export const Login: React.FC = () => {
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          void entrer(() => api.post("/api/auth/login/password", { email, password }));
+          void submit(() => api.post("/api/auth/login/password", { email, password }));
         }}
       >
         <p className="text-xs uppercase tracking-wide text-ink-soft">

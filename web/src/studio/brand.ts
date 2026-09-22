@@ -4,9 +4,9 @@ import { api } from "../lib/api";
 import type { BrandToken } from "../lib/types";
 
 /**
- * Tokens de charte tels que l'API les renvoie -> objet `Brand` du moteur de
- * rendu. L'heritage collectif -> groupe est **partiel** : le groupe ne
- * redefinit que ce qu'il redefinit (§8).
+ * Brand tokens as the API returns them -> the render engine's `Brand` object.
+ * Collective -> group inheritance is **partial**: the group only redefines
+ * what it redefines (§8).
  */
 export function toBrand(tokens: BrandToken[], inherited?: BrandToken[] | null): Brand {
   const brand: Brand = {};
@@ -18,22 +18,22 @@ export function toBrand(tokens: BrandToken[], inherited?: BrandToken[] | null): 
   return brand;
 }
 
-/** Libelle lisible d'un token, pour les selecteurs de l'editeur. */
+/** Readable label for a token, for the editor's selectors. */
 export function tokenLabels(tokens: BrandToken[], kind: BrandToken["kind"]) {
   return tokens.filter((t) => t.kind === kind).map((t) => ({ key: t.key, label: t.label }));
 }
 
 /**
- * URLs signees des medias references par un gabarit. Elles expirent : on les
- * redemande a chaque ouverture de l'editeur plutot que de les stocker.
+ * Signed URLs for the media a template references. They expire, so we ask for
+ * them again each time the editor opens rather than storing them.
  */
 export function useMediaMap(base: string, assetIds: string[]): MediaMap {
   const [media, setMedia] = useState<MediaMap>({});
-  const cle = assetIds.filter(Boolean).sort().join(",");
+  const key = assetIds.filter(Boolean).sort().join(",");
 
   useEffect(() => {
-    const ids = cle ? cle.split(",") : [];
-    let annule = false;
+    const ids = key ? key.split(",") : [];
+    let cancelled = false;
     void (async () => {
       const entries = await Promise.all(
         ids.map(async (id) => {
@@ -43,19 +43,19 @@ export function useMediaMap(base: string, assetIds: string[]): MediaMap {
             );
             return [id, { url: r.url, mime: r.mime }] as const;
           } catch {
-            // Un media introuvable laisse un cadre vide visible, jamais un trou
-            // silencieux.
+            // Missing media leaves a visible empty frame, never a silent
+            // hole.
             return null;
           }
         }),
       );
-      if (annule) return;
+      if (cancelled) return;
       setMedia(Object.fromEntries(entries.filter((e): e is NonNullable<typeof e> => e !== null)));
     })();
     return () => {
-      annule = true;
+      cancelled = true;
     };
-  }, [base, cle]);
+  }, [base, key]);
 
   return media;
 }

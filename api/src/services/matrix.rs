@@ -1,8 +1,8 @@
-//! Matrice `membres x dates candidates` (§5.2).
+//! The `members x candidate dates` matrix (§5.2).
 //!
-//! C'est l'ecran qui supprime les allers-retours : pour chaque date, combien de
-//! gens sont dispos, **quels groupes sont complets** (donc jouables tels quels),
-//! et qui manque dans les autres.
+//! This is the screen that removes the back and forth: for each date, how many
+//! people are available, **which groups are complete** (and therefore playable
+//! as they stand), and who is missing from the others.
 
 use crate::error::AppResult;
 use crate::scope::CollectiveScope;
@@ -32,11 +32,11 @@ pub struct MatrixDate {
     pub maybe: i64,
     pub no: i64,
     pub no_answer: i64,
-    /// Membres ayant appuye sur « 🎸 je veux jouer » pour cette date.
+    /// Members who pressed "🎸 je veux jouer" for this date.
     pub volunteers: Vec<Uuid>,
-    /// Groupes dont **tous** les membres sont disponibles : line-up possible.
+    /// Groups where **every** member is available: a possible line-up.
     pub complete_groups: Vec<Uuid>,
-    /// Groupes incomplets, avec les manquants nommement.
+    /// Incomplete groups, naming who is missing.
     pub partial_groups: Vec<PartialGroup>,
 }
 
@@ -52,7 +52,7 @@ pub struct MatrixMember {
     pub display_name: String,
     pub stage_name: Option<String>,
     pub group_ids: Vec<Uuid>,
-    /// Reponse par date candidate : `yes` | `maybe` | `no`, absente si muette.
+    /// Answer per candidate date: `yes` | `maybe` | `no`, absent if silent.
     pub answers: HashMap<Uuid, Answer>,
 }
 
@@ -74,7 +74,7 @@ pub async fn build(
     scope: &CollectiveScope,
     opportunity_id: Uuid,
 ) -> AppResult<Matrix> {
-    // Cloisonnement : l'opportunite doit appartenir au collectif du scope.
+    // Isolation: the opportunity must belong to the scope's collective.
     let exists: Option<(Uuid,)> =
         sqlx::query_as("SELECT id FROM opportunities WHERE id = $1 AND collective_id = $2")
             .bind(opportunity_id)
@@ -135,7 +135,7 @@ pub async fn build(
     .fetch_all(db)
     .await?;
 
-    // --- assemblage -------------------------------------------------------
+    // --- assembly ---------------------------------------------------------
     let mut groups: Vec<MatrixGroup> = Vec::new();
     let mut by_group: HashMap<Uuid, usize> = HashMap::new();
     let mut user_groups: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
@@ -187,7 +187,7 @@ pub async fn build(
             let mut complete_groups = Vec::new();
             let mut partial_groups = Vec::new();
             for g in &groups {
-                // Un groupe vide n'est ni complet ni incomplet : il n'a rien a dire.
+                // An empty group is neither complete nor incomplete: it has nothing to say.
                 if g.member_ids.is_empty() {
                     continue;
                 }

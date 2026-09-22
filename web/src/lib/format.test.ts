@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { dateCourte, heure, joursAvant, poids, relatif } from "./format";
+import { shortDate, time, daysUntil, fileSize, relativeTime } from "./format";
 
-describe("mise en forme francaise", () => {
-  it("ecrit les dates a la francaise", () => {
-    expect(dateCourte("2026-06-12T20:00:00")).toBe("12/06/2026");
-    expect(heure("2026-06-12T20:05:00")).toBe("20h05");
+describe("french formatting", () => {
+  it("writes dates the french way", () => {
+    expect(shortDate("2026-06-12T20:00:00")).toBe("12/06/2026");
+    expect(time("2026-06-12T20:05:00")).toBe("20h05");
   });
 
-  it("dit ce qui presse en clair", () => {
-    const dans3jours = new Date(Date.now() + 3 * 86_400_000).toISOString();
-    expect(relatif(dans3jours)).toBe("dans 3 jours");
-    expect(joursAvant(dans3jours)).toBe(3);
+  it("says what is pressing in plain words", () => {
+    const inThreeDays = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    expect(relativeTime(inThreeDays)).toBe("dans 3 jours");
+    expect(daysUntil(inThreeDays)).toBe(3);
 
-    const hier = new Date(Date.now() - 26 * 3_600_000).toISOString();
-    expect(relatif(hier)).toBe("il y a 1 jour");
+    const yesterday = new Date(Date.now() - 26 * 3_600_000).toISOString();
+    expect(relativeTime(yesterday)).toBe("il y a 1 jour");
   });
 
-  it("donne un poids lisible", () => {
-    expect(poids(512)).toBe("512 o");
-    expect(poids(2048)).toBe("2 ko");
-    expect(poids(5 * 1024 * 1024)).toBe("5.0 Mo");
+  it("gives a readable file size", () => {
+    expect(fileSize(512)).toBe("512 o");
+    expect(fileSize(2048)).toBe("2 ko");
+    expect(fileSize(5 * 1024 * 1024)).toBe("5.0 Mo");
   });
 });

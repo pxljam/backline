@@ -1,14 +1,14 @@
-//! §18, mode assiste (§11.2) :
-//! - « Aucune tache de publication ne peut etre marquee publiee sans action
-//!   humaine explicite ; toute tache non confirmee alerte un admin. »
-//! - « Une tache de publication ne peut etre assignee qu'a un membre ayant
-//!   acces au compte vise. »
+//! §18, assisted mode (§11.2):
+//! - "No publication task can be marked published without an explicit human
+//!   action; any unconfirmed task alerts an admin."
+//! - "A publication task can only be assigned to a member with access to the
+//!   account in question"
 
 use crate::harness::TestApp;
 use serde_json::json;
 use uuid::Uuid;
 
-async fn premiere_tache(app: &TestApp, cid: Uuid) -> Uuid {
+async fn first_task(app: &TestApp, cid: Uuid) -> Uuid {
     sqlx::query_as::<_, (Uuid,)>(
         "SELECT p.id FROM publication_tasks p JOIN events e ON e.id = p.event_id
          WHERE e.collective_id = $1 ORDER BY p.scheduled_at LIMIT 1",
@@ -21,7 +21,7 @@ async fn premiere_tache(app: &TestApp, cid: Uuid) -> Uuid {
 }
 
 #[tokio::test]
-async fn la_timeline_s_instancie_seule_et_tout_nait_en_brouillon() {
+async fn the_timeline_instantiates_itself_and_everything_is_born_a_draft() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -42,17 +42,17 @@ async fn la_timeline_s_instancie_seule_et_tout_nait_en_brouillon() {
         .get(&format!("/api/collectives/{cid}/events/{eid}/comms"))
         .await;
     let plan = plan.expect_ok();
-    let jalons: Vec<String> = plan
+    let milestones: Vec<String> = plan
         .as_array()
         .unwrap()
         .iter()
         .map(|t| t["milestone_key"].as_str().unwrap().to_string())
         .collect();
-    // La timeline du §11.1, integralement.
-    for attendu in ["j-30", "j-21", "j-14", "j-7", "j-3", "j-1", "j0", "j+2"] {
+    // The §11.1 timeline, in full.
+    for expected in ["j-30", "j-21", "j-14", "j-7", "j-3", "j-1", "j0", "j+2"] {
         assert!(
-            jalons.contains(&attendu.to_string()),
-            "{attendu} absent de {jalons:?}"
+            milestones.contains(&expected.to_string()),
+            "{expected} missing from {milestones:?}"
         );
     }
     assert!(
@@ -63,7 +63,7 @@ async fn la_timeline_s_instancie_seule_et_tout_nait_en_brouillon() {
         "toute tache nait au statut brouillon : un humain valide toujours"
     );
 
-    // J-30 tombe bien trente jours avant.
+    // D-30 really does fall thirty days before.
     let j30 = plan
         .as_array()
         .unwrap()
@@ -76,14 +76,14 @@ async fn la_timeline_s_instancie_seule_et_tout_nait_en_brouillon() {
 }
 
 #[tokio::test]
-async fn une_tache_ne_s_assigne_qu_a_quelqu_un_qui_a_acces_au_compte() {
+async fn a_task_is_only_assigned_to_someone_with_access_to_the_account() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
-    let task = premiere_tache(&app, cid).await;
+    let task = first_task(&app, cid).await;
 
-    // Les donnees d'amorcage rattachent les taches au compte Instagram du
-    // collectif, detenu par Antoine seul.
+    // The seed data attaches the tasks to the collective's Instagram account,
+    // held by Antoine alone.
     let anas = app.user_id("Anas").await;
     let res = antoine
         .post(
@@ -94,7 +94,7 @@ async fn une_tache_ne_s_assigne_qu_a_quelqu_un_qui_a_acces_au_compte() {
     res.expect_status(403);
     assert!(res.text.contains("acces au compte"), "{}", res.text);
 
-    // Antoine, lui, a l'acces.
+    // Antoine does have the access.
     let antoine_id = app.user_id("Antoine").await;
     antoine
         .post(
@@ -104,7 +104,7 @@ async fn une_tache_ne_s_assigne_qu_a_quelqu_un_qui_a_acces_au_compte() {
         .await
         .expect_ok();
 
-    // On donne l'acces a Anas : il devient assignable.
+    // Give Anas the access: they become assignable.
     let (account,): (Uuid,) = sqlx::query_as(
         "SELECT id FROM social_accounts WHERE collective_id = $1 AND group_id IS NULL LIMIT 1",
     )
@@ -129,12 +129,12 @@ async fn une_tache_ne_s_assigne_qu_a_quelqu_un_qui_a_acces_au_compte() {
 }
 
 #[tokio::test]
-async fn retirer_l_acces_libere_les_taches_assignees() {
+async fn removing_access_frees_the_assigned_tasks() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
     let antoine_id = app.user_id("Antoine").await;
-    let task = premiere_tache(&app, cid).await;
+    let task = first_task(&app, cid).await;
 
     antoine
         .post(
@@ -151,8 +151,8 @@ async fn retirer_l_acces_libere_les_taches_assignees() {
             .await
             .unwrap();
 
-    // Une brouille, un depart : l'acces change. L'invariant doit tenir apres
-    // coup, pas seulement au moment de l'assignation.
+    // A falling-out, a departure: access changes. The invariant must hold
+    // afterwards, not only at assignment time.
     antoine
         .put(
             &format!("/api/collectives/{cid}/social-accounts/{account}/access"),
@@ -167,18 +167,18 @@ async fn retirer_l_acces_libere_les_taches_assignees() {
             .fetch_one(&app.db)
             .await
             .unwrap();
-    assert!(assignee.is_none(), "la tache redevient sans responsable");
+    assert!(assignee.is_none(), "the task becomes unowned again");
     assert_eq!(status, "ready");
 }
 
 #[tokio::test]
-async fn publie_ne_s_obtient_que_par_une_action_humaine() {
+async fn published_is_only_reached_by_a_human_action() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
-    let task = premiere_tache(&app, cid).await;
+    let task = first_task(&app, cid).await;
 
-    // On ne peut pas forcer le statut par la porte de service.
+    // The status cannot be forced through the back door.
     let res = antoine
         .patch(
             &format!("/api/collectives/{cid}/publication-tasks/{task}"),
@@ -187,7 +187,7 @@ async fn publie_ne_s_obtient_que_par_une_action_humaine() {
         .await;
     res.expect_status(400);
 
-    // Quelqu'un a qui la tache n'est pas assignee ne confirme pas a sa place.
+    // Someone the task is not assigned to does not confirm in their place.
     let anas = app.login_named("Anas").await;
     let res = anas
         .post(
@@ -197,7 +197,7 @@ async fn publie_ne_s_obtient_que_par_une_action_humaine() {
         .await;
     res.expect_status(403);
 
-    // Le responsable appuie sur « ✅ publie ».
+    // The owner taps "✅ publie".
     let antoine_id = app.user_id("Antoine").await;
     antoine
         .post(
@@ -225,12 +225,12 @@ async fn publie_ne_s_obtient_que_par_une_action_humaine() {
 }
 
 #[tokio::test]
-async fn sans_confirmation_le_responsable_est_relance_puis_l_admin_alerte() {
+async fn without_confirmation_the_owner_is_reminded_then_the_admin_alerted() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
     let antoine_id = app.user_id("Antoine").await;
-    let task = premiere_tache(&app, cid).await;
+    let task = first_task(&app, cid).await;
 
     antoine
         .post(
@@ -240,9 +240,9 @@ async fn sans_confirmation_le_responsable_est_relance_puis_l_admin_alerte() {
         .await
         .expect_ok();
 
-    // L'heure de publication arrive.
+    // The publication time arrives.
     app.run_due_jobs().await;
-    let (dues,): (i64,) = sqlx::query_as(
+    let (due,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'publication_due'
            AND payload->>'task_id' = $1",
     )
@@ -250,9 +250,9 @@ async fn sans_confirmation_le_responsable_est_relance_puis_l_admin_alerte() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert!(dues >= 1, "le visuel et le texte partent au responsable");
+    assert!(due >= 1, "the visual and the text go to the owner");
 
-    // Une heure plus tard, puis trois : relance, puis alerte admin.
+    // An hour later, then three: a reminder, then an admin alert.
     app.run_due_jobs().await;
     app.run_due_jobs().await;
 
@@ -268,7 +268,7 @@ async fn sans_confirmation_le_responsable_est_relance_puis_l_admin_alerte() {
         "sans confirmation, la tache est marquee ratee"
     );
 
-    let (alertes,): (i64,) = sqlx::query_as(
+    let (alerts,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'admin_alert'
            AND payload->>'task_id' = $1",
     )
@@ -276,16 +276,16 @@ async fn sans_confirmation_le_responsable_est_relance_puis_l_admin_alerte() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert!(alertes >= 1, "un admin doit etre prevenu");
+    assert!(alerts >= 1, "an admin must be warned");
 }
 
 #[tokio::test]
-async fn confirmer_annule_les_relances_programmees() {
+async fn confirming_cancels_the_scheduled_reminders() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
     let antoine_id = app.user_id("Antoine").await;
-    let task = premiere_tache(&app, cid).await;
+    let task = first_task(&app, cid).await;
 
     antoine
         .post(
@@ -304,17 +304,17 @@ async fn confirmer_annule_les_relances_programmees() {
         .await
         .expect_ok();
 
-    let (restants,): (i64,) =
+    let (remaining,): (i64,) =
         sqlx::query_as("SELECT count(*) FROM jobs WHERE status = 'pending' AND dedupe_key LIKE $1")
             .bind(format!("task:{task}:%"))
             .fetch_one(&app.db)
             .await
             .unwrap();
-    assert_eq!(restants, 0, "plus rien ne doit sonner");
+    assert_eq!(remaining, 0, "nothing more must fire");
 }
 
 #[tokio::test]
-async fn deplacer_un_evenement_reprogramme_toute_sa_com() {
+async fn moving_an_event_reschedules_all_of_its_comms() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -350,14 +350,14 @@ async fn deplacer_un_evenement_reprogramme_toute_sa_com() {
         .find(|t| t["milestone_key"] == "j-30")
         .unwrap();
     let at: chrono::DateTime<chrono::Utc> = j30["scheduled_at"].as_str().unwrap().parse().unwrap();
-    let nouveau: chrono::DateTime<chrono::Utc> = "2027-07-01T20:00:00Z".parse().unwrap();
+    let fresh: chrono::DateTime<chrono::Utc> = "2027-07-01T20:00:00Z".parse().unwrap();
     assert_eq!(
-        (nouveau - at).num_days(),
+        (fresh - at).num_days(),
         30,
         "la com suit la date, pas l'inverse"
     );
 
-    // Les anciennes relances logistiques ne sonneront pas a l'ancienne date.
+    // The old logistics reminders will not fire on the old date.
     let (anciennes,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM jobs
          WHERE status = 'pending' AND dedupe_key LIKE $1

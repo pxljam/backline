@@ -22,8 +22,8 @@ export interface RenderResult {
 }
 
 /**
- * Rend une composition en local. Le GPU est utilise s'il est la, le processeur
- * sinon — aucune machine n'est exclue (§10.3).
+ * Renders a composition locally. The GPU is used when present, the CPU
+ * otherwise — no machine is excluded (§10.3).
  */
 export async function renderJob(
   job: JobBundle,
@@ -47,7 +47,7 @@ export async function renderJob(
   try {
     await renderMedia({
       composition: preview
-        ? // Rendu rapide basse definition, juste pour verifier le rythme.
+        ? // Fast low-resolution render, just to check the pacing.
           { ...composition, width: even(composition.width / 2), height: even(composition.height / 2) }
         : composition,
       serveUrl: url,
@@ -68,7 +68,7 @@ export async function renderJob(
   }
 }
 
-/** h264 refuse les dimensions impaires. */
+/** h264 rejects odd dimensions. */
 function even(n: number): number {
   return Math.max(2, Math.round(n / 2) * 2);
 }

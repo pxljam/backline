@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    // En developpement natif, l'API tourne a cote ; en Docker, Caddy s'en charge.
+    // In native development the API runs alongside; in Docker, Caddy handles it.
     proxy: {
       "/api": { target: process.env.API_URL ?? "http://localhost:8080", changeOrigin: true },
       "/ical": { target: process.env.API_URL ?? "http://localhost:8080", changeOrigin: true },

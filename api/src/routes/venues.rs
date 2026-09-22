@@ -1,4 +1,4 @@
-//! Carnet d'adresses des lieux (§14).
+//! Venue address book (§14).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;

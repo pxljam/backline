@@ -4,9 +4,9 @@ import { VideoComposition, totalDuration } from "@backline/layout";
 import type { Brand, FieldData, MediaMap, VideoSpec } from "@backline/layout";
 
 /**
- * La CLI embarque **les memes composants de mise en page** que le serveur
- * (§15). C'est ce qui garantit qu'un teaser rendu sur le portable d'Anas est
- * identique a l'apercu qu'Antoine a valide dans son navigateur.
+ * The CLI ships **the same layout components** as the server (§15). That is
+ * what guarantees a teaser rendered on Anas's laptop is identical to the
+ * preview Antoine approved in their browser.
  */
 
 export interface VideoProps extends Record<string, unknown> {
@@ -49,8 +49,8 @@ export const RemotionRoot: React.FC = () => (
         width: spec.width,
         height: spec.height,
         fps: spec.fps,
-        // Une composition vide rendrait une video de zero image : Remotion
-        // refuse, et l'erreur serait incomprehensible. Une image minimum.
+        // An empty composition would render a zero-frame video: Remotion
+        // refuses, with an unhelpful error. One frame minimum.
         durationInFrames: Math.max(1, totalDuration(spec)),
       };
     }}

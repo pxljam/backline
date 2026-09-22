@@ -1,5 +1,5 @@
-//! Flux iCal a jeton secret (§7). L'application est **maitre** : aucun OAuth,
-//! aucune synchro bidirectionnelle — un abonnement, et c'est tout.
+//! Secret-token iCal feeds (§7). The application is the **master**: no OAuth,
+//! no two-way sync — a subscription, and that is all.
 
 use crate::error::AppResult;
 use chrono::{DateTime, Utc};
@@ -15,8 +15,8 @@ pub struct IcalEvent {
     pub venue: Option<String>,
     pub city: Option<String>,
     pub notes: Option<String>,
-    /// `true` pour une date candidate encore en arbitrage : elle apparait en
-    /// `TENTATIVE`, le calendrier client l'affiche en pointilles.
+    /// `true` for a candidate date still under arbitration: it comes out as
+    /// `TENTATIVE`, and the client calendar shows it dotted.
     pub tentative: bool,
 }
 
@@ -31,8 +31,8 @@ fn stamp(dt: DateTime<Utc>) -> String {
     dt.format("%Y%m%dT%H%M%SZ").to_string()
 }
 
-/// Plie les lignes a 75 octets comme l'exige la RFC 5545 — Google Calendar
-/// rejette silencieusement les flux qui ne le font pas.
+/// Folds lines at 75 bytes as RFC 5545 requires — Google Calendar silently
+/// rejects feeds that do not.
 fn fold(line: &str) -> String {
     let bytes = line.as_bytes();
     if bytes.len() <= 75 {
@@ -109,7 +109,7 @@ pub fn render(calendar_name: &str, events: &[IcalEvent]) -> String {
         + "\r\n"
 }
 
-/// Cree le jeton du flux s'il n'existe pas encore. Idempotent.
+/// Creates the feed's token if it does not exist yet. Idempotent.
 pub async fn ensure_token(db: &PgPool, scope: &str, scope_id: Uuid) -> AppResult<String> {
     if let Some((token,)) = sqlx::query_as::<_, (String,)>(
         "SELECT token FROM ical_tokens WHERE scope = $1 AND scope_id = $2",
@@ -140,7 +140,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn produit_un_calendrier_valide_et_plie_les_longues_lignes() {
+    fn produces_a_valid_calendar_and_folds_long_lines() {
         let ev = IcalEvent {
             id: Uuid::nil(),
             title: "Bonsoir Techno x Ramas — une soiree au titre volontairement tres long pour depasser la limite".into(),
@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn une_date_candidate_sort_en_tentative() {
+    fn a_candidate_date_comes_out_as_tentative() {
         let ev = IcalEvent {
             id: Uuid::nil(),
             title: "Date candidate".into(),

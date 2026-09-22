@@ -1,12 +1,11 @@
-//! Generation des visuels fixes (§9.4).
+//! Still visual generation (§9.4).
 //!
-//! « Generer les visuels » produit **en une passe** tous les formats du plan de
-//! com, champs automatiques deja remplis, sans ouvrir l'editeur.
+//! "Generate the visuals" produces **in one pass** every format in the comms
+//! plan, automatic fields already filled in, without opening the editor.
 //!
-//! Le rendu lui-meme part au service `stills`, qui execute les composants
-//! Remotion de `layout/`. Rust n'a aucune idee de ce a quoi ressemble un
-//! visuel : c'est ce qui garantit qu'il n'existe **qu'une implementation de la
-//! mise en page** (§15).
+//! The rendering itself goes to the `stills` service, which runs the Remotion
+//! components from `layout/`. Rust has no idea what a visual looks like: that
+//! is what guarantees there is **only one layout implementation** (§15).
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -15,7 +14,7 @@ use serde_json::{json, Value};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-/// Charte effective : tokens du collectif, surcharges par ceux du groupe.
+/// Effective brand: the collective's tokens, overridden by the group's.
 pub async fn resolve_brand(
     db: &PgPool,
     collective_id: Uuid,
@@ -57,10 +56,11 @@ pub async fn resolve_brand(
     Ok(Value::Object(tokens))
 }
 
-/// Choisit le gabarit a utiliser pour un jalon et un format.
+/// Picks the template to use for a milestone and a format.
 ///
-/// Priorite : gabarit du groupe porteur rattache au jalon, puis gabarit du
-/// collectif rattache au jalon, puis n'importe quel gabarit couvrant le format.
+/// Priority: the hosting group's template attached to the milestone, then the
+/// collective's template attached to the milestone, then any template covering
+/// the format.
 async fn pick_template(
     db: &PgPool,
     collective_id: Uuid,
@@ -87,8 +87,8 @@ async fn pick_template(
     Ok(row)
 }
 
-/// Produit tous les visuels manquants du plan de com d'un evenement.
-/// Renvoie (produits, en echec).
+/// Produces every missing visual in an event's comms plan.
+/// Returns (produced, failed).
 pub async fn generate_for_event(state: &AppState, event_id: Uuid) -> AppResult<(usize, usize)> {
     let (collective_id, host_group_id): (Uuid, Option<Uuid>) =
         sqlx::query_as("SELECT collective_id, host_group_id FROM events WHERE id = $1")
@@ -125,7 +125,7 @@ pub async fn generate_for_event(state: &AppState, event_id: Uuid) -> AppResult<(
                 continue;
             };
 
-            // Deja rendu : on ne refait pas le travail.
+            // Already rendered: do not redo the work.
             let existing: Option<(String,)> = sqlx::query_as(
                 "SELECT status FROM publication_assets
                  WHERE publication_task_id = $1 AND format_id = $2",
@@ -193,8 +193,8 @@ pub async fn generate_for_event(state: &AppState, event_id: Uuid) -> AppResult<(
             }
         }
 
-        // Une tache dont tous les visuels sont prets passe de `brouillon` a
-        // `pret` — mais jamais a `publie` : un humain valide toujours (§11.1).
+        // A task whose visuals are all ready moves from `draft` to `ready` —
+        // but never to `published`: a human always approves (§11.1).
         sqlx::query(
             "UPDATE publication_tasks SET status = 'ready', updated_at = now()
              WHERE id = $1 AND status = 'draft'
@@ -252,8 +252,8 @@ async fn store_render(
     .bind(filename)
     .bind(&key)
     .bind(bytes.len() as i64)
-    // Purge a six mois : un rendu se regenere a l'identique depuis sa
-    // description (§15). Les medias televerses, eux, ne sont jamais purges.
+    // Six-month purge: a render regenerates identically from its description
+    // (§15). Uploaded media, on the other hand, is never purged.
     .bind(Utc::now() + Duration::days(183))
     .execute(&state.db)
     .await?;

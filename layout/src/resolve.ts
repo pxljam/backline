@@ -1,11 +1,11 @@
 import type { Brand, FieldData, MediaMap } from "./types";
 
 /**
- * Remplace les champs automatiques `{{chemin}}` par leur valeur (§9.1).
+ * Replaces automatic `{{path}}` fields with their value (§9.1).
  *
- * Un champ absent devient une chaine vide plutot qu'un `undefined` affiche :
- * une affiche avec un trou est corrigeable, une affiche portant le mot
- * « undefined » est une affiche partie a la poubelle.
+ * A missing field becomes an empty string rather than a rendered `undefined`:
+ * a poster with a hole in it can be fixed, a poster carrying the word
+ * "undefined" is a poster already in the bin.
  */
 export function interpolate(template: string, data: FieldData): string {
   if (!template) return "";
@@ -25,10 +25,9 @@ function lookup(data: unknown, path: string): unknown {
 }
 
 /**
- * Couleur d'un token de charte. **Seuls les tokens sont proposes dans
- * l'editeur** : on ne peut pas sortir de la charte par accident (§9.1). Ici, un
- * token inconnu se resout en une couleur neutre visible, jamais en transparent
- * silencieux.
+ * Colour behind a brand token. **The editor only ever offers tokens**, so the
+ * brand cannot be left by accident (§9.1). An unknown token resolves to a
+ * visible neutral colour here, never to silent transparency.
  */
 export function color(brand: Brand, token: string | undefined, fallback = "#111111"): string {
   if (!token) return fallback;
@@ -54,8 +53,8 @@ export function mediaUrl(
 }
 
 /**
- * Zones de securite du format : les bandeaux d'interface qui masquent le
- * contenu (§9.1). Valeurs en fraction, affichees par l'editeur.
+ * Safe areas for the format: the interface bars that cover content (§9.1).
+ * Fractional values, displayed by the editor.
  */
 export function safeArea(
   brand: Brand,
@@ -68,8 +67,8 @@ export function safeArea(
   if (rule) {
     return { top: rule.top ?? 0.06, bottom: rule.bottom ?? 0.06, x: rule.x ?? 0.06 };
   }
-  // Une story 9:16 perd bien plus de place qu'un post carre : les boutons de
-  // l'application mangent le haut et le bas.
+  // A 9:16 story loses far more room than a square post: the app's own
+  // buttons eat into the top and the bottom.
   const tall = height / width > 1.5;
   return tall ? { top: 0.14, bottom: 0.18, x: 0.06 } : { top: 0.06, bottom: 0.06, x: 0.06 };
 }

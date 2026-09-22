@@ -1,4 +1,4 @@
-//! Fiches techniques versionnees, press kit, comptes sociaux (§11.3, §12).
+//! Versioned tech riders, press kit, social accounts (§11.3, §12).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -107,13 +107,13 @@ async fn show_rider(
 struct NewRider {
     #[serde(default)]
     data: Value,
-    /// Repart d'une version existante plutot que d'une page blanche.
+    /// Starts from an existing version rather than a blank page.
     #[serde(default)]
     from_version: Option<i32>,
 }
 
-/// Une fiche technique est **versionnee** : creer une nouvelle version ne
-/// touche jamais celle qu'un lieu a deja recue (§4).
+/// A tech rider is **versioned**: creating a new version never touches the one
+/// a venue already received (§4).
 async fn create_rider(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -178,8 +178,8 @@ async fn update_rider(
     scope.check_group(&state.db, gid).await?;
     scope.require_group_admin(&state.db, gid).await?;
 
-    // Une version publiee est figee : c'est ce qui garantit qu'un PDF deja
-    // envoye reste reproductible.
+    // A published version is frozen: that is what makes an already-sent PDF
+    // reproducible.
     let row: Option<(String,)> =
         sqlx::query_as("SELECT status FROM tech_riders WHERE id = $1 AND group_id = $2")
             .bind(rid)
@@ -215,7 +215,7 @@ async fn publish_rider(
         .execute(&state.db)
         .await?;
 
-    // Les evenements a venir qui n'avaient pas de fiche en recoivent une.
+    // Upcoming events that had no rider now get one.
     sqlx::query(
         "UPDATE event_tech_riders etr SET tech_rider_id = $1
          FROM events e
@@ -230,8 +230,8 @@ async fn publish_rider(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// Le PDF part vers un lieu **en moins d'une minute** (§18) : une requete,
-/// une compilation Typst, un fichier.
+/// The PDF reaches a venue **in under a minute** (§18): one request, one Typst
+/// compilation, one file.
 async fn rider_pdf(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -293,8 +293,8 @@ struct SendRiders {
     sent_to: Option<String>,
 }
 
-/// Marque l'envoi au lieu et **liste explicitement les groupes sans fiche**,
-/// pour que l'admin sache ce qu'il n'envoie pas (§12).
+/// Records the send to the venue and **explicitly lists the groups without a
+/// rider**, so the admin knows what they are not sending (§12).
 async fn send_riders(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -332,7 +332,7 @@ async fn send_riders(
                 .await?;
                 sent.push(json!({ "group_id": group_id, "name": name, "version": version }));
             }
-            // Rien n'est bloque : l'absence est signalee, jamais une barriere.
+            // Nothing is blocked: the absence is reported, never a barrier.
             None => missing.push(json!({ "group_id": group_id, "name": name })),
         }
     }
@@ -412,7 +412,7 @@ struct AccountRow {
     mode: String,
     vault_url: Option<String>,
     notes: Option<String>,
-    /// La seule question qui bloque le jour J : qui peut publier ici ?
+    /// The one question that blocks on the day: who can publish here?
     access: Vec<Uuid>,
 }
 
@@ -482,8 +482,8 @@ struct NewAccount {
     url: Option<String>,
     #[serde(default)]
     mode: Option<String>,
-    /// Lien vers le gestionnaire de mots de passe externe. **Jamais le secret
-    /// lui-meme** : l'app n'est pas un coffre-fort (§11.3).
+    /// Link to the external password manager. **Never the secret itself**: the
+    /// app is not a vault (§11.3).
     #[serde(default)]
     vault_url: Option<String>,
     #[serde(default)]
@@ -574,9 +574,8 @@ async fn set_access(
         .await?;
     }
 
-    // Une tache assignee a quelqu'un qui perd l'acces redevient sans
-    // responsable : l'invariant du §18 ne se contente pas d'etre verifie a
-    // l'assignation.
+    // A task assigned to someone who loses access becomes unowned again: the
+    // §18 invariant is not only checked at assignment time.
     sqlx::query(
         "UPDATE publication_tasks SET assignee_id = NULL, status = 'ready', updated_at = now()
          WHERE social_account_id = $1 AND status <> 'published' AND assignee_id IS NOT NULL

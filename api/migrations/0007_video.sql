@@ -1,6 +1,6 @@
--- Etape 8 du §17 : video declarative, file de rendu, machines des membres (§10).
+-- Step 8 of §17: declarative video, render queue, members' machines (§10).
 
--- « La recette, pas le plat » : description declarative et versionnee.
+-- "The recipe, not the dish": a declarative, versioned description.
 CREATE TABLE video_compositions (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id UUID NOT NULL REFERENCES collectives(id) ON DELETE CASCADE,
@@ -17,7 +17,7 @@ CREATE TABLE video_compositions (
 );
 CREATE INDEX video_compositions_collective_idx ON video_compositions(collective_id);
 
--- Une machine de membre, jeton revocable, GPU facultatif.
+-- A member's machine, revocable token, optional GPU.
 CREATE TABLE render_machines (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -29,7 +29,7 @@ CREATE TABLE render_machines (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Meme file que le reste : reclamee en FOR UPDATE SKIP LOCKED.
+-- The same queue as everything else: claimed with FOR UPDATE SKIP LOCKED.
 CREATE TABLE render_jobs (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id  UUID NOT NULL REFERENCES collectives(id) ON DELETE CASCADE,
@@ -44,7 +44,7 @@ CREATE TABLE render_jobs (
     output_asset_id UUID REFERENCES assets(id) ON DELETE SET NULL,
     error          TEXT,
     attempts       INT NOT NULL DEFAULT 0,
-    -- un job non reclame au bout d'un delai alerte l'admin, il ne dort pas (§10.3)
+    -- a job left unclaimed past a delay alerts the admin, it does not sleep (§10.3)
     unclaimed_alert_sent_at TIMESTAMPTZ,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     claimed_at     TIMESTAMPTZ,

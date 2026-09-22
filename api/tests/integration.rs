@@ -1,6 +1,6 @@
-//! Tests d'integration de Backline, sur PostgreSQL et MinIO reels.
+//! Backline integration tests, against real PostgreSQL and MinIO.
 //!
-//! Chaque module couvre un invariant du §18 (criteres d'acceptation).
+//! Each module covers one §18 invariant (acceptance criteria).
 
 #[path = "it/harness.rs"]
 mod harness;

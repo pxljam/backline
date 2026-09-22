@@ -3,14 +3,14 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase } from "../lib/session";
 import type { RenderJob, RenderMachine } from "../lib/types";
-import { dateEtHeure, relatif } from "../lib/format";
+import { dateAndTime, relativeTime } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle,
 } from "../components/ui";
 
 /**
- * Ecran « Rendus » (§14). L'application affiche **en permanence** quelles
- * machines sont connectees : sans elles, aucune video ne sort.
+ * The "Rendus" screen (§14). The application shows **at all times** which
+ * machines are connected: without them, no video comes out.
  */
 export const Renders: React.FC = () => {
   const base = useCollectiveBase();
@@ -24,7 +24,7 @@ export const Renders: React.FC = () => {
   if (jobs.loading) return <Loading />;
   if (jobs.error) return <ErrorNote>{jobs.error}</ErrorNote>;
 
-  const enLigne = jobs.data?.machines.filter((m) => m.online) ?? [];
+  const online = jobs.data?.machines.filter((m) => m.online) ?? [];
 
   return (
     <>
@@ -38,7 +38,7 @@ export const Renders: React.FC = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Machines">
-          {enLigne.length === 0 && (
+          {online.length === 0 && (
             <p className="mb-3 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent">
               Aucune machine connectee — aucune video ne peut sortir. Les taches de com restent
               livrables avec leur visuel fixe.
@@ -57,7 +57,7 @@ export const Renders: React.FC = () => {
                         ? `GPU ${m.capabilities.gpuKind ?? ""}`
                         : "processeur seul"}
                       {m.capabilities.concurrency && ` · ${m.capabilities.concurrency} tache(s)`}
-                      {m.last_seen_at && ` · vue ${relatif(m.last_seen_at)}`}
+                      {m.last_seen_at && ` · vue ${relativeTime(m.last_seen_at)}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export const Renders: React.FC = () => {
                       {j.status}
                     </Badge>
                     <span className="ml-auto text-xs text-ink-soft">
-                      {dateEtHeure(j.created_at)}
+                      {dateAndTime(j.created_at)}
                     </span>
                   </div>
                   {j.status === "running" && (

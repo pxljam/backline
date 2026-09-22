@@ -1,7 +1,7 @@
-//! Stockage objet S3-compatible (MinIO en local, Object Storage OVH en prod).
+//! S3-compatible object storage (MinIO locally, OVH Object Storage in prod).
 //!
-//! Les rushes sont heberges (§10.1) : la CLI de rendu telecharge les medias
-//! par URL signees, a duree limitee.
+//! Raw footage is hosted (§10.1): the render CLI downloads media through
+//! signed, time-limited URLs.
 
 use crate::config::S3Config;
 use anyhow::{Context, Result};
@@ -10,10 +10,10 @@ use s3::{Bucket, Region};
 
 #[derive(Clone)]
 pub struct Storage {
-    /// Client interne (reseau Docker) — lectures et ecritures serveur.
+    /// Internal client (Docker network) — server-side reads and writes.
     inner: Box<Bucket>,
-    /// Client sur l'endpoint public — sert uniquement a signer des URL
-    /// utilisables depuis un navigateur ou une machine de rendu.
+    /// Client on the public endpoint — only used to sign URLs usable from a
+    /// browser or a render machine.
     public: Box<Bucket>,
     pub bucket_name: String,
     creds: Credentials,
@@ -46,8 +46,8 @@ impl Storage {
         })
     }
 
-    /// Cree le bucket s'il manque. Idempotent — appele au demarrage pour que
-    /// `docker compose up` sur une machine vierge suffise.
+    /// Creates the bucket if missing. Idempotent — called at startup so that
+    /// `docker compose up` on a clean machine is enough.
     pub async fn ensure_bucket(&self) -> Result<()> {
         if self.inner.exists().await.unwrap_or(false) {
             return Ok(());
@@ -62,7 +62,7 @@ impl Storage {
         .await
         {
             Ok(_) => Ok(()),
-            // Course entre plusieurs instances au demarrage : sans consequence.
+            // A race between instances at startup: of no consequence.
             Err(e) if format!("{e:?}").contains("BucketAlreadyOwnedByYou") => Ok(()),
             Err(e) => Err(e).context("creation du bucket"),
         }
@@ -90,7 +90,7 @@ impl Storage {
         Ok(())
     }
 
-    /// URL signee, valable `seconds`. C'est ce que recoit la CLI de rendu.
+    /// Signed URL, valid for `seconds`. This is what the render CLI receives.
     pub async fn signed_url(&self, key: &str, seconds: u32) -> Result<String> {
         Ok(self.public.presign_get(key, seconds, None).await?)
     }

@@ -1,12 +1,12 @@
-//! §18 : « Un membre voit ses evenements dans son Google Calendar sans s'etre
-//! connecte a autre chose que le bot. » L'abonnement iCal porte un jeton
-//! secret : c'est toute l'authentification (§7).
+//! §18: "A member sees their events in their Google Calendar without having
+//! signed in to anything but the bot." The iCal subscription carries a secret
+//! token: that is the whole authentication (§7).
 
 use crate::harness::TestApp;
 use serde_json::json;
 
 #[tokio::test]
-async fn chaque_membre_chaque_groupe_et_le_collectif_ont_leur_flux() {
+async fn every_member_every_group_and_the_collective_have_their_feed() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let romain = app.login_named("Romain").await;
@@ -30,7 +30,7 @@ async fn chaque_membre_chaque_groupe_et_le_collectif_ont_leur_flux() {
 }
 
 #[tokio::test]
-async fn le_flux_personnel_est_lisible_par_un_agenda_sans_aucune_connexion() {
+async fn a_personal_feed_is_readable_by_a_calendar_with_no_sign_in() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let romain = app.login_named("Romain").await;
@@ -50,7 +50,7 @@ async fn le_flux_personnel_est_lisible_par_un_agenda_sans_aucune_connexion() {
         .to_string();
     let path = url.split("/ical/").nth(1).unwrap().to_string();
 
-    // Aucune session, aucun cookie : juste le jeton dans l'URL.
+    // No session, no cookie: just the token in the URL.
     let (status, body) = crate::harness::anonymous_get(&app.base, &format!("/ical/{path}")).await;
     assert_eq!(status, 200);
     assert!(
@@ -64,22 +64,22 @@ async fn le_flux_personnel_est_lisible_par_un_agenda_sans_aucune_connexion() {
     );
     assert!(body.contains("LOCATION:Le Sonic"), "{body}");
 
-    // Les lignes respectent le pliage de la RFC 5545 : sinon Google ignore le
-    // flux en silence.
+    // The lines respect RFC 5545 folding: otherwise Google silently ignores
+    // the feed.
     for ligne in body.split("\r\n") {
         assert!(ligne.len() <= 75, "ligne trop longue : {ligne}");
     }
 }
 
 #[tokio::test]
-async fn un_jeton_inconnu_ne_donne_rien() {
+async fn an_unknown_token_yields_nothing() {
     let app = TestApp::seeded().await;
     let (status, _) = crate::harness::anonymous_get(&app.base, "/ical/nimportequoi.ics").await;
     assert_eq!(status, 404);
 }
 
 #[tokio::test]
-async fn le_calendrier_montre_les_dates_candidates_en_arbitrage() {
+async fn the_calendar_shows_candidate_dates_under_arbitration() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let anas = app.login_named("Anas").await;
@@ -109,11 +109,11 @@ async fn le_calendrier_montre_les_dates_candidates_en_arbitrage() {
 }
 
 #[tokio::test]
-async fn le_filtre_mes_evenements_ne_montre_que_les_miens() {
+async fn the_my_events_filter_shows_only_mine() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
 
-    // Un membre qui ne joue nulle part et ne tient aucun poste.
+    // A member who plays nowhere and holds no slot.
     let spectateur = app.make_user("Spectateur").await;
     app.join(cid, spectateur, "member").await;
     let client = app.login_as(spectateur).await;
@@ -125,7 +125,7 @@ async fn le_filtre_mes_evenements_ne_montre_que_les_miens() {
         .await;
     assert!(cal.expect_ok().as_array().unwrap().is_empty());
 
-    // Il prend un poste : l'evenement apparait.
+    // They take a slot: the event appears.
     let antoine = app.login_named("Antoine").await;
     let (event_id,): (uuid::Uuid,) = sqlx::query_as(
         "SELECT e.id FROM events e JOIN event_types t ON t.id = e.event_type_id

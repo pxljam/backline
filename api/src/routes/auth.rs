@@ -1,4 +1,4 @@
-//! Connexion et invitations (§3). Aucune inscription publique.
+//! Sign-in and invitations (§3). No public sign-up.
 
 use crate::auth::{self, session};
 use crate::error::{AppError, AppResult};
@@ -30,8 +30,8 @@ struct PasswordLogin {
     password: String,
 }
 
-/// Secours : e-mail + mot de passe. Obligatoire pour au moins un admin
-/// d'instance, afin de ne jamais dependre de Telegram pour l'administration.
+/// Fallback: email + password. Mandatory for at least one instance admin, so
+/// administration never depends on Telegram.
 async fn login_password(
     State(state): State<AppState>,
     Json(body): Json<PasswordLogin>,
@@ -42,7 +42,7 @@ async fn login_password(
             .fetch_optional(&state.db)
             .await?;
 
-    // Meme message dans tous les cas : on ne dit pas si l'adresse existe.
+    // The same message in every case: we do not say whether the address exists.
     let invalid = || AppError::forbidden("identifiants invalides");
     let (user_id, hash) = row.ok_or_else(invalid)?;
     let hash = hash.ok_or_else(invalid)?;
@@ -58,8 +58,8 @@ async fn login_password(
     ))
 }
 
-/// Telegram Login Widget. La signature est verifiee cote Rust (§15) ; sans
-/// cela n'importe qui pourrait se declarer n'importe quel compte.
+/// Telegram Login Widget. The signature is verified on the Rust side (§15);
+/// without that, anyone could claim any account.
 async fn login_telegram(
     State(state): State<AppState>,
     Json(body): Json<auth::TelegramLoginData>,
@@ -77,7 +77,7 @@ async fn login_telegram(
         .fetch_optional(&state.db)
         .await?;
 
-    // Pas de creation implicite : un compte existe parce qu'un admin l'a cree.
+    // No implicit creation: an account exists because an admin created it.
     let (user_id,) = row.ok_or_else(|| {
         AppError::forbidden("ce compte Telegram n'est lie a aucun membre — demande une invitation")
     })?;
@@ -153,15 +153,15 @@ async fn peek_invitation(
 struct AcceptInvitation {
     #[serde(default)]
     telegram: Option<auth::TelegramLoginData>,
-    /// Secours hors Telegram : un mot de passe, refuse si un compte Telegram
-    /// est deja lie.
+    /// Non-Telegram fallback: a password, refused if a Telegram account is
+    /// already linked.
     #[serde(default)]
     password: Option<String>,
     #[serde(default)]
     email: Option<String>,
 }
 
-/// Consomme le lien a usage unique et ouvre une session.
+/// Consumes the single-use link and opens a session.
 async fn accept_invitation(
     State(state): State<AppState>,
     Path(code): Path<String>,

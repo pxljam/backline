@@ -1,4 +1,4 @@
-//! Membres et groupes d'un collectif (§3, §14).
+//! A collective's members and groups (§3, §14).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -111,8 +111,8 @@ async fn show(
     }))
 }
 
-/// Timelines de com et postes logistiques par defaut : **de la donnee**, que
-/// les reglages du collectif reecrivent sans toucher au code (§11.1).
+/// Default comms timelines and logistics slots: **data**, which the
+/// collective's settings rewrite without touching any code (§11.1).
 #[derive(Deserialize)]
 struct EventTypePatch {
     #[serde(default)]
@@ -158,8 +158,8 @@ async fn update_event_type(
     if done.rows_affected() == 0 {
         return Err(AppError::not_found("type d'evenement introuvable"));
     }
-    // Les evenements deja confirmes gardent leur plan : une affiche deja
-    // programmee ne doit pas bouger parce qu'un jalon a change (§11.1).
+    // Already-confirmed events keep their plan: a poster that is already
+    // scheduled must not move because a milestone changed (§11.1).
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -168,7 +168,7 @@ struct MemberRow {
     user_id: Uuid,
     display_name: String,
     stage_name: Option<String>,
-    /// Le telephone n'est visible que des admins du collectif (§3).
+    /// The phone number is only visible to the collective's admins (§3).
     phone: Option<String>,
     email: Option<String>,
     role: String,
@@ -262,9 +262,9 @@ struct NewMember {
     group_ids: Vec<Uuid>,
 }
 
-/// Un admin cree l'utilisateur et genere un **lien d'invitation a usage
-/// unique** (§3). Un compte existant est simplement rattache : un utilisateur
-/// est unique par personne et traverse les collectifs.
+/// An admin creates the user and generates a **single-use invitation link**
+/// (§3). An existing account is simply attached: one user per person, spanning
+/// collectives.
 async fn create_member(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -371,8 +371,8 @@ struct UpdateMember {
     stage_name: Option<String>,
 }
 
-/// Le role d'admin est **un droit pose sur une appartenance**, attribuable a
-/// n'importe qui et retirable (§3, §20).
+/// The admin role is **a right laid on a membership**, grantable to anyone and
+/// revocable (§3, §20).
 async fn update_member(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -387,8 +387,8 @@ async fn update_member(
             Some("admin") => "admin",
             _ => "member",
         };
-        // Ne jamais retirer le dernier admin : le collectif deviendrait
-        // ingerable sans passer par l'admin d'instance.
+        // Never remove the last admin: the collective would become unmanageable
+        // without going through the instance admin.
         if role == "member" {
             let (admins,): (i64,) = sqlx::query_as(
                 "SELECT count(*) FROM memberships WHERE collective_id = $1 AND role = 'admin'",
@@ -417,7 +417,7 @@ async fn update_member(
             .await?;
     }
 
-    // Chacun modifie ses propres coordonnees ; un admin peut aussi le faire.
+    // Everyone edits their own contact details; an admin may do it too.
     if body.phone.is_some() || body.stage_name.is_some() {
         if scope.user_id() != user_id {
             scope.require_admin()?;
@@ -577,7 +577,7 @@ async fn create_group(
     .fetch_one(&state.db)
     .await?;
 
-    // Charte locale : surcharge partielle de celle du collectif (§8).
+    // Local brand: a partial override of the collective's (§8).
     provisioning::seed_brand(&state.db, cid, &body.name, Some(id)).await?;
     crate::services::ical::ensure_token(&state.db, "group", id).await?;
 
@@ -644,7 +644,7 @@ async fn update_group(
 #[derive(Deserialize)]
 struct NewGroupMember {
     user_id: Uuid,
-    /// Role libre : « MAO », « batterie »… jamais un catalogue (§4).
+    /// Free-form role: "MAO", "batterie"… never a fixed catalogue (§4).
     #[serde(default)]
     role_label: Option<String>,
     #[serde(default)]
@@ -661,7 +661,7 @@ async fn add_group_member(
     scope.check_group(&state.db, gid).await?;
     scope.require_group_admin(&state.db, gid).await?;
 
-    // Le groupe appartient au collectif ; la personne doit y etre membre.
+    // The group belongs to the collective; the person must be a member of it.
     let member: Option<(Uuid,)> =
         sqlx::query_as("SELECT user_id FROM memberships WHERE collective_id = $1 AND user_id = $2")
             .bind(cid)

@@ -1,6 +1,6 @@
 /**
- * Client de l'API. Une seule facon de parler au serveur : les erreurs
- * remontent en francais, telles que l'API les formule.
+ * API client. One single way of talking to the server: errors come back in
+ * French, exactly as the API words them.
  */
 
 export class ApiError extends Error {
@@ -30,7 +30,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
-/** L'API renvoie `{ "error": "..." }` ; sinon on se rabat sur le code HTTP. */
+/** The API returns `{ "error": "..." }`; otherwise fall back on the HTTP code. */
 function errorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object" && "error" in data) {
     const value = (data as { error: unknown }).error;

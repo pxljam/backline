@@ -7,19 +7,19 @@ import type {
   BacklineEvent, Member, PublicationTask, RunSheet, SocialAccount,
 } from "../lib/types";
 import {
-  dateEtHeure, dateLongue, heure, PRESENCE_RESIDENCE, relatif, STATUT_EVENEMENT, STATUT_TACHE,
+  dateAndTime, longDate, time, RESIDENCY_PRESENCE_LABELS, relativeTime, EVENT_STATUS_LABELS, TASK_STATUS_LABELS,
 } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
 } from "../components/ui";
 
-type Onglet = "apercu" | "logistique" | "com" | "feuille";
+type Tab = "apercu" | "logistique" | "com" | "feuille";
 
 export const EventDetail: React.FC = () => {
   const { id = "" } = useParams();
   const base = useCollectiveBase();
   const { isAdmin, me } = useSession();
-  const [onglet, setOnglet] = useState<Onglet>("apercu");
+  const [tab, setTab] = useState<Tab>("apercu");
 
   const ev = useResource<BacklineEvent>(`${base}/events/${id}`);
   const { run, busy, error } = useAction();
@@ -29,7 +29,7 @@ export const EventDetail: React.FC = () => {
   const e = ev.data;
   if (!e) return null;
 
-  const onglets: { key: Onglet; label: string }[] = [
+  const tabs: { key: Tab; label: string }[] = [
     { key: "apercu", label: "Apercu" },
     { key: "logistique", label: "Logistique" },
     { key: "com", label: "Plan de com" },
@@ -42,12 +42,12 @@ export const EventDetail: React.FC = () => {
         title={e.title}
         subtitle={
           <>
-            {e.type_label} · {dateLongue(e.starts_at)} a {heure(e.starts_at)}
-            {e.ends_at && e.type_key === "residency" && ` → ${dateLongue(e.ends_at)}`}
+            {e.type_label} · {longDate(e.starts_at)} a {time(e.starts_at)}
+            {e.ends_at && e.type_key === "residency" && ` → ${longDate(e.ends_at)}`}
             {e.venue && ` · ${e.venue.name}${e.venue.city ? `, ${e.venue.city}` : ""}`}
             {" · "}
             <Badge tone={e.status === "confirmed" ? "good" : "neutral"}>
-              {STATUT_EVENEMENT[e.status]}
+              {EVENT_STATUS_LABELS[e.status]}
             </Badge>
           </>
         }
@@ -56,12 +56,12 @@ export const EventDetail: React.FC = () => {
       <ErrorNote>{error}</ErrorNote>
 
       <nav className="mb-5 flex flex-wrap gap-1.5">
-        {onglets.map((o) => (
+        {tabs.map((o) => (
           <button
             key={o.key}
-            onClick={() => setOnglet(o.key)}
+            onClick={() => setTab(o.key)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              onglet === o.key ? "bg-ink text-paper" : "border border-line"
+              tab === o.key ? "bg-ink text-paper" : "border border-line"
             }`}
           >
             {o.label}
@@ -69,7 +69,7 @@ export const EventDetail: React.FC = () => {
         ))}
       </nav>
 
-      {onglet === "apercu" && (
+      {tab === "apercu" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card
             title="Line-up"
@@ -169,18 +169,18 @@ export const EventDetail: React.FC = () => {
         </div>
       )}
 
-      {onglet === "logistique" && (
+      {tab === "logistique" && (
         <Logistics event={e} onDone={() => void ev.reload()} meId={me?.id ?? ""} />
       )}
 
-      {onglet === "com" && <Comms eventId={id} eventTypeKey={e.type_key} />}
+      {tab === "com" && <Comms eventId={id} eventTypeKey={e.type_key} />}
 
-      {onglet === "feuille" && <RunSheetView eventId={id} />}
+      {tab === "feuille" && <RunSheetView eventId={id} />}
     </>
   );
 };
 
-/** Les creneaux sont facultatifs, et leur publication est un reglage distinct (§6). */
+/** Set times are optional, and publishing them is a separate setting (§6). */
 const SetTimesToggle: React.FC<{ event: BacklineEvent; onDone: () => void }> = ({
   event,
   onDone,
@@ -285,7 +285,7 @@ const StreamCard: React.FC<{ event: BacklineEvent; onDone: () => void }> = ({ ev
       )}
       <p className="mt-2 text-xs text-ink-soft">
         {event.stream?.live_alert_sent_at
-          ? `Alerte « on est en ligne » envoyee ${relatif(event.stream.live_alert_sent_at)}.`
+          ? `Alerte « on est en ligne » envoyee ${relativeTime(event.stream.live_alert_sent_at)}.`
           : "L'alerte « on est en ligne » partira 15 min avant, a tous les membres."}
       </p>
 
@@ -314,7 +314,7 @@ const StreamCard: React.FC<{ event: BacklineEvent; onDone: () => void }> = ({ ev
   );
 };
 
-/** « Tu viens ? », pas « quand exactement ? » (§6). */
+/** "Are you coming?", not "when exactly?" (§6). */
 const ResidencyPresence: React.FC<{ event: BacklineEvent; onDone: () => void }> = ({
   event,
   onDone,
@@ -340,7 +340,7 @@ const ResidencyPresence: React.FC<{ event: BacklineEvent; onDone: () => void }> 
               })
             }
           >
-            {PRESENCE_RESIDENCE[r]}
+            {RESIDENCY_PRESENCE_LABELS[r]}
           </Button>
         ))}
       </div>
@@ -352,7 +352,7 @@ const ResidencyPresence: React.FC<{ event: BacklineEvent; onDone: () => void }> 
           <li key={p.user_id} className="flex items-center justify-between gap-3 py-2 text-sm">
             <span>{p.name}</span>
             <span className="text-ink-soft">
-              {PRESENCE_RESIDENCE[p.answer] ?? p.answer}
+              {RESIDENCY_PRESENCE_LABELS[p.answer] ?? p.answer}
               {p.answer === "coming" &&
                 (p.days.length > 0 ? ` · ${p.days.length} jour(s) coche(s)` : " · dates libres")}
             </span>
@@ -383,7 +383,7 @@ const Logistics: React.FC<{ event: BacklineEvent; onDone: () => void; meId: stri
         ) : (
           <ul className="divide-y divide-line">
             {event.logistics.map((s) => {
-              const jySuis = s.assignees.some((a) => a.user_id === meId);
+              const imIn = s.assignees.some((a) => a.user_id === meId);
               return (
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
@@ -398,18 +398,18 @@ const Logistics: React.FC<{ event: BacklineEvent; onDone: () => void; meId: stri
                     {s.vacant > 0 ? <Badge tone="warn">{s.vacant} libre(s)</Badge> : <Badge tone="good">complet</Badge>}
                     <Button
                       size="sm"
-                      variant={jySuis ? "danger" : "primary"}
-                      disabled={busy || (!jySuis && s.vacant === 0)}
+                      variant={imIn ? "danger" : "primary"}
+                      disabled={busy || (!imIn && s.vacant === 0)}
                       onClick={() =>
                         void run(async () => {
                           const url = `${base}/events/${event.id}/logistics/${s.id}/take`;
-                          if (jySuis) await api.del(url);
+                          if (imIn) await api.del(url);
                           else await api.post(url);
                           onDone();
                         })
                       }
                     >
-                      {jySuis ? "je me retire" : "je le prends"}
+                      {imIn ? "je me retire" : "je le prends"}
                     </Button>
                     {isAdmin && (
                       <Button
@@ -482,7 +482,7 @@ const Logistics: React.FC<{ event: BacklineEvent; onDone: () => void; meId: stri
   );
 };
 
-/** Mode assiste : le visuel, la legende, un responsable, une confirmation (§11.2). */
+/** Assisted mode: the visual, the caption, an owner, a confirmation (§11.2). */
 const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId }) => {
   const base = useCollectiveBase();
   const { isAdmin, me } = useSession();
@@ -493,7 +493,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
 
   if (tasks.loading) return <Loading />;
 
-  const nomMembre = (uid: string | null) =>
+  const memberName = (uid: string | null) =>
     members.data?.find((m) => m.user_id === uid)?.display_name ?? "—";
 
   return (
@@ -506,8 +506,8 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
             onClick={() =>
               void run(async () => {
                 await api.post(`${base}/events/${eventId}/comms/generate`);
-                // Le rendu part dans la file : on laisse le temps au premier
-                // passage avant de recharger.
+                // The render goes into the queue: give the first pass time
+                // before reloading.
                 setTimeout(() => void tasks.reload(), 2500);
               })
             }
@@ -528,9 +528,9 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
         ) : (
           <ul className="divide-y divide-line">
             {tasks.data.map((t) => {
-              const aMoi = t.assignee_id === me?.id || t.backup_assignee_id === me?.id;
-              const compte = accounts.data?.find((a) => a.id === t.social_account?.id);
-              const eligibles = members.data?.filter((m) => compte?.access.includes(m.user_id)) ?? [];
+              const mine = t.assignee_id === me?.id || t.backup_assignee_id === me?.id;
+              const account = accounts.data?.find((a) => a.id === t.social_account?.id);
+              const eligible = members.data?.filter((m) => account?.access.includes(m.user_id)) ?? [];
 
               return (
                 <li key={t.id} className="py-4">
@@ -542,10 +542,10 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                         t.status === "published" ? "good" : t.status === "missed" ? "bad" : "neutral"
                       }
                     >
-                      {STATUT_TACHE[t.status]}
+                      {TASK_STATUS_LABELS[t.status]}
                     </Badge>
                     <span className="ml-auto text-xs text-ink-soft">
-                      {dateEtHeure(t.scheduled_at)} · {relatif(t.scheduled_at)}
+                      {dateAndTime(t.scheduled_at)} · {relativeTime(t.scheduled_at)}
                     </span>
                   </div>
 
@@ -554,7 +554,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                       ? `${t.social_account.platform} ${t.social_account.handle}`
                       : "aucun compte vise"}
                     {" · responsable : "}
-                    {nomMembre(t.assignee_id)}
+                    {memberName(t.assignee_id)}
                     {t.reminder_count > 0 && ` · ${t.reminder_count} relance(s)`}
                   </p>
 
@@ -600,7 +600,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                         }
                       >
                         <option value="">— responsable —</option>
-                        {eligibles.map((m) => (
+                        {eligible.map((m) => (
                           <option key={m.user_id} value={m.user_id}>
                             {m.display_name}
                           </option>
@@ -608,7 +608,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                       </Select>
                     )}
 
-                    {t.status !== "published" && (aMoi || isAdmin) && (
+                    {t.status !== "published" && (mine || isAdmin) && (
                       <Button
                         size="sm"
                         variant="primary"
@@ -724,11 +724,11 @@ const RunSheetView: React.FC<{ eventId: string }> = ({ eventId }) => {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card title="Jour J">
-        <p className="text-sm">{dateLongue(data.starts_at)}</p>
+        <p className="text-sm">{longDate(data.starts_at)}</p>
         <ul className="mt-2 space-y-1 text-sm text-ink-soft">
-          {data.soundcheck_at && <li>Balance : {heure(data.soundcheck_at)}</li>}
-          {data.doors_at && <li>Ouverture : {heure(data.doors_at)}</li>}
-          <li>Debut : {heure(data.starts_at)}</li>
+          {data.soundcheck_at && <li>Balance : {time(data.soundcheck_at)}</li>}
+          {data.doors_at && <li>Ouverture : {time(data.doors_at)}</li>}
+          <li>Debut : {time(data.starts_at)}</li>
         </ul>
         {data.venue && (
           <div className="mt-4">

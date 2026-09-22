@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Service de visuels fixes : Remotion + Chrome headless.
+# Still visuals service: Remotion + headless Chrome.
 
 FROM node:22-bookworm-slim
 RUN corepack enable && \
@@ -20,8 +20,8 @@ RUN pnpm install --frozen-lockfile --filter @backline/stills...
 COPY layout layout
 COPY stills stills
 
-# Le navigateur est telecharge a la construction : le premier visuel ne doit
-# pas payer l'addition, et le conteneur n'a pas a sortir sur le reseau.
+# The browser is downloaded at build time: the first visual should not foot
+# the bill, and the container has no business reaching the network.
 WORKDIR /src/stills
 RUN node -e "import('@remotion/renderer').then((m) => m.ensureBrowser())"
 

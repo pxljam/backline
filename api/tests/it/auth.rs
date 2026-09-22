@@ -1,6 +1,6 @@
-//! §3 : aucune inscription publique. Un admin cree l'utilisateur et genere un
-//! lien d'invitation a usage unique ; la connexion se fait par Telegram, avec
-//! un secours e-mail + mot de passe pour l'administration.
+//! §3: no public sign-up. An admin creates the user and generates a single-use
+//! invitation link; signing in goes through Telegram, with an email + password
+//! fallback for administration.
 
 use crate::harness::TestApp;
 use hmac::{Hmac, Mac};
@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 const BOT_TOKEN: &str = "123456:TEST-TOKEN";
 
-/// Reproduit la signature du Telegram Login Widget.
+/// Reproduces the Telegram Login Widget signature.
 fn signed_login(id: i64, username: &str) -> serde_json::Value {
     let auth_date = chrono::Utc::now().timestamp();
     let check = format!("auth_date={auth_date}\nid={id}\nusername={username}");
@@ -25,7 +25,7 @@ fn signed_login(id: i64, username: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
+async fn an_admin_creates_a_member_and_a_single_use_link() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let ramas = app.group_id("ramas").await;
@@ -45,7 +45,7 @@ async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
     let code = created["invitation_code"].as_str().unwrap().to_string();
     assert!(created["invitation_url"].as_str().unwrap().contains(&code));
 
-    // Le lien se consulte avant d'etre consomme : on sait qui l'on est.
+    // The link can be inspected before being consumed: you know who you are.
     let (status, body) =
         crate::harness::anonymous_get(&app.base, &format!("/api/auth/invitation/{code}")).await;
     assert_eq!(status, 200);
@@ -53,7 +53,7 @@ async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
     assert_eq!(peek["display_name"], "Nouvelle recrue");
     assert_eq!(peek["collectives"][0], "Bonsoir Techno");
 
-    // Le bot Telegram lie le compte.
+    // The Telegram bot links the account.
     let resp = reqwest::Client::new()
         .post(format!("{}/api/auth/invitation/{code}", app.base))
         .json(&json!({ "telegram": signed_login(987654, "recrue") }))
@@ -64,7 +64,7 @@ async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
     let session: serde_json::Value = resp.json().await.unwrap();
     assert!(session["token"].is_string());
 
-    // Usage unique : le lien est brule.
+    // Single use: the link is burnt.
     let resp = reqwest::Client::new()
         .post(format!("{}/api/auth/invitation/{code}", app.base))
         .json(&json!({ "telegram": signed_login(987654, "recrue") }))
@@ -73,7 +73,7 @@ async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
         .unwrap();
     assert_eq!(resp.status(), 404);
 
-    // Et la personne se connecte desormais directement par Telegram.
+    // And from now on the person signs in straight through Telegram.
     let resp = reqwest::Client::new()
         .post(format!("{}/api/auth/login/telegram", app.base))
         .json(&signed_login(987654, "recrue"))
@@ -84,7 +84,7 @@ async fn un_admin_cree_un_membre_et_un_lien_a_usage_unique() {
 }
 
 #[tokio::test]
-async fn une_signature_telegram_falsifiee_est_refusee() {
+async fn a_forged_telegram_signature_is_refused() {
     let app = TestApp::seeded().await;
 
     let mut faux = signed_login(111, "pirate");
@@ -100,7 +100,7 @@ async fn une_signature_telegram_falsifiee_est_refusee() {
 }
 
 #[tokio::test]
-async fn un_compte_telegram_inconnu_n_est_jamais_cree_a_la_volee() {
+async fn an_unknown_telegram_account_is_never_created_on_the_fly() {
     let app = TestApp::seeded().await;
 
     let resp = reqwest::Client::new()
@@ -119,7 +119,7 @@ async fn un_compte_telegram_inconnu_n_est_jamais_cree_a_la_volee() {
 }
 
 #[tokio::test]
-async fn l_admin_d_instance_garde_une_entree_sans_telegram() {
+async fn the_instance_admin_keeps_a_way_in_without_telegram() {
     let app = TestApp::seeded().await;
 
     let resp = reqwest::Client::new()
@@ -137,7 +137,7 @@ async fn l_admin_d_instance_garde_une_entree_sans_telegram() {
     assert!(cookie.contains("bl_session="), "session en cookie signe");
     assert!(cookie.contains("HttpOnly"), "{cookie}");
 
-    // Mauvais mot de passe : le meme message, sans revelation.
+    // Wrong password: the same message, revealing nothing.
     let resp = reqwest::Client::new()
         .post(format!("{}/api/auth/login/password", app.base))
         .json(&json!({ "email": "admin@backline.local", "password": "autre-chose" }))
@@ -156,14 +156,14 @@ async fn l_admin_d_instance_garde_une_entree_sans_telegram() {
 }
 
 #[tokio::test]
-async fn le_role_d_admin_s_attribue_et_se_retire_mais_jamais_le_dernier() {
+async fn the_admin_role_is_granted_and_revoked_but_never_the_last_one() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
     let anas = app.user_id("Anas").await;
 
-    // N'importe quel membre peut devenir admin : ce n'est pas une categorie de
-    // personne, c'est un droit pose sur une appartenance (§3).
+    // Any member can become an admin: it is not a category of person, it is a
+    // right laid on a membership (§3).
     antoine
         .patch(
             &format!("/api/collectives/{cid}/members/{anas}"),
@@ -181,7 +181,7 @@ async fn le_role_d_admin_s_attribue_et_se_retire_mais_jamais_le_dernier() {
         .await
         .expect_ok();
 
-    // …et retirable.
+    // …and revocable.
     antoine
         .patch(
             &format!("/api/collectives/{cid}/members/{anas}"),
@@ -199,7 +199,7 @@ async fn le_role_d_admin_s_attribue_et_se_retire_mais_jamais_le_dernier() {
 }
 
 #[tokio::test]
-async fn se_deconnecter_invalide_la_session() {
+async fn signing_out_invalidates_the_session() {
     let app = TestApp::seeded().await;
     let antoine = app.login_named("Antoine").await;
 
@@ -217,14 +217,14 @@ async fn se_deconnecter_invalide_la_session() {
 }
 
 #[tokio::test]
-async fn un_compte_traverse_les_collectifs_avec_un_role_par_collectif() {
+async fn one_account_spans_collectives_with_a_role_per_collective() {
     let app = TestApp::seeded().await;
     let bonsoir = app.collective_id("bonsoir-techno").await;
-    let autre = app.make_collective("cousins", "Les Cousins").await;
+    let other = app.make_collective("cousins", "Les Cousins").await;
     let romain = app.user_id("Romain").await;
 
-    // Simple membre ici, admin la-bas.
-    app.join(autre, romain, "admin").await;
+    // A plain member here, an admin there.
+    app.join(other, romain, "admin").await;
 
     let client = app.login_as(romain).await;
     let me = client.get("/api/me").await;
@@ -241,5 +241,5 @@ async fn un_compte_traverse_les_collectifs_avec_un_role_par_collectif() {
         })
         .collect();
     assert_eq!(roles[&bonsoir.to_string()], "member");
-    assert_eq!(roles[&autre.to_string()], "admin");
+    assert_eq!(roles[&other.to_string()], "admin");
 }

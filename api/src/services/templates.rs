@@ -1,18 +1,18 @@
-//! Gabarits et declinaisons (§9).
+//! Templates and variants (§9).
 //!
-//! **La mise en page est une description JSON, seule source de verite** (§15).
-//! Rust ne la dessine jamais : il la stocke, la decline et y injecte les champs
-//! automatiques. Le dessin appartient aux composants Remotion de `layout/`,
-//! partages par l'editeur, le rendu des visuels fixes et la CLI video.
+//! **The layout is a JSON description, the single source of truth** (§15). Rust
+//! never draws it: it stores it, derives variants from it and injects the
+//! automatic fields. Drawing belongs to the Remotion components in `layout/`,
+//! shared by the editor, the still visuals renderer and the video CLI.
 //!
-//! Convention de coordonnees, choisie pour que le verrouillage de ratio et la
-//! declinaison multi-format soient naturels :
+//! The coordinate convention, chosen so that ratio locking and multi-format
+//! variants fall out naturally:
 //!
-//! - `x`, `w` sont des fractions de la **largeur** du canevas ;
-//! - `y`, `h` des fractions de la **hauteur** ;
-//! - toutes les **tailles** (police, trait, rayon) sont des fractions de la
-//!   **largeur**. Deux formats de meme largeur (1080×1350 et 1080×1920) rendent
-//!   donc un texte strictement identique — ce qui est le cas courant.
+//! - `x`, `w` are fractions of the canvas **width**;
+//! - `y`, `h` are fractions of its **height**;
+//! - every **size** (font, stroke, radius) is a fraction of the **width**. Two
+//!   formats of equal width (1080×1350 and 1080×1920) therefore render text
+//!   identically — which is the common case.
 
 use crate::error::AppResult;
 use chrono_tz::Europe::Paris;
@@ -31,8 +31,9 @@ pub struct Layout {
     pub background: Option<Value>,
     #[serde(default)]
     pub blocks: Vec<Block>,
-    /// Duree en images, pour une composition animee. Absente = image fixe :
-    /// « la seule difference entre une image et une video devient la duree ».
+    /// Duration in frames, for an animated composition. Absent = a still
+    /// image: "the only difference between an image and a video becomes
+    /// duration".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_in_frames: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -71,14 +72,13 @@ pub struct Block {
     pub children: Vec<Block>,
 }
 
-/// Adaptation automatique d'un format maitre vers une declinaison (§9.3).
+/// Automatic adaptation from a master format to a variant (§9.3).
 ///
-/// C'est **un point de depart, jamais un resultat final** : l'app propose, on
-/// corrige a la main, et la declinaison garde ses propres ajustements.
+/// It is **a starting point, never a final result**: the app proposes, a human
+/// corrects by hand, and the variant keeps its own adjustments.
 ///
-/// La largeur relative et les tailles sont conservees telles quelles ; seules
-/// les hauteurs sont corrigees pour preserver la proportion visible des blocs,
-/// autour de leur centre.
+/// Relative width and sizes are kept as they are; only heights are corrected,
+/// to preserve each block's visible proportion around its centre.
 pub fn derive_variant(master: &Layout, width: i32, height: i32) -> Layout {
     let old_hw = master.height as f64 / master.width as f64;
     let new_hw = height as f64 / width as f64;
@@ -109,8 +109,8 @@ fn adapt(b: &Block, f: f64) -> Block {
     }
 }
 
-/// Champs automatiques de l'evenement (§9.1). Deposes sur le canevas, ils se
-/// remplissent tout seuls a la generation.
+/// Automatic event fields (§9.1). Dropped onto the canvas, they fill
+/// themselves in at generation time.
 pub async fn resolve_fields(db: &PgPool, event_id: Uuid) -> AppResult<Value> {
     #[allow(clippy::type_complexity)]
     let row: (
@@ -155,9 +155,9 @@ pub async fn resolve_fields(db: &PgPool, event_id: Uuid) -> AppResult<Value> {
     .fetch_all(db)
     .await?;
 
-    // Tant que les creneaux ne sont pas publiables, les gabarits affichent
-    // l'ordre du line-up **sans heures** : aucun visuel ne sort avec un horaire
-    // provisoire (§6).
+    // As long as set times are not publishable, templates show the line-up
+    // order **without times**: no visual goes out carrying a provisional
+    // schedule (§6).
     let line_up: Vec<Value> = parts
         .iter()
         .map(|(g, u, s, e)| {
@@ -258,8 +258,9 @@ fn format_date_fr(d: chrono::DateTime<chrono_tz::Tz>) -> String {
     )
 }
 
-/// Gabarit d'annonce livre avec l'instance. Il couvre l'usage courant — refaire
-/// la meme affiche avec d'autres noms — sans jamais ouvrir l'editeur (§9.4).
+/// Announcement template shipped with the instance. It covers the common case
+/// — remaking the same poster with different names — without ever opening the
+/// editor (§9.4).
 pub async fn seed_default_template(
     db: &PgPool,
     collective_id: Uuid,
@@ -412,7 +413,7 @@ pub async fn seed_default_template(
     .execute(db)
     .await?;
 
-    // Declinaisons automatiques sur les formats du meme jalon.
+    // Automatic variants across the formats of the same milestone.
     for key in ["ig_square", "ig_story"] {
         let (fid, fw, fh): (Uuid, i32, i32) = sqlx::query_as(
             "SELECT id, width, height FROM formats WHERE collective_id IS NULL AND key = $1",
@@ -475,13 +476,13 @@ mod tests {
     }
 
     #[test]
-    fn la_declinaison_adopte_le_format_cible_sans_negociation() {
+    fn a_variant_takes_the_target_format_without_negotiation() {
         let v = derive_variant(&master(), 1080, 1920);
         assert_eq!((v.width, v.height), (1080, 1920));
     }
 
     #[test]
-    fn la_proportion_visible_d_un_bloc_est_preservee() {
+    fn a_block_keeps_its_visible_proportion() {
         let m = master();
         let b0 = &m.blocks[0];
         let aspect_before = (b0.h * m.height as f64) / (b0.w * m.width as f64);
@@ -494,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn le_bloc_reste_centre_sur_lui_meme() {
+    fn a_block_stays_centred_on_itself() {
         let m = master();
         let before = m.blocks[0].y + m.blocks[0].h / 2.0;
         let v = derive_variant(&m, 1080, 1920);
@@ -503,7 +504,7 @@ mod tests {
     }
 
     #[test]
-    fn un_bloc_adapte_ne_sort_jamais_du_cadre() {
+    fn an_adapted_block_never_leaves_the_frame() {
         let mut m = master();
         m.blocks[0].y = 0.9;
         m.blocks[0].h = 0.09;

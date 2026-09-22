@@ -9,15 +9,15 @@ async fn main() -> Result<()> {
 
     let state = backline::build_state(config).await?;
 
-    // `docker compose up` sur une machine vierge doit donner une application
-    // fonctionnelle avec les donnees de demonstration (§18).
+    // `docker compose up` on a clean machine must produce a working
+    // application with the demo data (§18).
     if run_seed {
         if let Err(e) = backline::seed::run(&state.db).await {
-            tracing::error!(error = %e, "amorcage");
+            tracing::error!(error = %e, "seeding");
         }
     }
 
-    // Purge quotidienne des rendus (§15), amorcee au demarrage.
+    // Daily render purge (§15), primed at startup.
     backline::services::jobs::enqueue(
         &state.db,
         "purge_renders",
@@ -28,8 +28,8 @@ async fn main() -> Result<()> {
     .await
     .ok();
 
-    // La boucle de jobs tourne dans le meme processus : un service de moins a
-    // exploiter, et les rappels partent meme si personne n'ouvre l'app.
+    // The job loop runs in the same process: one less service to operate, and
+    // reminders go out even if nobody opens the app.
     tokio::spawn(backline::services::scheduler::run_forever(state.clone()));
 
     let app = backline::routes::router(state);

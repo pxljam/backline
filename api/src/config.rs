@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
-/// Toute la configuration passe par des variables d'environnement (§15),
-/// `.env.example` fait foi.
+/// All configuration comes from environment variables (§15); `.env.example` is
+/// the reference.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
@@ -19,8 +19,8 @@ pub struct Config {
 #[derive(Clone, Debug)]
 pub struct S3Config {
     pub endpoint: String,
-    /// Endpoint atteignable depuis le navigateur et la CLI de rendu — il differe
-    /// de `endpoint` en local, ou l'API parle a MinIO par le reseau Docker.
+    /// Endpoint reachable from the browser and the render CLI — it differs from
+    /// `endpoint` locally, where the API talks to MinIO over the Docker network.
     pub public_endpoint: String,
     pub bucket: String,
     pub region: String,
@@ -66,7 +66,7 @@ impl Config {
         })
     }
 
-    /// Configuration minimale utilisee par les tests d'integration.
+    /// Minimal configuration used by the integration tests.
     pub fn for_test(database_url: String, s3: S3Config) -> Self {
         Self {
             database_url,

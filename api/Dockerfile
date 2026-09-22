@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-# API Rust + export PDF Typst. Un seul binaire par role (§15).
+# Rust API + Typst PDF export. One binary per role (§15).
 
 FROM rust:1.90-bookworm AS build
 WORKDIR /src
 COPY api/Cargo.toml api/Cargo.lock ./
 COPY api/src src
 COPY api/migrations migrations
-# Les caches BuildKit evitent de recompiler tout l'arbre a chaque changement.
+# The BuildKit caches avoid recompiling the whole tree on every change.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --bins && \
@@ -26,7 +26,7 @@ RUN apt-get update && \
     apt-get purge -y curl xz-utils && apt-get autoremove -y
 
 WORKDIR /app
-# Les modeles Typst voyagent avec l'image : un PDF ne depend d'aucun reseau.
+# The Typst templates travel with the image: a PDF depends on no network.
 COPY pdf /app/pdf
 COPY --from=build /out/ /usr/local/bin/
 

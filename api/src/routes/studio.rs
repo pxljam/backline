@@ -1,4 +1,4 @@
-//! Studio : charte, catalogue de formats, gabarits, bibliotheque de medias (§8, §9).
+//! Studio: brand, format catalogue, templates, media library (§8, §9).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -36,7 +36,7 @@ pub fn router() -> Router<AppState> {
         .route("/preview-fields/:event_id", get(preview_fields))
 }
 
-// --- Charte ---------------------------------------------------------------
+// --- Brand ----------------------------------------------------------------
 
 #[derive(Serialize)]
 struct BrandView {
@@ -44,8 +44,8 @@ struct BrandView {
     name: String,
     group_id: Option<Uuid>,
     tokens: Vec<TokenRow>,
-    /// Charte du collectif, quand on regarde celle d'un groupe : la surcharge
-    /// est **partielle**, le reste est herite (§8).
+    /// The collective's brand, when looking at a group's: the override is
+    /// **partial**, the rest is inherited (§8).
     inherited: Option<Vec<TokenRow>>,
 }
 
@@ -146,8 +146,8 @@ struct SaveTokens {
     tokens: Vec<TokenRow>,
 }
 
-/// La charte est **de la donnee**, jamais du code : saisir les vraies valeurs
-/// de Bonsoir Techno ne demande aucune modification de code (§8).
+/// A brand is **data**, never code: entering Bonsoir Techno's real values
+/// requires no code change at all (§8).
 async fn save_tokens(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -217,7 +217,7 @@ struct FormatRow {
     height: i32,
     kind: String,
     ratio: String,
-    /// `true` pour les formats propres au collectif, ajoutes a la main.
+    /// `true` for formats specific to the collective, added by hand.
     custom: bool,
 }
 
@@ -265,8 +265,8 @@ struct NewFormat {
     kind: Option<String>,
 }
 
-/// Le catalogue est editable : les plateformes changent leurs formats, cela ne
-/// doit jamais demander une modification de code (§9.2).
+/// The catalogue is editable: platforms change their formats, and that must
+/// never require a code change (§9.2).
 async fn create_format(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -296,7 +296,7 @@ async fn create_format(
     ))
 }
 
-// --- Gabarits -------------------------------------------------------------
+// --- Templates ------------------------------------------------------------
 
 #[derive(Serialize)]
 struct TemplateRow {
@@ -422,8 +422,8 @@ async fn create_template(
     let (w, h) = format_size(&state, cid, body.master_format_id).await?;
     let layout = match body.layout {
         Some(mut l) => {
-            // Le cadre ne peut pas quitter le ratio du format (§9.2, §18) :
-            // on impose les dimensions, on ne les negocie pas.
+            // The frame cannot leave the format's ratio (§9.2, §18): the
+            // dimensions are imposed, not negotiated.
             l["width"] = json!(w);
             l["height"] = json!(h);
             l
@@ -511,8 +511,9 @@ struct NewVariant {
     format_id: Uuid,
 }
 
-/// Cree une declinaison en proposant une adaptation automatique du maitre.
-/// **Point de depart, jamais resultat final** : on la corrige ensuite (§9.3).
+/// Creates a variant by proposing an automatic adaptation of the master.
+/// **A starting point, never a final result**: it is corrected afterwards
+/// (§9.3).
 async fn add_variant(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -556,9 +557,9 @@ struct SaveVariant {
     layout: Value,
 }
 
-/// Chaque declinaison memorise ses propres ajustements sans toucher au maitre.
-/// Modifier un gabarit ne casse aucun visuel deja produit : on incremente la
-/// version et on en garde un instantane (§9.3).
+/// Each variant remembers its own adjustments without touching the master.
+/// Editing a template breaks no visual already produced: the version is bumped
+/// and a snapshot is kept (§9.3).
 async fn save_variant(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -625,7 +626,7 @@ async fn save_variant(
     Ok(Json(json!({ "version": version })))
 }
 
-/// Un gabarit se copie pour servir de base a un autre (§9.3).
+/// A template can be copied to serve as the basis for another (§9.3).
 async fn duplicate_template(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -669,7 +670,7 @@ async fn duplicate_template(
     Ok(Json(json!({ "id": new_id })))
 }
 
-// --- Medias ---------------------------------------------------------------
+// --- Media ----------------------------------------------------------------
 
 #[derive(Serialize)]
 struct AssetRow {
@@ -756,8 +757,8 @@ async fn list_assets(
     ))
 }
 
-/// **Televersement uniquement** : aucune generation par IA, aucun fournisseur
-/// a configurer, aucun cout variable (§9.5).
+/// **Upload only**: no AI generation, no provider to configure, no variable
+/// cost (§9.5).
 async fn upload_asset(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -860,8 +861,8 @@ fn kind_of(mime: &str) -> &'static str {
     }
 }
 
-/// URL signee, a duree limitee : c'est ce que consomme le navigateur et la CLI
-/// de rendu (§10.1).
+/// A signed, time-limited URL: this is what the browser and the render CLI
+/// consume (§10.1).
 async fn asset_url(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -887,8 +888,8 @@ async fn asset_url(
     })))
 }
 
-/// Les champs automatiques tels qu'ils seront injectes : ce que l'editeur
-/// affiche dans sa palette de contenu (§9.1).
+/// The automatic fields exactly as they will be injected: what the editor
+/// shows in its content palette (§9.1).
 async fn preview_fields(
     State(state): State<AppState>,
     Auth(actor): Auth,

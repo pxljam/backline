@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-// Point d'entree publie. En developpement, `pnpm backline` passe par tsx.
+// Published entry point. In development, `pnpm backline` goes through tsx.
 import "../dist/index.js";

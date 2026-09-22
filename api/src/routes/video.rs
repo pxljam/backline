@@ -1,7 +1,7 @@
-//! Video declarative et rendu distribue (§10).
+//! Declarative video and distributed rendering (§10).
 //!
-//! Backline **decrit** la video ; une CLI la fabrique sur la machine d'un
-//! membre. Le VPS n'encode jamais.
+//! Backline **describes** the video; a CLI builds it on a member's machine.
+//! The VPS never encodes.
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-/// Routes propres a un collectif.
+/// Routes scoped to a collective.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -34,7 +34,7 @@ pub fn router() -> Router<AppState> {
         .route("/render-jobs", get(list_jobs))
 }
 
-/// Routes de la CLI et des machines, hors perimetre collectif.
+/// CLI and machine routes, outside the collective scope.
 pub fn machine_router() -> Router<AppState> {
     Router::new()
         .route("/machines", get(list_machines).post(register_machine))
@@ -150,8 +150,8 @@ async fn create_composition(
     .await?;
     let (w, h) = size.ok_or_else(|| AppError::not_found("format introuvable"))?;
 
-    // La composition est une description : des plans, des calques, une piste
-    // audio. Le fichier n'existe pas encore, et c'est le principe (§10.2).
+    // A composition is a description: scenes, layers, an audio track. The file
+    // does not exist yet, and that is the point (§10.2).
     let spec = body.spec.unwrap_or_else(|| {
         json!({
             "version": 1,
@@ -292,8 +292,8 @@ async fn queue_render(
     .fetch_one(&state.db)
     .await?;
 
-    // Un job non reclame au bout d'un delai **alerte l'admin** plutot que de
-    // rester silencieusement en attente (§10.3).
+    // A job left unclaimed past a delay **alerts the admin** rather than
+    // waiting silently (§10.3).
     jobs::enqueue(
         &state.db,
         "render_unclaimed_alert",
@@ -328,8 +328,8 @@ struct JobRow {
     finished_at: Option<DateTime<Utc>>,
 }
 
-/// Ecran « Rendus » : file des jobs, machines connectees, progression, erreurs
-/// (§14). L'application affiche **en permanence** quelles machines sont la.
+/// The "Rendus" screen: job queue, connected machines, progress, errors (§14).
+/// The application shows **at all times** which machines are there.
 async fn list_jobs(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -410,7 +410,7 @@ async fn list_jobs(
     })))
 }
 
-// --- Machines de rendu ----------------------------------------------------
+// --- Render machines ------------------------------------------------------
 
 #[derive(Serialize)]
 struct MachineRow {
@@ -462,8 +462,8 @@ struct NewMachine {
     capabilities: Option<Value>,
 }
 
-/// `backline login` : associe la machine au compte, par un jeton **revocable**
-/// (§10.3). Le jeton n'est montre qu'une fois.
+/// `backline login`: links the machine to the account with a **revocable**
+/// token (§10.3). The token is shown only once.
 async fn register_machine(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -504,7 +504,7 @@ async fn revoke_machine(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// Authentification d'une machine de rendu, par en-tete `X-Machine-Token`.
+/// Render machine authentication, through the `X-Machine-Token` header.
 pub struct MachineAuth {
     pub machine_id: Uuid,
 }
@@ -531,8 +531,8 @@ impl axum::extract::FromRequestParts<AppState> for MachineAuth {
         .await?;
         let (machine_id,) = row.ok_or(AppError::Unauthorized)?;
 
-        // Chaque appel vaut signe de vie : c'est ce qui alimente « machines
-        // connectees » dans l'interface.
+        // Every call counts as a heartbeat: this is what feeds "connected
+        // machines" in the interface.
         sqlx::query("UPDATE render_machines SET last_seen_at = now() WHERE id = $1")
             .bind(machine_id)
             .execute(&state.db)
@@ -548,8 +548,8 @@ struct ClaimRequest {
     capabilities: Option<Value>,
 }
 
-/// `backline render` : la machine **reclame** un job. Meme mecanisme que le
-/// reste de la file — `FOR UPDATE SKIP LOCKED`, une seule file a comprendre.
+/// `backline render`: the machine **claims** a job. Same mechanism as the rest
+/// of the queue — `FOR UPDATE SKIP LOCKED`, one queue to understand.
 async fn claim_job(
     State(state): State<AppState>,
     machine: MachineAuth,
@@ -583,8 +583,8 @@ async fn claim_job(
     }
 }
 
-/// Tout ce qu'il faut pour rendre hors ligne : la description, la charte, les
-/// champs automatiques, et des **URL signees** vers les medias du job (§10.3).
+/// Everything needed to render offline: the description, the brand, the
+/// automatic fields, and **signed URLs** to the job's media (§10.3).
 async fn job_bundle(
     State(state): State<AppState>,
     machine: MachineAuth,
@@ -600,8 +600,8 @@ async fn job_bundle(
     let (collective_id, composition_id, event_id, kind, claimed_by) =
         row.ok_or_else(|| AppError::not_found("job introuvable"))?;
 
-    // Une machine ne lit que ce qu'elle a reclame : acces limite aux medias du
-    // job (§10.3, traitement du risque).
+    // A machine only reads what it claimed: access limited to the job's media
+    // (§10.3, risk treatment).
     if claimed_by != Some(machine.machine_id) {
         return Err(AppError::forbidden(
             "ce job est reclame par une autre machine",
@@ -626,7 +626,7 @@ async fn job_bundle(
         None => json!({}),
     };
 
-    // Les assets references par la description recoivent une URL signee.
+    // Assets referenced by the description each get a signed URL.
     let mut media = serde_json::Map::new();
     for asset_id in collect_asset_ids(&spec) {
         let row: Option<(String, String)> = sqlx::query_as(
@@ -663,8 +663,8 @@ async fn job_bundle(
     })))
 }
 
-/// Cherche les `assetId` partout dans la description, sans connaitre sa forme
-/// exacte : la description evolue, la collecte n'a pas a suivre.
+/// Looks for `assetId` anywhere in the description without knowing its exact
+/// shape: the description evolves, the collection does not have to follow.
 fn collect_asset_ids(spec: &Value) -> Vec<Uuid> {
     let mut out = Vec::new();
     walk(spec, &mut out);
@@ -713,7 +713,7 @@ async fn report_progress(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// La machine renvoie le fichier fini ; il devient un asset du collectif.
+/// The machine uploads the finished file; it becomes an asset of the collective.
 async fn complete_job(
     State(state): State<AppState>,
     machine: MachineAuth,
@@ -816,8 +816,8 @@ async fn fail_job(
     Path(job_id): Path<Uuid>,
     Json(body): Json<FailJob>,
 ) -> AppResult<Json<Value>> {
-    // Le job retourne dans la file : une autre machine peut reprendre. Au-dela
-    // de trois tentatives, on arrete et on previent.
+    // The job goes back into the queue: another machine can pick it up. Past
+    // three attempts, stop and tell someone.
     let row: Option<(i32, Uuid)> = sqlx::query_as(
         "UPDATE render_jobs
          SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'queued' END,

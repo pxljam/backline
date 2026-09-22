@@ -7,7 +7,7 @@ import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select,
 } from "../components/ui";
 
-/** Administration des membres (§3). Aucune inscription publique. */
+/** Member administration (§3). No public sign-up. */
 export const Members: React.FC = () => {
   const base = useCollectiveBase();
   const { isAdmin, me } = useSession();

@@ -3,7 +3,7 @@ import { Img, OffthreadVideo } from "remotion";
 import type { Brand, ImageProps, LogoProps, MediaMap } from "../types";
 import { mediaUrl } from "../resolve";
 
-/** Cadre vide, visible : un media manquant se voit, il ne disparait pas. */
+/** An empty, visible frame: missing media shows up, it does not vanish. */
 const Missing: React.FC<{ label: string }> = ({ label }) => (
   <div
     style={{

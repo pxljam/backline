@@ -1,6 +1,6 @@
-//! Conversion d'une opportunite en evenement, et tout ce que la confirmation
-//! declenche (§5.3). Un seul endroit : sinon un evenement cree autrement
-//! arriverait sans plan de com ni relances.
+//! Converting an opportunity into an event, and everything confirmation sets
+//! off (§5.3). One single place: otherwise an event created some other way
+//! would arrive with no comms plan and no reminders.
 
 use crate::error::{AppError, AppResult};
 use crate::scope::CollectiveScope;
@@ -40,8 +40,8 @@ pub struct ConvertRequest {
     pub ends_at: Option<DateTime<Utc>>,
 }
 
-/// Combine une date candidate et son horaire en un instant UTC. Sans horaire,
-/// on retient 20h00 locales : l'heure d'un concert par defaut, corrigeable.
+/// Combines a candidate date and its time into a UTC instant. With no time,
+/// 20:00 local is used: a gig's default hour, correctable.
 pub fn local_datetime(day: NaiveDate, time: Option<NaiveTime>) -> DateTime<Utc> {
     let t = time.unwrap_or_else(|| NaiveTime::from_hms_opt(20, 0, 0).unwrap());
     let naive = day.and_time(t);
@@ -147,7 +147,7 @@ pub async fn convert(
         .await?;
     }
 
-    // 3. Postes logistiques, crees **vides** : personne n'est assigne d'office.
+    // 3. Logistics slots, created **empty**: nobody is assigned by default.
     for (i, (label, qty)) in comms::default_logistics(&req.event_type_key)
         .iter()
         .enumerate()
@@ -175,21 +175,21 @@ pub async fn convert(
 
     tx.commit().await?;
 
-    // 4. Plan de com instancie depuis le type d'evenement.
+    // 4. Comms plan instantiated from the event type.
     comms::instantiate_plan(db, event_id).await?;
-    // 5. Fiches techniques des groupes du line-up, rattachees a leur version courante.
+    // 5. Tech riders of the line-up's groups, attached to their current version.
     attach_tech_riders(db, event_id).await?;
-    // 1. Le calendrier et les flux iCal se mettent a jour d'eux-memes : ils
-    //    lisent `events`. Rien a pousser.
+    // 1. The calendar and iCal feeds update themselves: they read `events`.
+    //    Nothing to push.
     schedule_event_jobs(db, event_id).await?;
     notify_lineup(db, scope, opportunity_id, event_id).await?;
 
     Ok(event_id)
 }
 
-/// Rattache, pour chaque groupe du line-up, la derniere fiche technique
-/// publiee. Aucune fiche = ligne quand meme creee, avec `NULL` : l'absence est
-/// **signalee, jamais bloquante** (§12).
+/// Attaches, for each group in the line-up, the latest published tech rider.
+/// No rider = the row is still created, with `NULL`: the absence is
+/// **reported, never blocking** (§12).
 pub async fn attach_tech_riders(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     sqlx::query(
         "INSERT INTO event_tech_riders (event_id, group_id, tech_rider_id)
@@ -207,9 +207,9 @@ pub async fn attach_tech_riders(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// Programme tout ce qui doit partir tout seul : relances logistiques,
-/// feuille de route, taches de publication, alerte de mise en ligne, passage
-/// au statut `passe`.
+/// Schedules everything that must go out on its own: logistics reminders, run
+/// sheet, publication tasks, going-live alert, transition to the `past`
+/// status.
 pub async fn schedule_event_jobs(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     let (starts_at, ends_at, type_key): (DateTime<Utc>, Option<DateTime<Utc>>, String) =
         sqlx::query_as(
@@ -220,7 +220,7 @@ pub async fn schedule_event_jobs(db: &PgPool, event_id: Uuid) -> AppResult<()> {
         .fetch_one(db)
         .await?;
 
-    // Relances sur les postes vacants a J-14, J-7, J-2 (§5.4).
+    // Reminders about vacant slots at D-14, D-7, D-2 (§5.4).
     for (milestone, days) in [("j-14", 14), ("j-7", 7), ("j-2", 2)] {
         jobs::enqueue(
             db,
@@ -232,8 +232,8 @@ pub async fn schedule_event_jobs(db: &PgPool, event_id: Uuid) -> AppResult<()> {
         .await?;
     }
 
-    // Rappel unique au referent du groupe sans fiche technique, a J-14. Puis
-    // plus rien — pas de harcelement (§12).
+    // A single reminder to the lead of the group without a tech rider, at
+    // D-14. Then nothing more — no nagging (§12).
     jobs::enqueue(
         db,
         "tech_rider_missing",
@@ -243,7 +243,7 @@ pub async fn schedule_event_jobs(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     )
     .await?;
 
-    // Feuille de route envoyee la veille (§5.5).
+    // Run sheet sent the day before (§5.5).
     jobs::enqueue(
         db,
         "run_sheet",
@@ -253,7 +253,7 @@ pub async fn schedule_event_jobs(db: &PgPool, event_id: Uuid) -> AppResult<()> {
     )
     .await?;
 
-    // Un stream previent tous les membres 15 minutes avant, sans intervention (§18).
+    // A stream tells every member 15 minutes ahead, with no intervention (§18).
     if type_key == "stream" {
         jobs::enqueue(
             db,
@@ -298,8 +298,8 @@ pub async fn schedule_publication_jobs(db: &PgPool, event_id: Uuid) -> AppResult
     Ok(())
 }
 
-/// Notifie les retenus **et les non-retenus** (§5.3, point 2). Ne rien dire aux
-/// non-retenus est la principale source de rancune dans un collectif.
+/// Notifies those selected **and those not** (§5.3, point 2). Saying nothing to
+/// the ones left out is the main source of resentment in a collective.
 async fn notify_lineup(
     db: &PgPool,
     scope: &CollectiveScope,
@@ -342,7 +342,7 @@ async fn notify_lineup(
         .await?;
     }
 
-    // Les volontaires du sondage qui ne figurent pas au line-up.
+    // Poll volunteers who did not make the line-up.
     let volunteers: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT DISTINCT a.user_id FROM availabilities a
          JOIN candidate_dates d ON d.id = a.candidate_date_id

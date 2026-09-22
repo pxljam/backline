@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Front React construit une fois, servi en statique.
+# React front-end built once, served statically.
 
 FROM node:22-bookworm-slim AS build
 RUN corepack enable

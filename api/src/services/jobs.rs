@@ -1,9 +1,8 @@
-//! File d'attente et planification (§15).
+//! Queue and scheduling (§15).
 //!
-//! Une table PostgreSQL, `FOR UPDATE SKIP LOCKED`. Pas de Redis, pas de service
-//! supplementaire — et un rappel programme a J-30 survit a un redemarrage.
-//! **Le meme mecanisme sert a la CLI de rendu** (`render_jobs`), une seule file
-//! a comprendre.
+//! One PostgreSQL table, `FOR UPDATE SKIP LOCKED`. No Redis, no extra service —
+//! and a reminder scheduled at D-30 survives a restart. **The same mechanism
+//! serves the render CLI** (`render_jobs`): one queue to understand.
 
 use crate::error::AppResult;
 use chrono::{DateTime, Utc};
@@ -21,8 +20,8 @@ pub struct Job {
 
 const MAX_ATTEMPTS: i32 = 5;
 
-/// Programme un job. `dedupe_key` rend l'appel idempotent : reprogrammer le
-/// rappel J-7 d'un evenement ne cree pas un second envoi.
+/// Schedules a job. `dedupe_key` makes the call idempotent: rescheduling an
+/// event's D-7 reminder does not create a second send.
 pub async fn enqueue(
     db: &PgPool,
     kind: &str,
@@ -45,8 +44,8 @@ pub async fn enqueue(
     Ok(row.map(|(id,)| id))
 }
 
-/// Reclame jusqu'a `limit` jobs echus. Plusieurs instances de l'API peuvent
-/// tourner sans se marcher dessus.
+/// Claims up to `limit` due jobs. Several API instances can run without
+/// treading on each other.
 pub async fn claim(db: &PgPool, limit: i64) -> AppResult<Vec<Job>> {
     let jobs: Vec<Job> = sqlx::query_as(
         "UPDATE jobs SET status = 'running', locked_at = now(), attempts = attempts + 1
@@ -73,7 +72,7 @@ pub async fn mark_done(db: &PgPool, id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// Replanifie avec un recul exponentiel, puis abandonne en le signalant.
+/// Reschedules with exponential backoff, then gives up and says so.
 pub async fn mark_failed(db: &PgPool, job: &Job, error: &str) -> AppResult<()> {
     if job.attempts >= MAX_ATTEMPTS {
         sqlx::query(
@@ -83,7 +82,7 @@ pub async fn mark_failed(db: &PgPool, job: &Job, error: &str) -> AppResult<()> {
         .bind(error)
         .execute(db)
         .await?;
-        tracing::error!(job = %job.id, kind = %job.kind, error, "job abandonne");
+        tracing::error!(job = %job.id, kind = %job.kind, error, "job abandoned");
     } else {
         let backoff = chrono::Duration::seconds(30 * (1 << job.attempts.min(6)));
         sqlx::query(
@@ -98,7 +97,7 @@ pub async fn mark_failed(db: &PgPool, job: &Job, error: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Annule les jobs en attente d'un evenement (annulation, date deplacee).
+/// Cancels an event's pending jobs (cancellation, moved date).
 pub async fn cancel_by_prefix(db: &PgPool, dedupe_prefix: &str) -> AppResult<u64> {
     let r = sqlx::query(
         "UPDATE jobs SET status = 'done', finished_at = now()

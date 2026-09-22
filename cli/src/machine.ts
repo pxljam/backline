@@ -5,11 +5,10 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 
 /**
- * Capacites de la machine.
+ * What the machine can do.
  *
- * « La CLI utilise le GPU quand la machine en a un, et retombe sur le CPU
- * sinon. Aucune machine n'est exclue : un rendu sur processeur est simplement
- * plus lent. » (§10.3)
+ * "The CLI uses the GPU when the machine has one, and falls back to the CPU
+ * otherwise. No machine is excluded: a CPU render is simply slower." (§10.3)
  */
 export interface Capabilities {
   gpu: boolean;
@@ -25,8 +24,8 @@ export async function detect(): Promise<Capabilities> {
   return {
     gpu,
     gpuKind,
-    // Le nombre de taches paralleles s'adapte a la machine : on laisse deux
-    // coeurs a son proprietaire, qui s'en sert peut-etre pendant ce temps.
+    // Parallelism follows the machine: leave two cores to its owner, who may
+    // well be using it in the meantime.
     concurrency: Math.max(1, Math.min(8, cpus - 2)),
     platform: `${os.platform()}-${os.arch()}`,
     cpus,
@@ -35,7 +34,7 @@ export async function detect(): Promise<Capabilities> {
 
 async function detectGpu(): Promise<{ gpu: boolean; gpuKind: string | null }> {
   if (os.platform() === "darwin") {
-    // Tout Mac recent a un GPU utilisable par Chromium (Metal via ANGLE).
+    // Every recent Mac has a GPU Chromium can use (Metal through ANGLE).
     return { gpu: true, gpuKind: "metal" };
   }
   try {
@@ -43,16 +42,16 @@ async function detectGpu(): Promise<{ gpu: boolean; gpuKind: string | null }> {
     const name = stdout.trim().split("\n")[0];
     if (name) return { gpu: true, gpuKind: name };
   } catch {
-    // nvidia-smi absent : ce n'est pas une erreur, c'est une machine sans GPU
-    // NVIDIA. Le rendu se fera sur processeur.
+    // No nvidia-smi: not an error, just a machine without an NVIDIA GPU. The
+    // render will run on the CPU.
   }
   return { gpu: false, gpuKind: null };
 }
 
 /**
- * Backend OpenGL passe a Chromium. `angle` exploite le GPU ; `swangle` est le
- * rendu logiciel, plus lent mais universel — et **deterministe**, ce qui sert
- * l'exigence « deux rendus donnent deux fichiers identiques » (§18).
+ * OpenGL backend handed to Chromium. `angle` uses the GPU; `swangle` is
+ * software rendering, slower but universal — and **deterministic**, which
+ * serves the "two renders produce two identical files" requirement (§18).
  */
 export function glBackend(caps: Capabilities): "angle" | "swangle" {
   return caps.gpu ? "angle" : "swangle";

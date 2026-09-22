@@ -1,6 +1,5 @@
-//! Plan de com (§11). Les timelines sont **des donnees** portees par le type
-//! d'evenement : les modifier se fait dans les reglages du collectif, jamais
-//! dans le code.
+//! Comms plan (§11). Timelines are **data** carried by the event type: they are
+//! edited in the collective's settings, never in the code.
 
 use crate::error::AppResult;
 use chrono::{DateTime, Duration, NaiveTime, TimeZone, Utc};
@@ -14,21 +13,21 @@ use uuid::Uuid;
 pub struct Milestone {
     pub key: String,
     pub label: String,
-    /// Decalage en jours par rapport a l'ancre. Negatif = avant.
+    /// Offset in days from the anchor. Negative = before.
     #[serde(default)]
     pub offset_days: i64,
-    /// Decalage fin, utilise par les streams (« J0 moins 15 min »).
+    /// Fine offset, used by streams ("D0 minus 15 min").
     #[serde(default)]
     pub offset_minutes: i64,
-    /// Heure locale imposee, sinon on garde l'heure de l'ancre.
+    /// Fixed local time; otherwise the anchor's time is kept.
     #[serde(default)]
     pub at: Option<String>,
-    /// Cles du catalogue de formats (§9.2) attendues pour ce jalon.
+    /// Format catalogue keys (§9.2) expected for this milestone.
     #[serde(default)]
     pub formats: Vec<String>,
     #[serde(default)]
     pub caption: String,
-    /// `start` (defaut) ou `end` — une residence communique depuis sa fin.
+    /// `start` (default) or `end` — a residency communicates from its end.
     #[serde(default = "anchor_start")]
     pub anchor: String,
 }
@@ -38,7 +37,7 @@ fn anchor_start() -> String {
 }
 
 impl Milestone {
-    /// Instant de declenchement, calcule en heure de Paris puis ramene en UTC.
+    /// Trigger instant, computed in Paris time then brought back to UTC.
     pub fn scheduled_at(
         &self,
         starts_at: DateTime<Utc>,
@@ -55,8 +54,8 @@ impl Milestone {
         let with_time = match self.at.as_deref().and_then(parse_hm) {
             Some(t) => {
                 let naive = shifted.date_naive().and_time(t);
-                // Heure d'ete : une heure locale peut ne pas exister ou etre
-                // ambigue. On prend la premiere occurrence valide.
+                // Daylight saving: a local time may not exist, or may be
+                // ambiguous. Take the first valid occurrence.
                 Paris
                     .from_local_datetime(&naive)
                     .earliest()
@@ -73,8 +72,8 @@ fn parse_hm(s: &str) -> Option<NaiveTime> {
     NaiveTime::parse_from_str(s, "%H:%M").ok()
 }
 
-/// Timelines par defaut (§11.1). Servent de valeur initiale a la creation d'un
-/// collectif ; chaque collectif peut ensuite les reecrire entierement.
+/// Default timelines (§11.1). They seed a collective at creation time; each
+/// collective can then rewrite them entirely.
 pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
     let m = |key: &str, label: &str, offset_days: i64, at: &str, formats: &[&str]| Milestone {
         key: key.into(),
@@ -88,7 +87,7 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
     };
 
     match type_key {
-        // Concert et soiree DJ partagent la meme timeline longue.
+        // Concerts and DJ nights share the same long timeline.
         "concert" | "dj_night" => vec![
             m(
                 "j-30",
@@ -136,7 +135,7 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
                 &["ig_portrait", "ig_story"],
             ),
         ],
-        // Residence : timeline allegee, restitution ancree sur la fin.
+        // Residency: lighter timeline, the showing anchored on the end.
         "residency" => vec![
             m(
                 "j-14",
@@ -159,7 +158,7 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
                 anchor: "end".into(),
             },
         ],
-        // Stream : cycle court, la reactivite prime.
+        // Stream: short cycle, responsiveness comes first.
         "stream" => vec![
             m(
                 "j-7",
@@ -213,7 +212,7 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
     }
 }
 
-/// Postes logistiques crees vides a la confirmation (§5.3).
+/// Logistics slots created empty on confirmation (§5.3).
 pub fn default_logistics(type_key: &str) -> Vec<(&'static str, i32)> {
     match type_key {
         "concert" => vec![
@@ -235,8 +234,8 @@ pub fn default_logistics(type_key: &str) -> Vec<(&'static str, i32)> {
     }
 }
 
-/// Instancie le plan de com d'un evenement confirme. Toute tache nait au
-/// statut `brouillon` : un humain valide toujours (§11.1).
+/// Instantiates a confirmed event's comms plan. Every task is born in the
+/// `draft` status: a human always approves (§11.1).
 pub async fn instantiate_plan(db: &PgPool, event_id: Uuid) -> AppResult<Uuid> {
     let (starts_at, ends_at, milestones): (DateTime<Utc>, Option<DateTime<Utc>>, Value) =
         sqlx::query_as(
@@ -289,9 +288,9 @@ mod tests {
     }
 
     #[test]
-    fn j_moins_30_tombe_30_jours_avant_a_l_heure_dite() {
+    fn d_minus_30_falls_30_days_before_at_the_stated_hour() {
         let ms = &default_timeline("concert")[0];
-        // 2026-06-20 20:00 Paris (= 18:00 UTC en ete)
+        // 2026-06-20 20:00 Paris (= 18:00 UTC in summer)
         let at = ms.scheduled_at(utc("2026-06-20T18:00:00Z"), None);
         let local = at.with_timezone(&Paris);
         assert_eq!(local.date_naive().to_string(), "2026-05-21");
@@ -299,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn le_jalon_quinze_minutes_precede_bien_le_live() {
+    fn the_fifteen_minute_milestone_really_precedes_the_live() {
         let ms = default_timeline("stream")
             .into_iter()
             .find(|m| m.key == "j0-15m")
@@ -309,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn la_restitution_de_residence_s_ancre_sur_la_fin() {
+    fn a_residency_showing_anchors_on_the_end() {
         let ms = default_timeline("residency")
             .into_iter()
             .find(|m| m.key == "j+3")

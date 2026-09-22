@@ -1,4 +1,4 @@
-# Surcharge locale : ports exposes, pas de TLS.
+# Local override: ports exposed, no TLS.
 services:
   db:
     ports: ["5433:5432"]

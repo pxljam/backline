@@ -1,9 +1,9 @@
-//! Authentification (§3). Aucune inscription publique : un admin cree
-//! l'utilisateur et genere un lien d'invitation a usage unique.
+//! Authentication (§3). No public sign-up: an admin creates the user and
+//! generates a single-use invitation link.
 //!
-//! - Connexion web : Telegram Login Widget, signature HMAC verifiee ici.
-//! - Secours : e-mail + mot de passe Argon2, obligatoire pour au moins un
-//!   admin d'instance, pour ne jamais dependre de Telegram cote administration.
+//! - Web sign-in: Telegram Login Widget, HMAC signature verified here.
+//! - Fallback: email + Argon2 password, mandatory for at least one instance
+//!   admin, so administration never depends on Telegram.
 
 pub mod password;
 pub mod session;

@@ -3,9 +3,9 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * La CLI ne garde qu'une chose : l'adresse de l'instance et le **jeton de
- * machine**, revocable depuis l'application (§10.3). Aucun mot de passe,
- * aucune session utilisateur.
+ * The CLI stores one thing only: the instance address and the **machine
+ * token**, revocable from the application (§10.3). No password, no user
+ * session.
  */
 export interface Config {
   apiUrl: string;
@@ -26,8 +26,8 @@ export async function load(): Promise<Config | null> {
 
 export async function save(config: Config): Promise<string> {
   await fs.mkdir(dir, { recursive: true });
-  // Le jeton donne acces aux medias des jobs : il n'a rien a faire en
-  // lecture pour tout le monde.
+  // The token grants access to job media: it has no business being
+  // world-readable.
   await fs.writeFile(file, JSON.stringify(config, null, 2), { mode: 0o600 });
   return file;
 }
@@ -35,7 +35,7 @@ export async function save(config: Config): Promise<string> {
 export async function require_(): Promise<Config> {
   const config = await load();
   if (!config) {
-    throw new Error("machine non associee — lancer `backline login` d'abord");
+    throw new Error("machine not linked — run `backline login` first");
   }
   return config;
 }

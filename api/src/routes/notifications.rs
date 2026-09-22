@@ -1,4 +1,4 @@
-//! Centre de notifications web — le doublon complet du bot (§13, §19).
+//! Web notification centre — a complete mirror of the bot (§13, §19).
 
 use crate::error::AppResult;
 use crate::extract::Auth;
@@ -106,12 +106,12 @@ async fn mark_all_read(State(state): State<AppState>, Auth(actor): Auth) -> AppR
 
 #[derive(Deserialize)]
 struct Preferences {
-    /// Silence nocturne : heures locales, 22 -> 8 par exemple.
+    /// Quiet hours: local hours, 22 -> 8 for instance.
     #[serde(default)]
     quiet_from: Option<i16>,
     #[serde(default)]
     quiet_to: Option<i16>,
-    /// Opt-out par type de notification (§13).
+    /// Opt-out per notification type (§13).
     #[serde(default)]
     opt_out: Vec<String>,
 }

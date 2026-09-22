@@ -1,9 +1,9 @@
-//! §18, video et rendu distribue (§10) :
-//! - « Une composition video rendue deux fois donne deux fichiers identiques. »
-//! - « Si aucune machine n'est connectee, la tache de com reste livrable avec
-//!   son visuel fixe, et l'admin est prevenu. »
-//! - « Un rendu video aboutit sur une machine sans GPU, simplement plus
-//!   lentement. »
+//! §18, video and distributed rendering (§10):
+//! - "A video composition rendered twice yields two identical files."
+//! - "If no machine is connected, the comms task is still deliverable with its
+//!   still visual, and the admin is warned."
+//! - "A video render completes on a machine without a GPU, simply more
+//!   slowly"
 
 use crate::harness::TestApp;
 use serde_json::json;
@@ -57,7 +57,7 @@ async fn composition(app: &TestApp) -> (Uuid, String) {
     (cid, created.expect_ok()["id"].as_str().unwrap().to_string())
 }
 
-/// Enregistre une machine et renvoie son jeton.
+/// Registers a machine and returns its token.
 async fn machine(app: &TestApp, nom: &str, gpu: bool) -> String {
     let romain = app.login_named("Romain").await;
     let res = romain
@@ -93,7 +93,7 @@ async fn bundle(app: &TestApp, token: &str, job_id: &str) -> (u16, serde_json::V
 }
 
 #[tokio::test]
-async fn une_video_se_decrit_entierement_dans_l_app_sans_encodage() {
+async fn a_video_is_described_entirely_in_the_app_without_encoding() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -104,16 +104,16 @@ async fn une_video_se_decrit_entierement_dans_l_app_sans_encodage() {
     let comp = comp.expect_ok();
     assert_eq!(comp["spec"]["scenes"][0]["durationInFrames"], 60);
     assert_eq!(comp["fps"], 30);
-    // Aucun asset n'a ete produit : la description n'est pas un fichier.
-    let (rendus,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE kind = 'render'")
+    // No asset was produced: the description is not a file.
+    let (renders,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE kind = 'render'")
         .fetch_one(&app.db)
         .await
         .unwrap();
-    assert_eq!(rendus, 0, "decrire n'encode pas");
+    assert_eq!(renders, 0, "describing does not encode");
 }
 
 #[tokio::test]
-async fn deux_rendus_de_la_meme_version_recoivent_une_recette_identique() {
+async fn two_renders_of_the_same_version_get_an_identical_recipe() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -134,8 +134,8 @@ async fn deux_rendus_de_la_meme_version_recoivent_une_recette_identique() {
 
         let (status, b) = bundle(&app, &token, &job_id).await;
         assert_eq!(status, 200);
-        // Les URL signees changent a chaque appel — c'est leur role. La recette
-        // est tout le reste : description, charte, champs automatiques.
+        // Signed URLs change on every call — that is their job. The recipe is
+        // everything else: description, brand, automatic fields.
         recettes.push(
             json!({ "spec": b["spec"], "brand": b["brand"], "data": b["data"], "fps": b["fps"] }),
         );
@@ -148,12 +148,12 @@ async fn deux_rendus_de_la_meme_version_recoivent_une_recette_identique() {
 }
 
 #[tokio::test]
-async fn un_rendu_aboutit_sur_une_machine_sans_gpu() {
+async fn a_render_completes_on_a_machine_without_a_gpu() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
 
-    // Machine explicitement sans GPU : rien ne l'exclut de la file.
+    // A machine explicitly without a GPU: nothing excludes it from the queue.
     let token = machine(&app, "Vieux portable", false).await;
     let job = antoine
         .post(
@@ -169,7 +169,7 @@ async fn un_rendu_aboutit_sur_une_machine_sans_gpu() {
     let (status, _) = bundle(&app, &token, &job_id).await;
     assert_eq!(status, 200);
 
-    // Progression remontee en direct.
+    // Progress reported live.
     let resp = reqwest::Client::new()
         .put(format!("{}/api/render/jobs/{job_id}/progress", app.base))
         .header("X-Machine-Token", &token)
@@ -179,7 +179,7 @@ async fn un_rendu_aboutit_sur_une_machine_sans_gpu() {
         .unwrap();
     assert_eq!(resp.status(), 200);
 
-    // Le fichier fini revient.
+    // The finished file comes back.
     let form = reqwest::multipart::Form::new().part(
         "file",
         reqwest::multipart::Part::bytes(b"FAKE-MP4-CONTENT".to_vec())
@@ -213,7 +213,7 @@ async fn un_rendu_aboutit_sur_une_machine_sans_gpu() {
 }
 
 #[tokio::test]
-async fn sans_machine_connectee_l_admin_est_prevenu_et_la_com_continue() {
+async fn with_no_machine_connected_the_admin_is_warned_and_comms_carry_on() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -231,9 +231,9 @@ async fn sans_machine_connectee_l_admin_est_prevenu_et_la_com_continue() {
         "l'app dit tout de suite que personne n'est la"
     );
 
-    // Le job ne dort pas silencieusement.
+    // The job does not sleep silently.
     app.run_due_jobs().await;
-    let (alertes,): (i64,) = sqlx::query_as(
+    let (alerts,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'admin_alert'
            AND payload->>'render_job_id' = $1",
     )
@@ -241,7 +241,7 @@ async fn sans_machine_connectee_l_admin_est_prevenu_et_la_com_continue() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert!(alertes > 0, "un admin doit etre prevenu");
+    assert!(alerts > 0, "an admin must be warned");
 
     let (body,): (String,) = sqlx::query_as(
         "SELECT body FROM notifications WHERE payload->>'render_job_id' = $1 LIMIT 1",
@@ -255,14 +255,14 @@ async fn sans_machine_connectee_l_admin_est_prevenu_et_la_com_continue() {
         "la com ne s'arrete jamais faute de rendu : {body}"
     );
 
-    // Et la tache de com correspondante reste livrable : son statut n'a pas
-    // bouge a cause du rendu manquant.
+    // And the matching comms task stays deliverable: its status did not move
+    // because of the missing render.
     let plan = antoine.get(&format!("/api/collectives/{cid}/events")).await;
     plan.expect_ok();
 }
 
 #[tokio::test]
-async fn un_jeton_de_machine_est_revocable_et_cloisonne() {
+async fn a_machine_token_is_revocable_and_isolated() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -280,11 +280,11 @@ async fn un_jeton_de_machine_est_revocable_et_cloisonne() {
 
     claim(&app, &token_a, true).await;
 
-    // B n'a pas reclame ce job : il n'accede pas a ses medias.
+    // B did not claim this job: it has no access to its media.
     let (status, _) = bundle(&app, &token_b, &job_id).await;
-    assert_eq!(status, 403, "acces limite aux medias du job reclame");
+    assert_eq!(status, 403, "access limited to the claimed job's media");
 
-    // Revocation : le jeton ne vaut plus rien.
+    // Revocation: the token is worth nothing any more.
     let romain = app.login_named("Romain").await;
     let machines = romain.get("/api/render/machines").await;
     let mid = machines
@@ -313,7 +313,7 @@ async fn un_jeton_de_machine_est_revocable_et_cloisonne() {
 }
 
 #[tokio::test]
-async fn un_rendu_en_echec_repart_dans_la_file_puis_abandonne_en_le_disant() {
+async fn a_failed_render_goes_back_in_the_queue_then_gives_up_and_says_so() {
     let app = TestApp::seeded().await;
     let (cid, vid) = composition(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -350,7 +350,7 @@ async fn un_rendu_en_echec_repart_dans_la_file_puis_abandonne_en_le_disant() {
         .unwrap();
     assert_eq!(status, "failed");
 
-    let (alertes,): (i64,) = sqlx::query_as(
+    let (alerts,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'admin_alert'
            AND payload->>'render_job_id' = $1 AND title LIKE '%echec%'",
     )
@@ -358,15 +358,15 @@ async fn un_rendu_en_echec_repart_dans_la_file_puis_abandonne_en_le_disant() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert!(alertes > 0, "l'echec est dit, pas avale");
+    assert!(alerts > 0, "the failure is stated, not swallowed");
 }
 
 #[tokio::test]
-async fn la_purge_des_rendus_epargne_les_medias_televerses() {
+async fn the_render_purge_spares_uploaded_media() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
 
-    // Un rendu perime, un media televerse.
+    // One expired render, one uploaded media file.
     app.state
         .storage
         .put(
@@ -398,11 +398,11 @@ async fn la_purge_des_rendus_epargne_les_medias_televerses() {
         .await
         .unwrap();
 
-    let (rendus,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE kind = 'render'")
+    let (renders,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE kind = 'render'")
         .fetch_one(&app.db)
         .await
         .unwrap();
-    assert_eq!(rendus, 0, "les rendus perimes se regenerent, on les purge");
+    assert_eq!(renders, 0, "expired renders regenerate, so they get purged");
 
     let (medias,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE kind = 'image'")
         .fetch_one(&app.db)

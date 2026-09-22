@@ -21,8 +21,8 @@ export const TextBlock: React.FC<{
   canvasWidth: number;
 }> = ({ props, brand, data, canvasWidth }) => {
   const content = interpolate(props.content ?? "", data);
-  // La taille est une fraction de la largeur du canevas : deux formats de meme
-  // largeur rendent un texte strictement identique.
+  // Size is a fraction of the canvas width: two formats of equal width render
+  // text identically.
   const fontSize = (props.size ?? 0.05) * canvasWidth;
   const align = props.align ?? "left";
   const valign = props.valign ?? "top";
@@ -49,8 +49,8 @@ export const TextBlock: React.FC<{
           letterSpacing: (props.tracking ?? 0) * fontSize,
           textAlign: align,
           textTransform: props.transform === "none" ? undefined : props.transform,
-          // Les retours a la ligne d'un champ automatique (un line-up, par
-          // exemple) doivent rester des retours a la ligne.
+          // Line breaks coming from an automatic field (a line-up, say) must
+          // stay line breaks.
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
         }}

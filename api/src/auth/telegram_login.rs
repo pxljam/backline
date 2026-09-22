@@ -1,8 +1,8 @@
-//! Verification du Telegram Login Widget cote Rust (§15).
+//! Telegram Login Widget verification, on the Rust side (§15).
 //!
-//! Telegram signe les donnees du widget avec `HMAC-SHA256`, dont la cle est
-//! `SHA256(bot_token)`. Sans cette verification, n'importe qui pourrait se
-//! declarer n'importe quel `telegram_id`.
+//! Telegram signs the widget data with `HMAC-SHA256`, keyed by
+//! `SHA256(bot_token)`. Without this check, anyone could claim any
+//! `telegram_id`.
 
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
@@ -20,13 +20,13 @@ pub struct TelegramLoginData {
     pub hash: String,
 }
 
-/// `true` si la signature est valide et la connexion pas trop ancienne.
+/// `true` if the signature is valid and the sign-in is not too old.
 pub fn verify_telegram_login(data: &TelegramLoginData, bot_token: &str, now: i64) -> bool {
     if now - data.auth_date > 86_400 {
         return false;
     }
 
-    // Le champ `hash` est exclu ; le reste est trie par cle, `k=v`, joint par \n.
+    // The `hash` field is excluded; the rest is sorted by key, `k=v`, joined by \n.
     let mut fields: BTreeMap<&str, String> = BTreeMap::new();
     fields.insert("id", data.id.to_string());
     fields.insert("auth_date", data.auth_date.to_string());
@@ -57,7 +57,7 @@ pub fn verify_telegram_login(data: &TelegramLoginData, bot_token: &str, now: i64
     mac.update(check_string.as_bytes());
     let expected = hex::encode(mac.finalize().into_bytes());
 
-    // Comparaison a temps constant.
+    // Constant-time comparison.
     constant_time_eq(expected.as_bytes(), data.hash.as_bytes())
 }
 
@@ -90,19 +90,19 @@ mod tests {
     }
 
     #[test]
-    fn accepte_une_signature_valide() {
+    fn accepts_a_valid_signature() {
         let d = signed("123:abc", 42, 1_700_000_000);
         assert!(verify_telegram_login(&d, "123:abc", 1_700_000_100));
     }
 
     #[test]
-    fn refuse_un_autre_jeton() {
+    fn rejects_a_different_token() {
         let d = signed("123:abc", 42, 1_700_000_000);
         assert!(!verify_telegram_login(&d, "999:xyz", 1_700_000_100));
     }
 
     #[test]
-    fn refuse_une_connexion_perimee() {
+    fn rejects_a_stale_sign_in() {
         let d = signed("123:abc", 42, 1_700_000_000);
         assert!(!verify_telegram_login(
             &d,
@@ -112,7 +112,7 @@ mod tests {
     }
 
     #[test]
-    fn refuse_un_hash_bricole() {
+    fn rejects_a_tampered_hash() {
         let mut d = signed("123:abc", 42, 1_700_000_000);
         d.id = 43;
         assert!(!verify_telegram_login(&d, "123:abc", 1_700_000_100));

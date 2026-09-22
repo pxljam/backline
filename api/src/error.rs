@@ -3,8 +3,8 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 
-/// Erreurs de l'API. Les messages sont en francais : ils remontent tels quels
-/// dans l'interface.
+/// API errors. The messages are in French: they surface verbatim in the
+/// interface.
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("{0}")]
@@ -37,10 +37,9 @@ impl AppError {
         Self::Conflict(msg.into())
     }
 
-    /// Message detaille, cause comprise. `Display` reste volontairement muet
-    /// pour ne rien fuiter dans une reponse HTTP ; mais un echec enregistre
-    /// pour un admin (un visuel qui ne sort pas, par exemple) doit dire ce qui
-    /// s'est reellement passe.
+    /// Detailed message, cause included. `Display` stays deliberately quiet so
+    /// nothing leaks into an HTTP response; but a failure recorded for an admin
+    /// (a visual that never came out, say) must say what actually happened.
     pub fn detail(&self) -> String {
         match self {
             Self::Internal(e) => format!("{e:#}"),
@@ -64,10 +63,10 @@ impl AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = self.status();
-        // Une 404 sur une ressource d'un autre collectif est volontaire : on ne
-        // revele pas son existence (§15, cloisonnement).
+        // A 404 on another collective's resource is deliberate: we do not
+        // reveal that it exists (§15, isolation).
         if status == StatusCode::INTERNAL_SERVER_ERROR {
-            tracing::error!(error = ?self, "erreur interne");
+            tracing::error!(error = ?self, "internal error");
         }
         (status, Json(json!({ "error": self.to_string() }))).into_response()
     }

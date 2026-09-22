@@ -1,7 +1,7 @@
 use crate::harness::TestApp;
 
 #[tokio::test]
-async fn l_api_repond_et_la_base_est_migree() {
+async fn the_api_answers_and_the_database_is_migrated() {
     let app = TestApp::new().await;
     let (status, body) = crate::harness::anonymous_get(&app.base, "/health").await;
     assert_eq!(status, 200);
@@ -17,7 +17,7 @@ async fn l_api_repond_et_la_base_est_migree() {
 }
 
 #[tokio::test]
-async fn les_donnees_d_amorcage_installent_bonsoir_techno_et_ramas() {
+async fn the_seed_data_installs_bonsoir_techno_and_ramas() {
     let app = TestApp::seeded().await;
 
     let collective = app.collective_id("bonsoir-techno").await;
@@ -42,7 +42,7 @@ async fn les_donnees_d_amorcage_installent_bonsoir_techno_et_ramas() {
     assert!(names.contains(&"Ramas"), "groupes : {names:?}");
     assert!(names.contains(&"Dante3p"), "groupes : {names:?}");
 
-    // Ramas : duo dont les deux membres sont aussi membres du collectif (§16).
+    // Ramas: a duo whose two members are also members of the collective (§16).
     let ramas = groups
         .as_array()
         .unwrap()

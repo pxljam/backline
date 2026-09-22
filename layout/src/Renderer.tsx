@@ -8,11 +8,11 @@ import { ImageBlock, LogoBlock, VideoBlock } from "./blocks/Media";
 import { GradientBlock, ShapeBlock } from "./blocks/Shape";
 
 /**
- * Le rendu d'une description JSON. **C'est le seul endroit du projet ou la
- * mise en page est ecrite** (PRD §15) : l'editeur l'affiche tel quel et pose
- * ses poignees par-dessus, le service `stills` en tire les visuels fixes, la
- * CLI en tire les videos. Toute tentation de reimplementer un rendu ailleurs
- * est une regression.
+ * Renders a JSON description. **This is the only place in the project where
+ * layout is written** (PRD §15): the editor displays it as-is and puts its
+ * handles on top, the `stills` service draws still visuals from it, the CLI
+ * draws videos from it. Any temptation to reimplement rendering elsewhere is a
+ * regression.
  */
 
 export const BackgroundLayer: React.FC<{
@@ -70,7 +70,7 @@ const BlockLayer: React.FC<BlockLayerProps> = ({
   canvasWidth,
   frame,
 }) => {
-  // Fenetre temporelle du bloc : hors de sa plage, il n'existe pas.
+  // The block's time window: outside its range, it does not exist.
   const from = block.timing?.from ?? 0;
   const to = block.timing?.to;
   if (frame < from) return null;
@@ -150,7 +150,7 @@ export interface LayoutRendererProps {
   brand: Brand;
   data?: FieldData;
   media?: MediaMap;
-  /** Image courante, pour un rendu hors contexte Remotion (aperçu statique). */
+  /** Current frame, for rendering outside a Remotion context (static preview). */
   frameOverride?: number;
 }
 
@@ -185,9 +185,9 @@ export const LayoutRenderer: React.FC<LayoutRendererProps> = ({
 };
 
 /**
- * `useCurrentFrame` leve hors d'un contexte Remotion. L'editeur affiche
- * pourtant les memes composants dans un simple div : on retombe sur l'image 0,
- * qui est exactement l'etat « fin d'animation » d'un visuel fixe.
+ * `useCurrentFrame` throws outside a Remotion context. The editor nonetheless
+ * renders the same components into a plain div, so we fall back to frame 0 —
+ * exactly the "animation finished" state of a still visual.
  */
 function useCurrentFrameSafe(): number {
   try {

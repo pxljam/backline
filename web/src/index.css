@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Charte de l'outil lui-meme — a ne pas confondre avec la charte des
-   collectifs, qui est de la donnee (§8). Celle-ci habille l'application. */
+/* The tool's own brand — not to be confused with the collectives' brands,
+   which are data (§8). This one dresses the application. */
 @theme {
   --color-ink: #111111;
   --color-ink-soft: #55504b;
@@ -22,6 +22,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Le canevas de l'editeur ne doit jamais declencher la selection de texte du
-   navigateur pendant un glisser-deposer. */
+/* The editor canvas must never trigger the browser's text selection during a
+   drag. */
 .no-select { user-select: none; -webkit-user-select: none; }

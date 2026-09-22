@@ -3,9 +3,9 @@ import { api, ApiError } from "./api";
 import type { Me } from "./types";
 
 /**
- * Session et **collectif courant**. Un compte appartient a plusieurs
- * collectifs (§3) : basculer de l'un a l'autre est une operation de premier
- * plan, pas un reglage cache.
+ * Session and **current collective**. One account belongs to several
+ * collectives (§3), so switching between them is a first-class operation, not
+ * a hidden setting.
  */
 interface SessionValue {
   me: Me | null;
@@ -78,11 +78,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 export function useSession(): SessionValue {
   const value = useContext(Ctx);
-  if (!value) throw new Error("useSession hors SessionProvider");
+  if (!value) throw new Error("useSession used outside SessionProvider");
   return value;
 }
 
-/** Racine des routes du collectif courant. */
+/** Route root for the current collective. */
 export function useCollectiveBase(): string {
   const { collectiveId } = useSession();
   return `/api/collectives/${collectiveId}`;

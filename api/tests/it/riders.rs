@@ -1,14 +1,13 @@
-//! §18 : « La fiche technique d'un groupe part en PDF vers un lieu en moins
-//! d'une minute » et « Un evenement se confirme, se remplit et se communique
-//! meme si aucun groupe du line-up n'a de fiche technique ; l'absence est
-//! signalee, jamais bloquante. »
+//! §18: "A group's tech rider goes out as a PDF to a venue in under a minute"
+//! and "An event is confirmed, filled in and communicated even if no group in
+//! the line-up has a tech rider; the absence is reported, never blocking"
 
 use crate::harness::TestApp;
 use serde_json::json;
 use uuid::Uuid;
 
 #[tokio::test]
-async fn la_fiche_technique_sort_en_pdf() {
+async fn the_tech_rider_comes_out_as_a_pdf() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let ramas = app.group_id("ramas").await;
@@ -23,7 +22,7 @@ async fn la_fiche_technique_sort_en_pdf() {
     assert_eq!(riders[0]["status"], "published");
     let rid = riders[0]["id"].as_str().unwrap().to_string();
 
-    // Le PDF est un vrai PDF, pas une page d'erreur.
+    // The PDF is a real PDF, not an error page.
     let resp = reqwest::Client::new()
         .get(format!(
             "{}/api/collectives/{cid}/groups/{ramas}/tech-riders/{rid}/pdf",
@@ -58,7 +57,7 @@ async fn la_fiche_technique_sort_en_pdf() {
 }
 
 #[tokio::test]
-async fn une_version_publiee_est_figee_et_la_suivante_repart_d_elle() {
+async fn a_published_version_is_frozen_and_the_next_one_starts_from_it() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let ramas = app.group_id("ramas").await;
@@ -71,8 +70,8 @@ async fn une_version_publiee_est_figee_et_la_suivante_repart_d_elle() {
         .await;
     let rid = riders.expect_ok()[0]["id"].as_str().unwrap().to_string();
 
-    // Modifier une version publiee est refuse : un PDF deja envoye doit rester
-    // reproductible.
+    // Editing a published version is refused: an already-sent PDF must stay
+    // reproducible.
     let res = romain
         .patch(
             &format!("/api/collectives/{cid}/groups/{ramas}/tech-riders/{rid}"),
@@ -81,7 +80,7 @@ async fn une_version_publiee_est_figee_et_la_suivante_repart_d_elle() {
         .await;
     res.expect_status(409);
 
-    // On repart de la v1 pour ecrire une v2.
+    // Start again from v1 to write a v2.
     let created = romain
         .post(
             &format!("/api/collectives/{cid}/groups/{ramas}/tech-riders"),
@@ -106,12 +105,12 @@ async fn une_version_publiee_est_figee_et_la_suivante_repart_d_elle() {
 }
 
 #[tokio::test]
-async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
+async fn a_missing_tech_rider_is_reported_never_blocking() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
 
-    // Dante3p n'a pas de fiche technique. On confirme un evenement avec lui.
+    // Dante3p has no tech rider. Confirm an event with them anyway.
     let dante = app.group_id("dante3p").await;
     let created = antoine
         .post(
@@ -125,7 +124,7 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
         .await;
     let eid = created.expect_ok()["id"].as_str().unwrap().to_string();
 
-    // Rien n'est refuse : ni le line-up…
+    // Nothing is refused: not the line-up…
     antoine
         .post(
             &format!("/api/collectives/{cid}/events/{eid}/participations"),
@@ -134,13 +133,13 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
         .await
         .expect_ok();
 
-    // …ni la com.
+    // …nor the comms.
     let plan = antoine
         .get(&format!("/api/collectives/{cid}/events/{eid}/comms"))
         .await;
     assert!(!plan.expect_ok().as_array().unwrap().is_empty());
 
-    // Mais l'absence est visible sur la fiche de l'evenement…
+    // But the absence is visible on the event's page…
     let event = antoine
         .get(&format!("/api/collectives/{cid}/events/{eid}"))
         .await;
@@ -152,7 +151,7 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
         "fiche technique manquante"
     );
 
-    // …et dans le tableau de bord.
+    // …and on the dashboard.
     let dash = antoine
         .get(&format!("/api/collectives/{cid}/dashboard"))
         .await;
@@ -167,7 +166,7 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
         "le tableau de bord doit signaler la fiche manquante"
     );
 
-    // A l'envoi au lieu, les groupes sans fiche sont listes explicitement.
+    // When sending to the venue, groups without a rider are listed explicitly.
     let sent = antoine
         .post(
             &format!("/api/collectives/{cid}/events/{eid}/tech-riders/send"),
@@ -178,9 +177,9 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
     assert!(sent["sent"].as_array().unwrap().is_empty());
     assert_eq!(sent["missing"][0]["name"], "Dante3p");
 
-    // Un seul rappel, a J-14, puis plus rien.
+    // A single reminder, at D-14, then nothing more.
     app.run_due_jobs().await;
-    let (rappels,): (i64,) = sqlx::query_as(
+    let (reminders,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'tech_rider_missing'
            AND payload->>'event_id' = $1",
     )
@@ -188,10 +187,10 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert_eq!(rappels, 1, "Mathieu, referent de Dante3p, une seule fois");
+    assert_eq!(reminders, 1, "Mathieu, Dante3p's lead, only once");
 
     app.run_due_jobs().await;
-    let (rappels2,): (i64,) = sqlx::query_as(
+    let (reminders_again,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'tech_rider_missing'
            AND payload->>'event_id' = $1",
     )
@@ -199,11 +198,11 @@ async fn l_absence_de_fiche_technique_est_signalee_jamais_bloquante() {
     .fetch_one(&app.db)
     .await
     .unwrap();
-    assert_eq!(rappels2, 1, "pas de harcelement");
+    assert_eq!(reminders_again, 1, "no nagging");
 }
 
 #[tokio::test]
-async fn publier_une_fiche_la_rattache_aux_evenements_a_venir() {
+async fn publishing_a_rider_attaches_it_to_upcoming_events() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let dante = app.group_id("dante3p").await;

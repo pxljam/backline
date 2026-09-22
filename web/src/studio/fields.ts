@@ -1,9 +1,9 @@
 /**
- * Champs automatiques de l'evenement (§9.1). On les depose sur le canevas ;
- * ils se remplissent a la generation. Les chemins correspondent exactement a
- * ce que renvoie `GET /studio/preview-fields/:event_id`.
+ * Automatic event fields (§9.1). They are dropped onto the canvas and filled
+ * in at generation time. The paths match exactly what
+ * `GET /studio/preview-fields/:event_id` returns.
  */
-export const CHAMPS: { path: string; label: string }[] = [
+export const EVENT_FIELDS: { path: string; label: string }[] = [
   { path: "event.title", label: "Titre de l'evenement" },
   { path: "event.date", label: "Date (12.06.2026)" },
   { path: "event.date_long", label: "Date en toutes lettres" },
@@ -16,12 +16,12 @@ export const CHAMPS: { path: string; label: string }[] = [
   { path: "line_up_text", label: "Line-up (une ligne par groupe)" },
 ];
 
-export function champ(path: string): string {
+export function fieldToken(path: string): string {
   return `{{${path}}}`;
 }
 
-/** Jeu de valeurs d'exemple, pour travailler un gabarit sans evenement. */
-export const DONNEES_EXEMPLE = {
+/** Sample values, for working on a template without an event. */
+export const SAMPLE_DATA = {
   event: {
     title: "Bonsoir Techno #12",
     date: "12.06.2026",

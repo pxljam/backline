@@ -1,9 +1,9 @@
-//! Creation d'un collectif. Manuelle, faite par un admin d'instance (§2) —
-//! il n'y a jamais de deploiement par collectif.
+//! Creating a collective. Manual, done by an instance admin (§2) — there is
+//! never a deployment per collective.
 //!
-//! Un collectif nait **utilisable** : types d'evenements avec leurs timelines,
-//! charte d'exemple, flux iCal. Aucune de ces valeurs n'est codee en dur dans
-//! l'interface : ce sont des donnees, editables ensuite (§8, §11.1).
+//! A collective is born **usable**: event types with their timelines, a sample
+//! brand, iCal feeds. None of these values is hard-coded in the interface: they
+//! are data, editable afterwards (§8, §11.1).
 
 use crate::error::AppResult;
 use crate::services::{comms, formats};
@@ -11,7 +11,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-/// Catalogue de formats au niveau instance. Idempotent.
+/// Instance-level format catalogue. Idempotent.
 pub async fn ensure_format_catalog(db: &PgPool) -> AppResult<()> {
     for (i, f) in formats::CATALOG.iter().enumerate() {
         sqlx::query(
@@ -53,9 +53,9 @@ pub async fn seed_event_types(db: &PgPool, collective_id: Uuid) -> AppResult<()>
     let types: [(&str, &str, bool, bool); 4] = [
         ("dj_night", "Soiree DJ electro", true, false),
         ("concert", "Concert", true, false),
-        // Une residence est UN evenement sur une plage, pas une serie (§6).
+        // A residency is ONE event over a range, not a series (§6).
         ("residency", "Residence", false, true),
-        // Un stream ne passe pas par une opportunite : pas de lieu a negocier.
+        // A stream does not go through an opportunity: no venue to negotiate.
         ("stream", "Stream live", false, false),
     ];
 
@@ -87,9 +87,8 @@ pub async fn seed_event_types(db: &PgPool, collective_id: Uuid) -> AppResult<()>
     Ok(())
 }
 
-/// Jeu de tokens d'exemple, volontairement sobre (§8, dependance d'entree).
-/// Saisir les vraies valeurs de Bonsoir Techno ne demandera aucune
-/// modification de code.
+/// A deliberately plain set of sample tokens (§8, input dependency). Entering
+/// Bonsoir Techno's real values will require no code change.
 pub async fn seed_brand(
     db: &PgPool,
     collective_id: Uuid,
@@ -140,7 +139,7 @@ pub async fn seed_brand(
         .bind(brand_id)
         .bind(key)
         .bind(label)
-        // `stack` sert de repli tant que les vraies polices ne sont pas televersees.
+        // `stack` is the fallback until the real fonts are uploaded.
         .bind(json!({
             "family": family,
             "weight": weight,
@@ -151,7 +150,7 @@ pub async fn seed_brand(
         .await?;
     }
 
-    // Regles de charte : placement du logo, casse des titres, mentions.
+    // Brand rules: logo placement, title casing, legal mentions.
     for (i, (key, label, value)) in [
         (
             "logo_placement",

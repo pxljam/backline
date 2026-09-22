@@ -1,7 +1,7 @@
--- Etape 1 du §17 : socle. Utilisateurs, collectifs, groupes, sessions, file de jobs.
+-- Step 1 of §17: the foundation. Users, collectives, groups, sessions, job queue.
 
--- `gen_random_uuid()` est natif depuis PostgreSQL 13 ; l'extension couvre les
--- installations plus anciennes sans changer une ligne de schema.
+-- `gen_random_uuid()` has been native since PostgreSQL 13; the extension covers
+-- older installations without changing a line of schema.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE users (
@@ -14,14 +14,14 @@ CREATE TABLE users (
     telegram_id     BIGINT UNIQUE,
     telegram_username TEXT,
     is_instance_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    notif_quiet_from  SMALLINT,          -- silence nocturne : heure de debut (0-23)
+    notif_quiet_from  SMALLINT,          -- quiet hours: start hour (0-23)
     notif_quiet_to    SMALLINT,
     notif_opt_out     TEXT[] NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Lien d'invitation a usage unique : la seule facon de creer un acces.
+-- Single-use invitation link: the only way to create an access.
 CREATE TABLE invitations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -72,15 +72,15 @@ CREATE TABLE group_members (
     id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id  UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    -- role libre : "MAO", "batterie", "live"… jamais un catalogue.
+    -- free-form role: "MAO", "batterie", "live"… never a catalogue.
     role_label TEXT,
     is_admin  BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (group_id, user_id)
 );
 
--- File d'attente et planification. Un seul mecanisme pour les rappels,
--- les relances et les rendus (§15). FOR UPDATE SKIP LOCKED.
+-- Queue and scheduling. One single mechanism for reminders, follow-ups and
+-- renders (§15). FOR UPDATE SKIP LOCKED.
 CREATE TABLE jobs (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     kind        TEXT NOT NULL,

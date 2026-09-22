@@ -5,8 +5,7 @@ import { useResource } from "../lib/hooks";
 import type { Dashboard } from "../lib/types";
 
 /**
- * Coquille de l'application. Responsive : les admins travaillent aussi depuis
- * un telephone (§14).
+ * Application shell. Responsive: admins work from a phone too (§14).
  */
 
 const LIENS: { to: string; label: string; adminOnly?: boolean }[] = [

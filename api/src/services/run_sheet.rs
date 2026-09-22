@@ -1,7 +1,7 @@
-//! Feuille de route du jour J (§5.5).
+//! Run sheet for the day (§5.5).
 //!
-//! C'est le seul endroit ou les telephones apparaissent : la visibilite est
-//! donc restreinte aux admins du collectif et aux membres de l'evenement (§3).
+//! This is the only place phone numbers appear, so visibility is restricted to
+//! the collective's admins and the event's members (§3).
 
 use crate::error::{AppError, AppResult};
 use crate::scope::CollectiveScope;
@@ -70,7 +70,7 @@ pub struct RiderLine {
     pub version: Option<i32>,
 }
 
-/// L'utilisateur voit-il les telephones de cette feuille de route ?
+/// Does this user get to see the phone numbers on this run sheet?
 pub async fn may_see_phones(
     db: &PgPool,
     scope: &CollectiveScope,
@@ -91,7 +91,7 @@ pub async fn may_see_phones(
     if row.map(|(n,)| n > 0).unwrap_or(false) {
         return Ok(true);
     }
-    // Tenir un poste logistique suffit : on a besoin de joindre les autres.
+    // Holding a logistics slot is enough: you need to reach the others.
     let row: Option<(i64,)> = sqlx::query_as(
         "SELECT count(*) FROM logistics_assignments a
          JOIN logistics_slots s ON s.id = a.slot_id
@@ -158,8 +158,8 @@ pub async fn build(
         None => None,
     };
 
-    // Line-up : un groupe apporte ses membres, une participation individuelle
-    // apporte la personne.
+    // Line-up: a group brings its members, an individual participation brings
+    // the person.
     let parts: Vec<(Uuid, Option<Uuid>, Option<String>, Option<Uuid>, Option<String>, Option<String>, Option<chrono::NaiveTime>, Option<chrono::NaiveTime>)> =
         sqlx::query_as(
             "SELECT p.id, p.group_id, g.name, p.user_id, u.display_name, p.stage_role, p.slot_start, p.slot_end
@@ -286,7 +286,7 @@ pub async fn build(
     })
 }
 
-/// Version texte, envoyee par le bot la veille.
+/// Text version, sent by the bot the day before.
 pub fn to_text(rs: &RunSheet) -> String {
     let mut out = String::new();
     let local = rs.starts_at.with_timezone(&Paris);

@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-/** Briques d'interface. Sobres : l'outil ne doit pas concurrencer la charte
- *  des collectifs, qui est le vrai sujet visuel. */
+/** Interface building blocks. Deliberately plain: the tool must not compete
+ *  with the collectives' own brands, which are the real visual subject. */
 
 export const Card: React.FC<{
   title?: React.ReactNode;

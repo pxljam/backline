@@ -1,10 +1,9 @@
-//! Bot Telegram (§13) : **canal principal des membres**, doublon complet du
-//! web. Toute decision tient en deux appuis — une commande, un bouton.
+//! Telegram bot (§13): the **members' main channel**, a complete mirror of the
+//! web. Every decision takes two taps — a command, a button.
 //!
-//! Le bot ne contourne aucune regle metier : une disponibilite n'est ecrite
-//! que par la personne concernee, une tache de publication n'est confirmee que
-//! par son responsable, et l'appartenance au collectif est verifiee a chaque
-//! action.
+//! The bot bypasses no domain rule: an availability is only written by the
+//! person it belongs to, a publication task is only confirmed by its owner, and
+//! membership of the collective is checked on every action.
 
 use crate::error::AppResult;
 use crate::services::pdf;
@@ -18,20 +17,21 @@ use serde_json::{json, Value};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-const AIDE: &str = "Commandes : /dispos · /agenda · /postes · /publier · /fiche · /collectif";
+const HELP: &str = "Commandes : /dispos · /agenda · /postes · /publier · /fiche · /collectif";
 
-/// Boucle de long polling. Un seul processus la tient (service `bot`).
+/// Long polling loop. A single process holds it (the `bot` service).
 pub async fn run_forever(state: AppState) {
     if !state.telegram.enabled() {
-        // Sans jeton, il n'y a rien a lire. Le service reste en vie plutot que
-        // de sortir en boucle : le web est un doublon complet du bot (§19).
-        tracing::warn!("bot : aucun jeton Telegram — service au repos");
+        // Without a token there is nothing to read. The service stays alive
+        // rather than exiting in a loop: the web is a complete mirror of the
+        // bot (§19).
+        tracing::warn!("bot: no Telegram token — service idle");
         futures::future::pending::<()>().await;
         return;
     }
 
     let mut offset = 0i64;
-    tracing::info!("bot : a l'ecoute");
+    tracing::info!("bot: listening");
 
     loop {
         match state.telegram.poll_updates(offset, 30).await {
@@ -39,12 +39,12 @@ pub async fn run_forever(state: AppState) {
                 for update in updates {
                     offset = offset.max(update.update_id + 1);
                     if let Err(e) = handle_update(&state, update).await {
-                        tracing::warn!(error = %e, "bot : mise a jour non traitee");
+                        tracing::warn!(error = %e, "bot: update not handled");
                     }
                 }
             }
             Err(e) => {
-                tracing::warn!(error = %e, "bot : lecture des mises a jour");
+                tracing::warn!(error = %e, "bot: reading updates");
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         }
@@ -61,33 +61,33 @@ pub async fn handle_update(state: &AppState, update: Update) -> AppResult<()> {
     Ok(())
 }
 
-// --- Analyse -----------------------------------------------------------------
+// --- Parsing -----------------------------------------------------------------
 
-/// `/dispos@backline_bot 2` -> `("dispos", "2")`. Renvoie `None` si le message
-/// n'est pas une commande.
+/// `/dispos@backline_bot 2` -> `("dispos", "2")`. Returns `None` if the message
+/// is not a command.
 pub fn parse_command(text: &str) -> Option<(String, String)> {
     let text = text.trim();
-    let reste = text.strip_prefix('/')?;
-    let (tete, argument) = match reste.split_once(char::is_whitespace) {
+    let rest = text.strip_prefix('/')?;
+    let (head, argument) = match rest.split_once(char::is_whitespace) {
         Some((t, a)) => (t, a.trim()),
-        None => (reste, ""),
+        None => (rest, ""),
     };
-    let commande = tete.split('@').next().unwrap_or(tete).to_lowercase();
-    if commande.is_empty() {
+    let command = head.split('@').next().unwrap_or(head).to_lowercase();
+    if command.is_empty() {
         return None;
     }
-    Some((commande, argument.to_string()))
+    Some((command, argument.to_string()))
 }
 
-/// Donnee d'un bouton : `action:argument[:valeur]`, 64 octets au plus.
+/// A button's data: `action:argument[:value]`, 64 bytes at most.
 pub fn parse_callback(data: &str) -> (String, Vec<String>) {
     let mut parts = data.split(':');
     let action = parts.next().unwrap_or_default().to_string();
     (action, parts.map(|s| s.to_string()).collect())
 }
 
-/// Clavier attache a une notification delivree par Telegram : c'est ce qui
-/// fait du bot un canal d'action et pas un journal (§13).
+/// Keyboard attached to a notification delivered through Telegram: this is
+/// what makes the bot a channel for action rather than a log (§13).
 pub fn keyboard_for(kind: &str, payload: &Value) -> Option<Value> {
     let id = |key: &str| payload.get(key).and_then(Value::as_str).map(str::to_string);
 
@@ -108,25 +108,26 @@ pub fn keyboard_for(kind: &str, payload: &Value) -> Option<Value> {
 
 async fn handle_message(state: &AppState, msg: Message) -> AppResult<()> {
     let chat_id = msg.chat.id;
-    let texte = msg.text.clone().unwrap_or_default();
-    let Some((commande, argument)) = parse_command(&texte) else {
-        return repondre(
+    let text = msg.text.clone().unwrap_or_default();
+    let Some((command, argument)) = parse_command(&text) else {
+        return reply(
             state,
             chat_id,
-            &format!("Je ne comprends que des commandes.\n{AIDE}"),
+            &format!("Je ne comprends que des commandes.\n{HELP}"),
             None,
         )
         .await;
     };
 
-    // `/start <code>` est la seule commande ouverte : c'est elle qui lie le
-    // compte.
-    if commande == "start" {
-        return lier_compte(state, &msg, &argument).await;
+    // `/start <code>` is the only open command: it is what links the
+    // account.
+    if command == "start" {
+        return link_account(state, &msg, &argument).await;
     }
 
-    let Some(user_id) = utilisateur(&state.db, msg.from.as_ref().map(|u| u.id)).await? else {
-        return repondre(
+    let Some(user_id) = user_for_telegram_id(&state.db, msg.from.as_ref().map(|u| u.id)).await?
+    else {
+        return reply(
             state,
             chat_id,
             "Ce compte Telegram n'est lie a aucun membre. Envoie <code>/start &lt;code&gt;</code> \
@@ -136,32 +137,32 @@ async fn handle_message(state: &AppState, msg: Message) -> AppResult<()> {
         .await;
     };
 
-    match commande.as_str() {
-        "dispos" => dispos(state, chat_id, user_id).await,
+    match command.as_str() {
+        "dispos" => availabilities(state, chat_id, user_id).await,
         "agenda" => agenda(state, chat_id, user_id).await,
-        "postes" => postes(state, chat_id, user_id).await,
-        "publier" => publier(state, chat_id, user_id).await,
-        "fiche" => fiches(state, chat_id, user_id).await,
-        "collectif" => collectifs(state, chat_id, user_id).await,
-        "aide" | "help" => repondre(state, chat_id, AIDE, None).await,
-        _ => repondre(state, chat_id, &format!("Commande inconnue.\n{AIDE}"), None).await,
+        "postes" => slots(state, chat_id, user_id).await,
+        "publier" => publish(state, chat_id, user_id).await,
+        "fiche" => riders(state, chat_id, user_id).await,
+        "collectif" => collectives(state, chat_id, user_id).await,
+        "aide" | "help" => reply(state, chat_id, HELP, None).await,
+        _ => reply(state, chat_id, &format!("Commande inconnue.\n{HELP}"), None).await,
     }
 }
 
-async fn lier_compte(state: &AppState, msg: &Message, code: &str) -> AppResult<()> {
+async fn link_account(state: &AppState, msg: &Message, code: &str) -> AppResult<()> {
     let chat_id = msg.chat.id;
     let Some(from) = msg.from.as_ref() else {
         return Ok(());
     };
 
     if code.is_empty() {
-        let deja = utilisateur(&state.db, Some(from.id)).await?;
-        let texte = if deja.is_some() {
-            format!("Ton compte est deja lie.\n{AIDE}")
+        let existing = user_for_telegram_id(&state.db, Some(from.id)).await?;
+        let text = if existing.is_some() {
+            format!("Ton compte est deja lie.\n{HELP}")
         } else {
             "Envoie <code>/start &lt;code&gt;</code> avec le code de ton invitation.".into()
         };
-        return repondre(state, chat_id, &texte, None).await;
+        return reply(state, chat_id, &text, None).await;
     }
 
     let mut tx = state.db.begin().await?;
@@ -175,9 +176,9 @@ async fn lier_compte(state: &AppState, msg: &Message, code: &str) -> AppResult<(
     .fetch_optional(&mut *tx)
     .await?;
 
-    let Some((invitation_id, user_id, nom)) = row else {
+    let Some((invitation_id, user_id, name)) = row else {
         tx.rollback().await?;
-        return repondre(state, chat_id, "Invitation inconnue ou perimee.", None).await;
+        return reply(state, chat_id, "Invitation inconnue ou perimee.", None).await;
     };
 
     sqlx::query(
@@ -195,20 +196,20 @@ async fn lier_compte(state: &AppState, msg: &Message, code: &str) -> AppResult<(
         .await?;
     tx.commit().await?;
 
-    repondre(
+    reply(
         state,
         chat_id,
-        &format!("Compte lie : <b>{nom}</b>.\n{AIDE}"),
+        &format!("Compte lie : <b>{name}</b>.\n{HELP}"),
         None,
     )
     .await
 }
 
-// --- Commandes ----------------------------------------------------------------
+// --- Commands -----------------------------------------------------------------
 
-async fn dispos(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
-    let Some((cid, _)) = collectif_courant(&state.db, user_id).await? else {
-        return repondre(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+async fn availabilities(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
+    let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
+        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
     };
 
     let polls: Vec<(Uuid, String)> = sqlx::query_as(
@@ -222,23 +223,23 @@ async fn dispos(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     .await?;
 
     if polls.is_empty() {
-        return repondre(state, chat_id, "Aucun sondage ouvert.", None).await;
+        return reply(state, chat_id, "Aucun sondage ouvert.", None).await;
     }
 
-    for (oid, titre) in polls {
-        envoyer_sondage(state, chat_id, user_id, oid, &titre).await?;
+    for (oid, title) in polls {
+        send_poll(state, chat_id, user_id, oid, &title).await?;
     }
     Ok(())
 }
 
-/// Un message par date : trois boutons de reponse et un pour « je veux jouer ».
-/// Deux appuis suffisent, c'est la regle du canal (§13).
-async fn envoyer_sondage(
+/// One message per date: three answer buttons and one for "je veux jouer".
+/// Two taps are enough — that is the channel's rule (§13).
+async fn send_poll(
     state: &AppState,
     chat_id: i64,
     user_id: Uuid,
     oid: Uuid,
-    titre: &str,
+    title: &str,
 ) -> AppResult<()> {
     let dates: Vec<(Uuid, chrono::NaiveDate, Option<chrono::NaiveTime>)> = sqlx::query_as(
         "SELECT id, day, start_time FROM candidate_dates
@@ -248,10 +249,10 @@ async fn envoyer_sondage(
     .fetch_all(&state.db)
     .await?;
 
-    repondre(state, chat_id, &format!("<b>{titre}</b>"), None).await?;
+    reply(state, chat_id, &format!("<b>{title}</b>"), None).await?;
 
     for (date_id, jour, heure) in dates {
-        let reponse: Option<(String, bool)> = sqlx::query_as(
+        let answer: Option<(String, bool)> = sqlx::query_as(
             "SELECT status, wants_to_play FROM availabilities
              WHERE candidate_date_id = $1 AND user_id = $2",
         )
@@ -260,39 +261,39 @@ async fn envoyer_sondage(
         .fetch_optional(&state.db)
         .await?;
 
-        let marque = |statut: &str, icone: &str| -> String {
-            match &reponse {
-                Some((s, _)) if s == statut => format!("• {icone}"),
-                _ => icone.to_string(),
+        let mark = |status: &str, icon: &str| -> String {
+            match &answer {
+                Some((s, _)) if s == status => format!("• {icon}"),
+                _ => icon.to_string(),
             }
         };
-        let jouer = match &reponse {
+        let play_mark = match &answer {
             Some((_, true)) => "• 🎸 je joue",
             _ => "🎸 je veux jouer",
         };
 
-        let quand = match heure {
+        let when = match heure {
             Some(h) => format!("{} a {}", jour.format("%d/%m/%Y"), h.format("%H:%M")),
             None => jour.format("%d/%m/%Y").to_string(),
         };
 
-        let clavier = json!([
+        let keyboard = json!([
             [
-                { "text": marque("yes", "✅"), "callback_data": format!("dispo:{date_id}:yes") },
-                { "text": marque("maybe", "❔"), "callback_data": format!("dispo:{date_id}:maybe") },
-                { "text": marque("no", "❌"), "callback_data": format!("dispo:{date_id}:no") },
+                { "text": mark("yes", "✅"), "callback_data": format!("dispo:{date_id}:yes") },
+                { "text": mark("maybe", "❔"), "callback_data": format!("dispo:{date_id}:maybe") },
+                { "text": mark("no", "❌"), "callback_data": format!("dispo:{date_id}:no") },
             ],
-            [{ "text": jouer, "callback_data": format!("jouer:{date_id}") }],
+            [{ "text": play_mark, "callback_data": format!("jouer:{date_id}") }],
         ]);
 
-        repondre(state, chat_id, &quand, Some(clavier)).await?;
+        reply(state, chat_id, &when, Some(keyboard)).await?;
     }
     Ok(())
 }
 
 async fn agenda(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
-    let Some((cid, nom)) = collectif_courant(&state.db, user_id).await? else {
-        return repondre(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+    let Some((cid, name)) = current_collective(&state.db, user_id).await? else {
+        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
     };
 
     let events: Vec<(String, chrono::DateTime<Utc>, Option<String>, String)> = sqlx::query_as(
@@ -306,38 +307,38 @@ async fn agenda(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     .await?;
 
     if events.is_empty() {
-        return repondre(state, chat_id, &format!("{nom} : rien de prevu."), None).await;
+        return reply(state, chat_id, &format!("{name} : rien de prevu."), None).await;
     }
 
-    let lignes: Vec<String> = events
+    let lines: Vec<String> = events
         .into_iter()
-        .map(|(titre, quand, lieu, statut)| {
-            let local = quand.with_timezone(&Paris);
-            let lieu = lieu.unwrap_or_else(|| "lieu a caler".into());
-            let mention = if statut == "draft" {
+        .map(|(title, when, venue, status)| {
+            let local = when.with_timezone(&Paris);
+            let venue = venue.unwrap_or_else(|| "lieu a caler".into());
+            let mention = if status == "draft" {
                 " (brouillon)"
             } else {
                 ""
             };
             format!(
-                "• {} — <b>{titre}</b>{mention}\n  {lieu}",
+                "• {} — <b>{title}</b>{mention}\n  {venue}",
                 local.format("%d/%m %H:%M")
             )
         })
         .collect();
 
-    repondre(
+    reply(
         state,
         chat_id,
-        &format!("<b>{nom}</b>\n{}", lignes.join("\n")),
+        &format!("<b>{name}</b>\n{}", lines.join("\n")),
         None,
     )
     .await
 }
 
-async fn postes(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
-    let Some((cid, _)) = collectif_courant(&state.db, user_id).await? else {
-        return repondre(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+async fn slots(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
+    let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
+        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
     };
 
     let slots: Vec<(Uuid, String, i32, i64, String, chrono::DateTime<Utc>)> = sqlx::query_as(
@@ -353,66 +354,65 @@ async fn postes(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     .fetch_all(&state.db)
     .await?;
 
-    let vacants: Vec<_> = slots
+    let vacant: Vec<_> = slots
         .into_iter()
         .filter(|(_, _, quantity, pris, _, _)| *pris < *quantity as i64)
         .collect();
 
-    if vacants.is_empty() {
-        return repondre(state, chat_id, "Aucun poste vacant. 🎉", None).await;
+    if vacant.is_empty() {
+        return reply(state, chat_id, "Aucun poste vacant. 🎉", None).await;
     }
 
-    for (slot_id, label, quantity, pris, titre, quand) in vacants {
-        let local = quand.with_timezone(&Paris);
-        let texte = format!(
-            "<b>{label}</b> — {titre}\n{} · encore {} place(s)",
+    for (slot_id, label, quantity, pris, title, when) in vacant {
+        let local = when.with_timezone(&Paris);
+        let text = format!(
+            "<b>{label}</b> — {title}\n{} · encore {} place(s)",
             local.format("%d/%m %H:%M"),
             quantity as i64 - pris
         );
-        let clavier =
+        let keyboard =
             json!([[{ "text": "Je le prends", "callback_data": format!("poste:{slot_id}") }]]);
-        repondre(state, chat_id, &texte, Some(clavier)).await?;
+        reply(state, chat_id, &text, Some(keyboard)).await?;
     }
     Ok(())
 }
 
-async fn publier(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
-    let taches: Vec<(Uuid, String, String, String, chrono::DateTime<Utc>, String)> =
-        sqlx::query_as(
-            "SELECT p.id, p.label, p.caption, p.hashtags, p.scheduled_at, e.title
+async fn publish(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
+    let tasks: Vec<(Uuid, String, String, String, chrono::DateTime<Utc>, String)> = sqlx::query_as(
+        "SELECT p.id, p.label, p.caption, p.hashtags, p.scheduled_at, e.title
              FROM publication_tasks p JOIN events e ON e.id = p.event_id
              WHERE (p.assignee_id = $1 OR p.backup_assignee_id = $1)
                AND p.status <> 'published'
              ORDER BY p.scheduled_at LIMIT 10",
-        )
-        .bind(user_id)
-        .fetch_all(&state.db)
-        .await?;
+    )
+    .bind(user_id)
+    .fetch_all(&state.db)
+    .await?;
 
-    if taches.is_empty() {
-        return repondre(state, chat_id, "Aucune publication a ta charge.", None).await;
+    if tasks.is_empty() {
+        return reply(state, chat_id, "Aucune publication a ta charge.", None).await;
     }
 
-    for (tid, label, caption, hashtags, quand, evenement) in taches {
-        let local = quand.with_timezone(&Paris);
-        let texte = format!(
+    for (tid, label, caption, hashtags, when, evenement) in tasks {
+        let local = when.with_timezone(&Paris);
+        let text = format!(
             "<b>{label}</b> — {evenement}\n{}\n\n{caption}\n{hashtags}",
             local.format("%d/%m %H:%M")
         );
-        let clavier = json!([[{ "text": "✅ publie", "callback_data": format!("publie:{tid}") }]]);
-        // Le visuel part avec le texte : tout est pret a coller (§11.2).
-        let photo = visuel_de_tache(state, tid).await;
-        envoyer(state, chat_id, &texte, Some(clavier), photo).await?;
+        let keyboard = json!([[{ "text": "✅ publie", "callback_data": format!("publie:{tid}") }]]);
+        // The visual goes out with the text: everything is ready to paste (§11.2).
+        let photo = task_visual(state, tid).await;
+        send(state, chat_id, &text, Some(keyboard), photo).await?;
     }
     Ok(())
 }
 
-async fn fiches(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
-    let Some((cid, _)) = collectif_courant(&state.db, user_id).await? else {
-        return repondre(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+async fn riders(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
+    let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
+        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
     };
 
-    let groupes: Vec<(Uuid, String, Option<i32>)> = sqlx::query_as(
+    let groups: Vec<(Uuid, String, Option<i32>)> = sqlx::query_as(
         "SELECT g.id, g.name,
                 (SELECT max(r.version) FROM tech_riders r
                   WHERE r.group_id = g.id AND r.status = 'published')
@@ -426,8 +426,8 @@ async fn fiches(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     .fetch_all(&state.db)
     .await?;
 
-    if groupes.is_empty() {
-        return repondre(
+    if groups.is_empty() {
+        return reply(
             state,
             chat_id,
             "Tu n'es dans aucun groupe de ce collectif.",
@@ -436,24 +436,24 @@ async fn fiches(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
         .await;
     }
 
-    for (gid, nom, version) in groupes {
+    for (gid, name, version) in groups {
         match version {
             Some(v) => {
-                let clavier = json!([[{ "text": format!("Envoyer la v{v}"), "callback_data": format!("fiche:{gid}") }]]);
-                repondre(
+                let keyboard = json!([[{ "text": format!("Envoyer la v{v}"), "callback_data": format!("fiche:{gid}") }]]);
+                reply(
                     state,
                     chat_id,
-                    &format!("<b>{nom}</b> — fiche v{v}"),
-                    Some(clavier),
+                    &format!("<b>{name}</b> — fiche v{v}"),
+                    Some(keyboard),
                 )
                 .await?;
             }
-            // L'absence de fiche est signalee, jamais bloquante (§12).
+            // A missing rider is reported, never blocking (§12).
             None => {
-                repondre(
+                reply(
                     state,
                     chat_id,
-                    &format!("<b>{nom}</b> — aucune fiche publiee."),
+                    &format!("<b>{name}</b> — aucune fiche publiee."),
                     None,
                 )
                 .await?
@@ -463,7 +463,7 @@ async fn fiches(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     Ok(())
 }
 
-async fn collectifs(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
+async fn collectives(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
     let rows: Vec<(Uuid, String)> = sqlx::query_as(
         "SELECT c.id, c.name FROM memberships m JOIN collectives c ON c.id = m.collective_id
          WHERE m.user_id = $1 ORDER BY c.name",
@@ -473,70 +473,70 @@ async fn collectifs(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<
     .await?;
 
     if rows.len() <= 1 {
-        let nom = rows.first().map(|(_, n)| n.clone()).unwrap_or_default();
-        return repondre(
+        let name = rows.first().map(|(_, n)| n.clone()).unwrap_or_default();
+        return reply(
             state,
             chat_id,
-            &format!("Tu n'es que dans <b>{nom}</b> — rien a basculer."),
+            &format!("Tu n'es que dans <b>{name}</b> — rien a basculer."),
             None,
         )
         .await;
     }
 
-    let courant = collectif_courant(&state.db, user_id)
+    let current = current_collective(&state.db, user_id)
         .await?
         .map(|(id, _)| id);
-    let boutons: Vec<Value> = rows
+    let buttons: Vec<Value> = rows
         .iter()
-        .map(|(id, nom)| {
-            let marque = if Some(*id) == courant { "• " } else { "" };
-            json!([{ "text": format!("{marque}{nom}"), "callback_data": format!("collectif:{id}") }])
+        .map(|(id, name)| {
+            let mark = if Some(*id) == current { "• " } else { "" };
+            json!([{ "text": format!("{mark}{name}"), "callback_data": format!("collectif:{id}") }])
         })
         .collect();
 
-    repondre(state, chat_id, "Sur quel collectif ?", Some(json!(boutons))).await
+    reply(state, chat_id, "Sur quel collectif ?", Some(json!(buttons))).await
 }
 
-// --- Boutons -------------------------------------------------------------------
+// --- Buttons -------------------------------------------------------------------
 
 async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
     let chat_id = cb.message.as_ref().map(|m| m.chat.id).unwrap_or(cb.from.id);
     let data = cb.data.clone().unwrap_or_default();
     let (action, args) = parse_callback(&data);
 
-    let Some(user_id) = utilisateur(&state.db, Some(cb.from.id)).await? else {
-        return acquitter(state, &cb.id, "Compte non lie").await;
+    let Some(user_id) = user_for_telegram_id(&state.db, Some(cb.from.id)).await? else {
+        return acknowledge_callback(state, &cb.id, "Compte non lie").await;
     };
 
     let uuid = |i: usize| -> Option<Uuid> { args.get(i).and_then(|s| Uuid::parse_str(s).ok()) };
 
     match action.as_str() {
         "dispo" => {
-            let (Some(date_id), Some(statut)) = (uuid(0), args.get(1)) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+            let (Some(date_id), Some(status)) = (uuid(0), args.get(1)) else {
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            match repondre_dispo(state, user_id, date_id, statut).await? {
-                true => acquitter(state, &cb.id, "Reponse enregistree").await,
-                false => acquitter(state, &cb.id, "Sondage clos").await,
+            match answer_availability(state, user_id, date_id, status).await? {
+                true => acknowledge_callback(state, &cb.id, "Reponse enregistree").await,
+                false => acknowledge_callback(state, &cb.id, "Sondage clos").await,
             }
         }
         "jouer" => {
             let Some(date_id) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            let veut = basculer_jouer(state, user_id, date_id).await?;
-            let texte = if veut {
+            let wants = toggle_wants_to_play(state, user_id, date_id).await?;
+            let text = if wants {
                 "Note : tu veux jouer"
             } else {
                 "Retire"
             };
-            acquitter(state, &cb.id, texte).await
+            acknowledge_callback(state, &cb.id, text).await
         }
         "dispos" => {
             let Some(oid) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            let titre: Option<(String,)> = sqlx::query_as(
+            let title: Option<(String,)> = sqlx::query_as(
                 "SELECT o.title FROM opportunities o
                  JOIN memberships m ON m.collective_id = o.collective_id AND m.user_id = $2
                  WHERE o.id = $1",
@@ -545,53 +545,55 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
             .bind(user_id)
             .fetch_optional(&state.db)
             .await?;
-            match titre {
-                Some((titre,)) => {
-                    acquitter(state, &cb.id, "").await?;
-                    envoyer_sondage(state, chat_id, user_id, oid, &titre).await
+            match title {
+                Some((title,)) => {
+                    acknowledge_callback(state, &cb.id, "").await?;
+                    send_poll(state, chat_id, user_id, oid, &title).await
                 }
-                None => acquitter(state, &cb.id, "Hors de tes collectifs").await,
+                None => acknowledge_callback(state, &cb.id, "Hors de tes collectifs").await,
             }
         }
         "postes" => {
-            acquitter(state, &cb.id, "").await?;
-            postes(state, chat_id, user_id).await
+            acknowledge_callback(state, &cb.id, "").await?;
+            slots(state, chat_id, user_id).await
         }
         "poste" => {
             let Some(slot_id) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            match prendre_poste(state, user_id, slot_id).await? {
-                true => acquitter(state, &cb.id, "C'est note, le poste est a toi").await,
-                false => acquitter(state, &cb.id, "Ce poste est complet").await,
+            match take_slot(state, user_id, slot_id).await? {
+                true => acknowledge_callback(state, &cb.id, "C'est note, le poste est a toi").await,
+                false => acknowledge_callback(state, &cb.id, "Ce poste est complet").await,
             }
         }
         "publie" => {
             let Some(tid) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            match marquer_publie(state, user_id, tid).await? {
-                true => acquitter(state, &cb.id, "Publication confirmee, merci").await,
-                false => acquitter(state, &cb.id, "Cette tache ne t'est pas assignee").await,
+            match mark_published(state, user_id, tid).await? {
+                true => acknowledge_callback(state, &cb.id, "Publication confirmee, merci").await,
+                false => {
+                    acknowledge_callback(state, &cb.id, "Cette tache ne t'est pas assignee").await
+                }
             }
         }
         "ack" => {
             let Some(eid) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            accuser_reception(state, user_id, eid).await?;
-            acquitter(state, &cb.id, "Bien recu").await
+            acknowledge_line_up(state, user_id, eid).await?;
+            acknowledge_callback(state, &cb.id, "Bien recu").await
         }
         "fiche" => {
             let Some(gid) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
-            acquitter(state, &cb.id, "Envoi en cours").await?;
-            envoyer_fiche(state, chat_id, user_id, gid).await
+            acknowledge_callback(state, &cb.id, "Envoi en cours").await?;
+            send_rider(state, chat_id, user_id, gid).await
         }
         "collectif" => {
             let Some(cid) = uuid(0) else {
-                return acquitter(state, &cb.id, "Bouton illisible").await;
+                return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
             let change = sqlx::query(
                 "UPDATE users SET telegram_collective_id = $2 WHERE id = $1
@@ -603,25 +605,25 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
             .execute(&state.db)
             .await?;
             match change.rows_affected() {
-                0 => acquitter(state, &cb.id, "Tu n'es pas dans ce collectif").await,
-                _ => acquitter(state, &cb.id, "Collectif courant change").await,
+                0 => acknowledge_callback(state, &cb.id, "Tu n'es pas dans ce collectif").await,
+                _ => acknowledge_callback(state, &cb.id, "Collectif courant change").await,
             }
         }
-        _ => acquitter(state, &cb.id, "Bouton inconnu").await,
+        _ => acknowledge_callback(state, &cb.id, "Bouton inconnu").await,
     }
 }
 
-// --- Ecritures metier ----------------------------------------------------------
+// --- Domain writes -------------------------------------------------------------
 
-/// Une disponibilite n'est ecrite que par la personne concernee (§5.2) : ici,
-/// c'est structurel, l'auteur du clic est l'auteur de la reponse.
-async fn repondre_dispo(
+/// An availability is only written by the person it belongs to (§5.2): here it
+/// is structural — whoever taps is whoever answers.
+async fn answer_availability(
     state: &AppState,
     user_id: Uuid,
     date_id: Uuid,
-    statut: &str,
+    status: &str,
 ) -> AppResult<bool> {
-    if !matches!(statut, "yes" | "maybe" | "no") {
+    if !matches!(status, "yes" | "maybe" | "no") {
         return Ok(false);
     }
 
@@ -649,14 +651,14 @@ async fn repondre_dispo(
     .bind(poll_id)
     .bind(date_id)
     .bind(user_id)
-    .bind(statut)
+    .bind(status)
     .execute(&state.db)
     .await?;
     Ok(true)
 }
 
-async fn basculer_jouer(state: &AppState, user_id: Uuid, date_id: Uuid) -> AppResult<bool> {
-    let ligne: Option<(bool,)> = sqlx::query_as(
+async fn toggle_wants_to_play(state: &AppState, user_id: Uuid, date_id: Uuid) -> AppResult<bool> {
+    let line: Option<(bool,)> = sqlx::query_as(
         "UPDATE availabilities SET wants_to_play = NOT wants_to_play, updated_at = now()
          WHERE candidate_date_id = $1 AND user_id = $2 RETURNING wants_to_play",
     )
@@ -665,13 +667,13 @@ async fn basculer_jouer(state: &AppState, user_id: Uuid, date_id: Uuid) -> AppRe
     .fetch_optional(&state.db)
     .await?;
 
-    match ligne {
-        Some((veut,)) => Ok(veut),
-        // Vouloir jouer sans avoir dit « dispo » n'a pas de sens : on pose la
-        // reponse en meme temps.
+    match line {
+        Some((wants,)) => Ok(wants),
+        // Wanting to play without having said "dispo" makes no sense: record
+        // the answer at the same time.
         None => {
-            repondre_dispo(state, user_id, date_id, "yes").await?;
-            let ligne: Option<(bool,)> = sqlx::query_as(
+            answer_availability(state, user_id, date_id, "yes").await?;
+            let line: Option<(bool,)> = sqlx::query_as(
                 "UPDATE availabilities SET wants_to_play = TRUE, updated_at = now()
                  WHERE candidate_date_id = $1 AND user_id = $2 RETURNING wants_to_play",
             )
@@ -679,12 +681,12 @@ async fn basculer_jouer(state: &AppState, user_id: Uuid, date_id: Uuid) -> AppRe
             .bind(user_id)
             .fetch_optional(&state.db)
             .await?;
-            Ok(ligne.map(|(v,)| v).unwrap_or(false))
+            Ok(line.map(|(v,)| v).unwrap_or(false))
         }
     }
 }
 
-async fn prendre_poste(state: &AppState, user_id: Uuid, slot_id: Uuid) -> AppResult<bool> {
+async fn take_slot(state: &AppState, user_id: Uuid, slot_id: Uuid) -> AppResult<bool> {
     let slot: Option<(i32, i64)> = sqlx::query_as(
         "SELECT s.quantity,
                 (SELECT count(*) FROM logistics_assignments a WHERE a.slot_id = s.id)
@@ -716,8 +718,8 @@ async fn prendre_poste(state: &AppState, user_id: Uuid, slot_id: Uuid) -> AppRes
     Ok(true)
 }
 
-/// Aucune tache ne passe a « publie » sans action humaine explicite (§18).
-async fn marquer_publie(state: &AppState, user_id: Uuid, task_id: Uuid) -> AppResult<bool> {
+/// No task reaches "publie" without an explicit human action (§18).
+async fn mark_published(state: &AppState, user_id: Uuid, task_id: Uuid) -> AppResult<bool> {
     let row: Option<(Option<Uuid>, Option<Uuid>)> = sqlx::query_as(
         "SELECT assignee_id, backup_assignee_id FROM publication_tasks WHERE id = $1",
     )
@@ -741,12 +743,12 @@ async fn marquer_publie(state: &AppState, user_id: Uuid, task_id: Uuid) -> AppRe
     .execute(&state.db)
     .await?;
 
-    // Les relances programmees n'ont plus lieu d'etre.
+    // The scheduled reminders no longer have a reason to exist.
     crate::services::jobs::cancel_by_prefix(&state.db, &format!("task:{task_id}:")).await?;
     Ok(true)
 }
 
-async fn accuser_reception(state: &AppState, user_id: Uuid, event_id: Uuid) -> AppResult<()> {
+async fn acknowledge_line_up(state: &AppState, user_id: Uuid, event_id: Uuid) -> AppResult<()> {
     sqlx::query(
         "UPDATE participations p SET acknowledged_at = now()
          WHERE p.event_id = $1 AND p.acknowledged_at IS NULL
@@ -761,9 +763,9 @@ async fn accuser_reception(state: &AppState, user_id: Uuid, event_id: Uuid) -> A
     Ok(())
 }
 
-/// La fiche technique part en PDF depuis la conversation, en moins d'une
-/// minute (§18).
-async fn envoyer_fiche(
+/// The tech rider goes out as a PDF straight from the chat, in under a minute
+/// (§18).
+async fn send_rider(
     state: &AppState,
     chat_id: i64,
     user_id: Uuid,
@@ -781,12 +783,12 @@ async fn envoyer_fiche(
     .fetch_optional(&state.db)
     .await?;
 
-    let Some((rider_id, version, data, nom)) = row else {
-        return repondre(state, chat_id, "Aucune fiche publiee pour ce groupe.", None).await;
+    let Some((rider_id, version, data, name)) = row else {
+        return reply(state, chat_id, "Aucune fiche publiee pour ce groupe.", None).await;
     };
 
     let payload = json!({
-        "group_name": nom,
+        "group_name": name,
         "version": version,
         "rider": data,
         "generated_on": Utc::now().format("%d/%m/%Y").to_string(),
@@ -795,8 +797,8 @@ async fn envoyer_fiche(
     let bytes = match pdf::compile("tech-rider.typ", &payload).await {
         Ok(bytes) => bytes,
         Err(e) => {
-            tracing::warn!(error = %e, "bot : compilation PDF");
-            return repondre(state, chat_id, "La fiche n'a pas pu etre produite.", None).await;
+            tracing::warn!(error = %e, "bot: PDF compilation");
+            return reply(state, chat_id, "La fiche n'a pas pu etre produite.", None).await;
         }
     };
 
@@ -817,17 +819,17 @@ async fn envoyer_fiche(
         .send_document(OutgoingDocument {
             chat_id,
             url,
-            filename: format!("fiche-technique-{nom}-v{version}.pdf"),
-            caption: format!("<b>{nom}</b> — fiche technique v{version}"),
+            filename: format!("fiche-technique-{name}-v{version}.pdf"),
+            caption: format!("<b>{name}</b> — fiche technique v{version}"),
         })
         .await
         .map_err(crate::error::AppError::Internal)?;
     Ok(())
 }
 
-// --- Outils --------------------------------------------------------------------
+// --- Helpers -------------------------------------------------------------------
 
-async fn utilisateur(db: &PgPool, telegram_id: Option<i64>) -> AppResult<Option<Uuid>> {
+async fn user_for_telegram_id(db: &PgPool, telegram_id: Option<i64>) -> AppResult<Option<Uuid>> {
     let Some(tg) = telegram_id else {
         return Ok(None);
     };
@@ -838,9 +840,9 @@ async fn utilisateur(db: &PgPool, telegram_id: Option<i64>) -> AppResult<Option<
     Ok(row.map(|(id,)| id))
 }
 
-/// Collectif sur lequel porte la conversation : celui choisi par `/collectif`,
-/// sinon le premier — un membre d'un seul collectif n'a rien a choisir.
-async fn collectif_courant(db: &PgPool, user_id: Uuid) -> AppResult<Option<(Uuid, String)>> {
+/// The collective the conversation is about: the one chosen with `/collectif`,
+/// otherwise the first — a member of a single collective has nothing to pick.
+async fn current_collective(db: &PgPool, user_id: Uuid) -> AppResult<Option<(Uuid, String)>> {
     let row: Option<(Uuid, String)> = sqlx::query_as(
         "SELECT c.id, c.name FROM memberships m
          JOIN collectives c ON c.id = m.collective_id
@@ -855,7 +857,7 @@ async fn collectif_courant(db: &PgPool, user_id: Uuid) -> AppResult<Option<(Uuid
     Ok(row)
 }
 
-async fn visuel_de_tache(state: &AppState, task_id: Uuid) -> Option<String> {
+async fn task_visual(state: &AppState, task_id: Uuid) -> Option<String> {
     let row: Option<(String,)> = sqlx::query_as(
         "SELECT a.storage_key FROM publication_assets pa
          JOIN assets a ON a.id = pa.asset_id
@@ -872,28 +874,28 @@ async fn visuel_de_tache(state: &AppState, task_id: Uuid) -> Option<String> {
     state.storage.signed_url(&key, 3600).await.ok()
 }
 
-async fn repondre(
+async fn reply(
     state: &AppState,
     chat_id: i64,
-    texte: &str,
-    clavier: Option<Value>,
+    text: &str,
+    keyboard: Option<Value>,
 ) -> AppResult<()> {
-    envoyer(state, chat_id, texte, clavier, None).await
+    send(state, chat_id, text, keyboard, None).await
 }
 
-async fn envoyer(
+async fn send(
     state: &AppState,
     chat_id: i64,
-    texte: &str,
-    clavier: Option<Value>,
+    text: &str,
+    keyboard: Option<Value>,
     photo_url: Option<String>,
 ) -> AppResult<()> {
     state
         .telegram
         .send(OutgoingMessage {
             chat_id,
-            text: texte.to_string(),
-            keyboard: clavier,
+            text: text.to_string(),
+            keyboard,
             photo_url,
         })
         .await
@@ -901,10 +903,10 @@ async fn envoyer(
     Ok(())
 }
 
-async fn acquitter(state: &AppState, callback_id: &str, texte: &str) -> AppResult<()> {
+async fn acknowledge_callback(state: &AppState, callback_id: &str, text: &str) -> AppResult<()> {
     state
         .telegram
-        .answer_callback(callback_id, texte)
+        .answer_callback(callback_id, text)
         .await
         .map_err(crate::error::AppError::Internal)?;
     Ok(())
@@ -915,7 +917,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lit_une_commande_avec_ou_sans_mention_du_bot() {
+    fn reads_a_command_with_or_without_the_bot_mention() {
         assert_eq!(
             parse_command("/dispos"),
             Some(("dispos".into(), String::new()))
@@ -928,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    fn lit_la_donnee_d_un_bouton() {
+    fn reads_a_button_payload() {
         let (action, args) = parse_callback("dispo:11111111-1111-1111-1111-111111111111:yes");
         assert_eq!(action, "dispo");
         assert_eq!(args.len(), 2);
@@ -936,19 +938,19 @@ mod tests {
     }
 
     #[test]
-    fn une_tache_de_publication_arrive_avec_son_bouton() {
+    fn a_publication_task_arrives_with_its_button() {
         let kb = keyboard_for("publication_due", &json!({ "task_id": "abc" })).unwrap();
         assert_eq!(kb[0][0]["callback_data"], "publie:abc");
     }
 
     #[test]
-    fn une_notification_sans_action_n_a_pas_de_clavier() {
+    fn a_notification_without_an_action_has_no_keyboard() {
         assert!(keyboard_for("stream_live", &json!({ "event_id": "abc" })).is_none());
     }
 
-    /// La donnee d'un bouton Telegram ne peut pas depasser 64 octets.
+    /// A Telegram button's data cannot exceed 64 bytes.
     #[test]
-    fn les_boutons_tiennent_dans_la_limite_de_telegram() {
+    fn buttons_fit_within_telegram_s_limit() {
         let id = Uuid::new_v4();
         for data in [
             format!("dispo:{id}:maybe"),

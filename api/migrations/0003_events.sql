@@ -1,11 +1,11 @@
--- Etapes 3 et 4 du §17 : evenements, logistique, calendrier, streams.
+-- Steps 3 and 4 of §17: events, logistics, calendar, streams.
 
 CREATE TABLE event_types (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     collective_id UUID NOT NULL REFERENCES collectives(id) ON DELETE CASCADE,
     key           TEXT NOT NULL,          -- dj_night | concert | residency | stream
     label         TEXT NOT NULL,
-    -- jalons de com instancies a la confirmation (§11.1), entierement editables
+    -- comms milestones instantiated on confirmation (§11.1), fully editable
     comms_milestones JSONB NOT NULL DEFAULT '[]',
     default_logistics_slots JSONB NOT NULL DEFAULT '[]',
     requires_venue BOOLEAN NOT NULL DEFAULT TRUE,
@@ -20,7 +20,7 @@ CREATE TABLE events (
     event_type_id  UUID NOT NULL REFERENCES event_types(id),
     opportunity_id UUID REFERENCES opportunities(id) ON DELETE SET NULL,
     venue_id       UUID REFERENCES venues(id) ON DELETE SET NULL,
-    -- porteur : le collectif (NULL) ou un groupe. Meme objet, un seul champ.
+    -- host: the collective (NULL) or a group. Same object, one field.
     host_group_id  UUID REFERENCES groups(id) ON DELETE SET NULL,
     title          TEXT NOT NULL,
     status         TEXT NOT NULL DEFAULT 'confirmed'
@@ -29,7 +29,7 @@ CREATE TABLE events (
     ends_at        TIMESTAMPTZ,
     doors_at       TIMESTAMPTZ,
     soundcheck_at  TIMESTAMPTZ,
-    -- creneaux du line-up : facultatifs, et leur publication est un reglage distinct
+    -- line-up set times: optional, and publishing them is a separate setting
     set_times_state  TEXT NOT NULL DEFAULT 'undefined'
                      CHECK (set_times_state IN ('undefined', 'to_confirm', 'defined')),
     set_times_public BOOLEAN NOT NULL DEFAULT FALSE,
@@ -56,7 +56,7 @@ CREATE TABLE participations (
 );
 CREATE INDEX participations_event_idx ON participations(event_id);
 
--- Residence : « tu viens ? », pas « quand exactement ? » (§6)
+-- Residency: "are you coming?", not "when exactly?" (§6)
 CREATE TABLE residency_presences (
     id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id  UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -66,7 +66,7 @@ CREATE TABLE residency_presences (
     UNIQUE (event_id, user_id)
 );
 
--- Jours precis : facultatifs, jamais reclames.
+-- Specific days: optional, never demanded.
 CREATE TABLE residency_presence_days (
     presence_id UUID NOT NULL REFERENCES residency_presences(id) ON DELETE CASCADE,
     day         DATE NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE logistics_assignments (
     UNIQUE (slot_id, user_id)
 );
 
--- Relances automatiques J-14 / J-7 / J-2 : trace de ce qui est deja parti.
+-- Automatic reminders at D-14 / D-7 / D-2: a record of what already went out.
 CREATE TABLE logistics_reminders (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -116,7 +116,7 @@ CREATE TABLE event_stream_platforms (
     url      TEXT
 );
 
--- Flux iCal a jeton secret : un par membre, par groupe, par collectif (§7)
+-- Secret-token iCal feeds: one per member, per group, per collective (§7)
 CREATE TABLE ical_tokens (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     scope      TEXT NOT NULL CHECK (scope IN ('user', 'group', 'collective')),

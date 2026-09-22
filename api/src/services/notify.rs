@@ -1,8 +1,8 @@
-//! Centre de notifications web + delivrance Telegram (§13, §14).
+//! Web notification centre + Telegram delivery (§13, §14).
 //!
-//! Une requete HTTP ne parle jamais a Telegram : elle **depose** une
-//! notification, qu'un job delivre. Un reseau lent ou une API Telegram en panne
-//! ne peut donc pas faire echouer une action metier.
+//! An HTTP request never talks to Telegram: it **drops off** a notification,
+//! which a job delivers. A slow network or a broken Telegram API therefore
+//! cannot make a domain action fail.
 
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -35,7 +35,7 @@ pub async fn push(db: &PgPool, n: Notice<'_>) -> AppResult<Uuid> {
     Ok(id)
 }
 
-/// Respecte le silence nocturne et les opt-out par type (§13).
+/// Respects quiet hours and per-type opt-outs (§13).
 pub fn is_muted(
     quiet_from: Option<i16>,
     quiet_to: Option<i16>,
@@ -52,7 +52,7 @@ pub fn is_muted(
             if from <= to {
                 hour >= from && hour < to
             } else {
-                // plage a cheval sur minuit : 22h -> 8h
+                // range straddling midnight: 22:00 -> 08:00
                 hour >= from || hour < to
             }
         }
@@ -60,8 +60,8 @@ pub fn is_muted(
     }
 }
 
-/// Delivre les notifications en attente vers Telegram. Les alertes critiques
-/// (« on est en ligne », alerte admin) traversent le silence nocturne.
+/// Delivers pending notifications to Telegram. Critical alerts ("we are live",
+/// admin alerts) cut through quiet hours.
 pub async fn deliver_pending(state: &AppState, limit: i64) -> AppResult<usize> {
     let rows: Vec<(
         Uuid,
@@ -103,8 +103,8 @@ pub async fn deliver_pending(state: &AppState, limit: i64) -> AppResult<usize> {
             } else {
                 format!("<b>{title}</b>\n{body}")
             };
-            // Une notification qui appelle une action part avec son bouton :
-            // deux appuis, pas un aller-retour par le web (§13).
+            // A notification that calls for an action goes out with its
+            // button: two taps, not a round trip through the web (§13).
             if let Err(e) = state
                 .telegram
                 .send(crate::services::telegram::OutgoingMessage {
@@ -115,13 +115,13 @@ pub async fn deliver_pending(state: &AppState, limit: i64) -> AppResult<usize> {
                 })
                 .await
             {
-                tracing::warn!(error = %e, "delivrance telegram echouee");
+                tracing::warn!(error = %e, "telegram delivery failed");
                 continue;
             }
             sent += 1;
         }
-        // Une notification silencieuse reste visible dans le centre web : on la
-        // marque delivree pour ne pas la rejouer indefiniment.
+        // A silenced notification stays visible in the web centre: mark it
+        // delivered so it is not replayed forever.
         sqlx::query("UPDATE notifications SET delivered_telegram = TRUE WHERE id = $1")
             .bind(id)
             .execute(&state.db)
@@ -130,7 +130,7 @@ pub async fn deliver_pending(state: &AppState, limit: i64) -> AppResult<usize> {
     Ok(sent)
 }
 
-/// Tous les membres d'un collectif.
+/// Every member of a collective.
 pub async fn collective_member_ids(db: &PgPool, collective_id: Uuid) -> AppResult<Vec<Uuid>> {
     let rows: Vec<(Uuid,)> =
         sqlx::query_as("SELECT user_id FROM memberships WHERE collective_id = $1")

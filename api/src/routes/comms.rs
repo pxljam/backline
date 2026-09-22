@@ -1,4 +1,4 @@
-//! Plan de com et publication en mode assiste (§11).
+//! Comms plan and assisted-mode publishing (§11).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -189,7 +189,7 @@ async fn event_plan(
     Ok(Json(load_tasks(&state, cid, "p.event_id = $2", eid).await?))
 }
 
-/// Les taches dont je suis responsable — la liste que le bot rappelle.
+/// The tasks I own — the list the bot reminds me about.
 async fn my_tasks(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -207,8 +207,8 @@ async fn my_tasks(
     ))
 }
 
-/// « Generer les visuels » : tous les formats du plan, en une action (§9.4).
-/// Le travail part dans la file — l'admin n'attend pas devant un spinner.
+/// "Generate the visuals": every format in the plan, in one action (§9.4).
+/// The work goes into the queue — the admin does not wait on a spinner.
 async fn generate_visuals(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -223,8 +223,8 @@ async fn generate_visuals(
         "generate_visuals",
         Utc::now(),
         json!({ "event_id": eid }),
-        // Pas de cle de dedoublonnage : relancer la generation est une action
-        // volontaire, apres une correction de gabarit par exemple.
+        // No deduplication key: re-running generation is a deliberate action,
+        // after a template fix for instance.
         None,
     )
     .await?;
@@ -257,7 +257,7 @@ async fn update_task(
     check_task(&state, cid, tid).await?;
 
     if let Some(s) = &body.status {
-        // `publie` ne s'obtient que par une action humaine explicite (§18).
+        // `published` is only reached by an explicit human action (§18).
         if s == "published" {
             return Err(AppError::bad_request(
                 "utiliser « ✅ publie » pour confirmer une publication",
@@ -309,8 +309,9 @@ struct AssignTask {
     backup_assignee_id: Option<Uuid>,
 }
 
-/// Une tache ne peut etre assignee qu'a un membre **ayant acces au compte**
-/// vise (§11.2, §18). C'est la regle qui evite l'aller-retour du jour J.
+/// A task can only be assigned to a member **with access to the account** in
+/// question (§11.2, §18). This is the rule that avoids the day-of back and
+/// forth.
 async fn assign_task(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -320,8 +321,8 @@ async fn assign_task(
     let scope = state.scope(actor, cid).await?;
     check_task(&state, cid, tid).await?;
 
-    // Un membre peut se designer lui-meme ; assigner quelqu'un d'autre est un
-    // acte d'admin.
+    // A member can nominate themselves; assigning someone else is an admin
+    // action.
     let assigning_self =
         body.assignee_id == Some(scope.user_id()) && body.backup_assignee_id.is_none();
     if !assigning_self {
@@ -405,8 +406,8 @@ struct MarkPublished {
     published_url: Option<String>,
 }
 
-/// « ✅ publie » — **la seule voie** vers le statut publie. Aucune API ne le
-/// fait a la place de l'humain (§11.2).
+/// "✅ publie" — **the only route** to the published status. No API does it in
+/// a human's place (§11.2).
 async fn mark_published(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -424,7 +425,7 @@ async fn mark_published(
     .await?;
     let (assignee, backup) = row.ok_or_else(|| AppError::not_found("tache introuvable"))?;
 
-    // Le responsable, son suppleant, ou un admin qui a publie a leur place.
+    // The owner, their stand-in, or an admin who published in their place.
     let me = scope.user_id();
     if assignee != Some(me) && backup != Some(me) && !scope.is_admin() {
         return Err(AppError::forbidden("cette tache ne t'est pas assignee"));
@@ -440,7 +441,7 @@ async fn mark_published(
     .execute(&state.db)
     .await?;
 
-    // Les relances programmees n'ont plus lieu d'etre.
+    // The scheduled reminders no longer have a reason to exist.
     jobs::cancel_by_prefix(&state.db, &format!("task:{tid}:")).await?;
 
     Ok(Json(json!({ "ok": true })))
@@ -459,9 +460,9 @@ async fn check_task(state: &AppState, cid: Uuid, tid: Uuid) -> AppResult<()> {
         .ok_or_else(|| AppError::not_found("tache introuvable"))
 }
 
-/// Expose pour le planificateur : la generation des visuels est un job.
+/// Exposed for the scheduler: generating the visuals is a job.
 pub async fn run_generate_visuals(state: &AppState, event_id: Uuid) -> AppResult<()> {
     let (ok, failed) = visuals::generate_for_event(state, event_id).await?;
-    tracing::info!(event = %event_id, ok, failed, "visuels generes");
+    tracing::info!(event = %event_id, ok, failed, "visuals generated");
     Ok(())
 }

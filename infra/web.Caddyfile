@@ -1,5 +1,5 @@
-# Sert le bundle statique du front. Toute route inconnue retombe sur
-# index.html : le routage est cote navigateur.
+# Serves the front-end's static bundle. Any unknown route falls back to
+# index.html: routing happens in the browser.
 :80 {
 	root * /srv
 	encode zstd gzip

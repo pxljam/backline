@@ -1,8 +1,8 @@
-//! Donnees d'amorcage (§16).
+//! Seed data (§16).
 //!
-//! Le jeu installe par `docker compose up` sur une machine vierge, et celui
-//! que les tests de bout en bout utilisent. Idempotent : relancer le seed sur
-//! une base deja amorcee ne duplique rien.
+//! The set installed by `docker compose up` on a clean machine, and the one the
+//! end-to-end tests use. Idempotent: re-running the seed on an already-seeded
+//! database duplicates nothing.
 
 use crate::error::AppResult;
 use crate::services::{comms, events as events_svc, ical, provisioning};
@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 pub async fn run(db: &PgPool) -> Result<()> {
     if already_seeded(db).await? {
-        tracing::info!("donnees d'amorcage deja presentes");
+        tracing::info!("seed data already present");
         return Ok(());
     }
     seed(db).await.map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -29,7 +29,7 @@ async fn already_seeded(db: &PgPool) -> Result<bool> {
     Ok(n > 0)
 }
 
-/// Cree un utilisateur, ou le retrouve s'il existe deja.
+/// Creates a user, or finds them if they already exist.
 async fn upsert_user(
     db: &PgPool,
     display_name: &str,
@@ -119,8 +119,8 @@ async fn add_group_member(
 pub async fn seed(db: &PgPool) -> AppResult<()> {
     provisioning::ensure_format_catalog(db).await?;
 
-    // --- Admin d'instance --------------------------------------------------
-    // Au moins un admin d'instance doit pouvoir entrer sans Telegram (§3).
+    // --- Instance admin ----------------------------------------------------
+    // At least one instance admin must be able to get in without Telegram (§3).
     let root = upsert_user(db, "Admin instance", None, "", Some("admin@backline.local")).await?;
     let hash = crate::auth::hash_password("backline-admin").map_err(crate::AppError::Internal)?;
     sqlx::query("UPDATE users SET password_hash = $2, is_instance_admin = TRUE WHERE id = $1")
@@ -129,12 +129,12 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         .execute(db)
         .await?;
 
-    // --- Collectif ---------------------------------------------------------
+    // --- Collective --------------------------------------------------------
     let collective =
         provisioning::create_collective(db, "bonsoir-techno", "Bonsoir Techno").await?;
 
-    // Antoine cree le collectif et en est l'admin. Il n'appartient a aucun
-    // groupe — hypothese du §16, a confirmer.
+    // Antoine creates the collective and is its admin. They belong to no
+    // group — §16's assumption, to be confirmed.
     let antoine = upsert_user(
         db,
         "Antoine",
@@ -172,12 +172,12 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     for u in [anas, romain, mathieu] {
         add_member(db, collective, u, "member").await?;
     }
-    // L'admin d'instance est aussi membre : sinon il ne verrait rien depuis
-    // l'interface du collectif.
+    // The instance admin is also a member: otherwise they would see nothing
+    // from the collective's interface.
     add_member(db, collective, root, "admin").await?;
 
-    // Groupe de reference pour les tests : Ramas, duo dont les deux membres
-    // sont egalement membres du collectif.
+    // Reference group for the tests: Ramas, a duo whose two members are also
+    // members of the collective.
     let ramas = add_group(db, collective, "ramas", "Ramas", "Duo live techno").await?;
     add_group_member(db, ramas, anas, "MAO / synthes", true).await?;
     add_group_member(db, ramas, romain, "machines / live", true).await?;
@@ -185,7 +185,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     let dante3p = add_group(db, collective, "dante3p", "Dante3p", "Projet solo").await?;
     add_group_member(db, dante3p, mathieu, "DJ", true).await?;
 
-    // --- Comptes sociaux : qui y a acces, jamais les mots de passe (§11.3) --
+    // --- Social accounts: who has access, never the passwords (§11.3) ------
     for (platform, handle) in [
         ("instagram", "@ramas"),
         ("tiktok", "@ramas"),
@@ -239,7 +239,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         .await?;
     }
 
-    // --- Fiche technique de Ramas, publiee ---------------------------------
+    // --- Ramas's tech rider, published -------------------------------------
     sqlx::query(
         "INSERT INTO tech_riders (group_id, version, status, data, created_by)
          VALUES ($1, 1, 'published', $2, $3)",
@@ -284,7 +284,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .execute(db)
     .await?;
 
-    // --- Lieu + contact ----------------------------------------------------
+    // --- Venue + contact ---------------------------------------------------
     let (venue,): (Uuid,) = sqlx::query_as(
         "INSERT INTO venues (collective_id, name, address, city, country, capacity, notes)
          VALUES ($1, 'Le Sonic', '4 quai des Etroits', 'Lyon', 'France', 250, 'Peniche, chargement par le quai.')
@@ -301,7 +301,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .fetch_one(db)
     .await?;
 
-    // --- Opportunite a trois dates, sondage partiellement rempli -----------
+    // --- Opportunity with three dates, poll partially filled in ------------
     let (opportunity,): (Uuid,) = sqlx::query_as(
         "INSERT INTO opportunities
             (collective_id, venue_id, venue_contact_id, title, conditions, status, created_by)
@@ -346,8 +346,8 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .fetch_one(db)
     .await?;
 
-    // Sondage **partiellement** rempli : Mathieu n'a pas encore repondu, et
-    // c'est exactement l'etat que la matrice doit savoir afficher.
+    // The poll is **partially** filled in: Mathieu has not answered yet, and
+    // that is exactly the state the matrix must be able to show.
     let answers: [(Uuid, [(&str, bool); 3]); 3] = [
         (anas, [("yes", true), ("yes", true), ("no", false)]),
         (romain, [("maybe", false), ("yes", true), ("no", false)]),
@@ -369,7 +369,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         }
     }
 
-    // --- Un evenement confirme complet -------------------------------------
+    // --- One fully confirmed event -----------------------------------------
     let concert = make_event(
         db,
         collective,
@@ -412,8 +412,8 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .execute(db)
     .await?;
 
-    // Quelques postes deja pris, d'autres volontairement vacants : c'est ce
-    // qui rend les relances observables.
+    // A few slots already taken, others deliberately vacant: that is what
+    // makes the reminders observable.
     let slots: Vec<(Uuid, String)> = sqlx::query_as(
         "SELECT id, label FROM logistics_slots WHERE event_id = $1 ORDER BY position",
     )
@@ -440,7 +440,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     events_svc::attach_tech_riders(db, concert).await?;
     assign_publication_tasks(db, collective, concert).await?;
 
-    // --- Une residence -----------------------------------------------------
+    // --- One residency -----------------------------------------------------
     let residency = make_event(
         db,
         collective,
@@ -459,7 +459,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .bind(ramas)
     .execute(db)
     .await?;
-    // « Je viens », sans autre precision : la reponse attendue par defaut (§6).
+    // "Je viens", with no further detail: the expected default answer (§6).
     for (user, answer) in [(anas, "coming"), (romain, "coming"), (mathieu, "unsure")] {
         let (pid,): (Uuid,) = sqlx::query_as(
             "INSERT INTO residency_presences (event_id, user_id, answer) VALUES ($1, $2, $3)
@@ -470,7 +470,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         .bind(answer)
         .fetch_one(db)
         .await?;
-        // Romain coche deux journees : un confort pour l'admin, jamais un prerequis.
+        // Romain ticks two days: a convenience for the admin, never a requirement.
         if user == romain {
             for d in 0..2 {
                 sqlx::query(
@@ -484,7 +484,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         }
     }
 
-    // --- Un stream ---------------------------------------------------------
+    // --- One stream --------------------------------------------------------
     let stream = make_event(
         db,
         collective,
@@ -528,15 +528,15 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     .await?;
     assign_publication_tasks(db, collective, stream).await?;
 
-    // --- Un gabarit d'annonce, decline sur trois formats --------------------
+    // --- One announcement template, derived across three formats -----------
     crate::services::templates::seed_default_template(db, collective, None).await?;
 
-    tracing::info!("donnees d'amorcage installees : Bonsoir Techno, Ramas, Dante3p");
+    tracing::info!("seed data installed: Bonsoir Techno, Ramas, Dante3p");
     Ok(())
 }
 
-/// Un evenement de demonstration, avec ses postes logistiques, son plan de com
-/// et ses jobs programmes — exactement le chemin qu'emprunte une confirmation.
+/// A demo event, with its logistics slots, its comms plan and its scheduled
+/// jobs — exactly the path a confirmation takes.
 #[allow(clippy::too_many_arguments)]
 async fn make_event(
     db: &PgPool,
@@ -587,8 +587,8 @@ async fn make_event(
     Ok(id)
 }
 
-/// Rattache chaque tache de com a un compte social et a un responsable qui y a
-/// acces — l'invariant du §11.2 vaut aussi pour les donnees de demonstration.
+/// Attaches every comms task to a social account and to an owner who has
+/// access to it — §11.2's invariant holds for the demo data too.
 async fn assign_publication_tasks(db: &PgPool, collective: Uuid, event_id: Uuid) -> AppResult<()> {
     let account: Option<(Uuid,)> = sqlx::query_as(
         "SELECT id FROM social_accounts

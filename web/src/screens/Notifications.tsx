@@ -2,10 +2,10 @@ import React from "react";
 import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import type { Notification } from "../lib/types";
-import { relatif } from "../lib/format";
+import { relativeTime } from "../lib/format";
 import { Badge, Button, Card, Empty, ErrorNote, Loading, PageTitle } from "../components/ui";
 
-const LIBELLE: Record<string, string> = {
+const NOTIFICATION_LABELS: Record<string, string> = {
   poll_open: "sondage",
   lineup_retained: "line-up",
   lineup_not_retained: "line-up",
@@ -18,7 +18,7 @@ const LIBELLE: Record<string, string> = {
   admin_alert: "alerte",
 };
 
-/** Le centre de notifications web est le **doublon complet** du bot (§19). */
+/** The web notification centre is a **complete mirror** of the bot (§19). */
 export const Notifications: React.FC = () => {
   const { data, loading, error, reload } = useResource<Notification[]>("/api/notifications");
   const { run, busy } = useAction();
@@ -26,15 +26,15 @@ export const Notifications: React.FC = () => {
   if (loading) return <Loading />;
   if (error) return <ErrorNote>{error}</ErrorNote>;
 
-  const nonLues = (data ?? []).filter((n) => !n.read_at).length;
+  const unread = (data ?? []).filter((n) => !n.read_at).length;
 
   return (
     <>
       <PageTitle
         title="Notifications"
-        subtitle={nonLues > 0 ? `${nonLues} non lue${nonLues > 1 ? "s" : ""}` : "Tout est lu."}
+        subtitle={unread > 0 ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est lu."}
         action={
-          nonLues > 0 && (
+          unread > 0 && (
             <Button
               disabled={busy}
               onClick={() =>
@@ -59,10 +59,10 @@ export const Notifications: React.FC = () => {
               <li key={n.id} className={`py-3 ${n.read_at ? "opacity-60" : ""}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={n.kind === "admin_alert" ? "bad" : "neutral"}>
-                    {LIBELLE[n.kind] ?? n.kind}
+                    {NOTIFICATION_LABELS[n.kind] ?? n.kind}
                   </Badge>
                   <span className="text-sm font-medium">{n.title}</span>
-                  <span className="ml-auto text-xs text-ink-soft">{relatif(n.created_at)}</span>
+                  <span className="ml-auto text-xs text-ink-soft">{relativeTime(n.created_at)}</span>
                 </div>
                 {n.body && (
                   <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">

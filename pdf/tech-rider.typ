@@ -1,5 +1,5 @@
-// Fiche technique — sortie deterministe, typographie propre, aucun navigateur
-// dans la boucle (§15). Les donnees arrivent par `data.json`.
+// Tech rider — deterministic output, clean typography, no browser in the loop
+// (§15). The data arrives through `data.json`.
 
 #let d = json("data.json")
 #let group = d.at("group_name", default: "Groupe")
@@ -41,7 +41,7 @@
   }
 }
 
-// --- En-tete ---------------------------------------------------------------
+// --- Header ----------------------------------------------------------------
 #block[
   #text(size: 22pt, weight: "bold")[#group]
   #h(1fr)
@@ -54,7 +54,7 @@
   #text(size: 8pt, fill: luma(130))[Editee le #d.generated_on]
 ]
 
-// --- Identite --------------------------------------------------------------
+// --- Identity --------------------------------------------------------------
 #section("Identite")
 #field("Style", identity.at("style", default: none))
 #field("Duree du set", if identity.at("set_duration_min", default: none) != none {
@@ -64,7 +64,7 @@
   str(identity.stage_headcount)
 } else { none })
 
-// --- Line-up scene ---------------------------------------------------------
+// --- Stage line-up ---------------------------------------------------------
 #let lineup = r.at("stage_lineup", default: ())
 #if lineup.len() > 0 [
   #section("Line-up scene")
@@ -118,7 +118,7 @@
   #field("Demande", backline.at("requested", default: none))
 ]
 
-// --- Son / lumiere ---------------------------------------------------------
+// --- Sound / light ---------------------------------------------------------
 #let sound = r.at("sound", default: (:))
 #if sound.len() > 0 [
   #section("Son")
@@ -137,7 +137,7 @@
   #r.hospitality
 ]
 
-// --- Arrivee ---------------------------------------------------------------
+// --- Arrival ---------------------------------------------------------------
 #let arrival = r.at("arrival", default: (:))
 #if arrival.len() > 0 [
   #section("Arrivee")

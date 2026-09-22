@@ -1,5 +1,5 @@
-//! Extracteurs Axum : l'utilisateur authentifie, et rien de plus. Les droits
-//! se prouvent ensuite via [`crate::scope::CollectiveScope`].
+//! Axum extractors: the authenticated user, and nothing more. Permissions are
+//! proven afterwards through [`crate::scope::CollectiveScope`].
 
 use crate::auth::session::{actor_from_token, SESSION_COOKIE};
 use crate::error::AppError;

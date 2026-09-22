@@ -8,12 +8,12 @@ import {
 } from "../components/ui";
 
 /**
- * Reglages du collectif (§14) : types d'evenements et **jalons de com**, bot,
- * flux iCal, sauvegardes. Les timelines sont de la donnee : les modifier se
- * fait ici, jamais dans le code (§11.1).
+ * Collective settings (§14): event types and **comms milestones**, bot, iCal
+ * feeds, backups. Timelines are data: they are edited here, never in the code
+ * (§11.1).
  */
 export const Settings: React.FC = () => {
-  const [onglet, setOnglet] = useState<"types" | "bot" | "ical" | "sauvegardes">("types");
+  const [tab, setTab] = useState<"types" | "bot" | "ical" | "sauvegardes">("types");
 
   return (
     <>
@@ -32,9 +32,9 @@ export const Settings: React.FC = () => {
         ).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setOnglet(key)}
+            onClick={() => setTab(key)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              onglet === key ? "bg-ink text-paper" : "border border-line"
+              tab === key ? "bg-ink text-paper" : "border border-line"
             }`}
           >
             {label}
@@ -42,17 +42,17 @@ export const Settings: React.FC = () => {
         ))}
       </nav>
 
-      {onglet === "types" && <TypesEvenements />}
-      {onglet === "bot" && <BotEtNotifications />}
-      {onglet === "ical" && <FluxIcal />}
-      {onglet === "sauvegardes" && <Sauvegardes />}
+      {tab === "types" && <EventTypes />}
+      {tab === "bot" && <BotEtNotifications />}
+      {tab === "ical" && <IcalFeeds />}
+      {tab === "sauvegardes" && <Backups />}
     </>
   );
 };
 
-// --- Types d'evenements et timelines de com --------------------------------
+// --- Event types and comms timelines ---------------------------------------
 
-const TypesEvenements: React.FC = () => {
+const EventTypes: React.FC = () => {
   const base = useCollectiveBase();
   const collective = useResource<CollectiveDetail>(base);
   const [ouvert, setOuvert] = useState<string | null>(null);
@@ -87,21 +87,21 @@ const TypeCard: React.FC<{
   const { isAdmin } = useSession();
   const { run, busy, error } = useAction();
   const [label, setLabel] = useState(type.label);
-  const [jalons, setJalons] = useState<Milestone[]>(type.comms_milestones ?? []);
+  const [milestones, setMilestones] = useState<Milestone[]>(type.comms_milestones ?? []);
 
   useEffect(() => {
     setLabel(type.label);
-    setJalons(type.comms_milestones ?? []);
+    setMilestones(type.comms_milestones ?? []);
   }, [type]);
 
-  const modifier = (index: number, patch: Partial<Milestone>) =>
-    setJalons((liste) => liste.map((j, i) => (i === index ? { ...j, ...patch } : j)));
+  const updateMilestone = (index: number, patch: Partial<Milestone>) =>
+    setMilestones((list) => list.map((j, i) => (i === index ? { ...j, ...patch } : j)));
 
-  const enregistrer = () =>
+  const save = () =>
     void run(async () => {
       await api.patch(`${base}/event-types/${type.id}`, {
         label,
-        comms_milestones: jalons,
+        comms_milestones: milestones,
       });
       onSaved();
     });
@@ -118,7 +118,7 @@ const TypeCard: React.FC<{
         <div className="flex items-center gap-2">
           {type.requires_venue && <Badge>lieu requis</Badge>}
           {type.is_range && <Badge>sur une plage</Badge>}
-          <Badge tone="neutral">{jalons.length} jalon(s)</Badge>
+          <Badge tone="neutral">{milestones.length} jalon(s)</Badge>
           <Button size="sm" onClick={onToggle}>
             {ouvert ? "replier" : "jalons de com"}
           </Button>
@@ -127,9 +127,9 @@ const TypeCard: React.FC<{
     >
       {!ouvert ? (
         <p className="text-sm text-ink-soft">
-          {jalons.length === 0
+          {milestones.length === 0
             ? "Aucun jalon : un evenement de ce type ne genere pas de plan de com."
-            : jalons.map((j) => j.label).join(" · ")}
+            : milestones.map((j) => j.label).join(" · ")}
         </p>
       ) : (
         <>
@@ -151,21 +151,21 @@ const TypeCard: React.FC<{
           </p>
 
           <ul className="space-y-3">
-            {jalons.map((j, i) => (
+            {milestones.map((j, i) => (
               <li key={i} className="rounded-lg border border-line p-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="Cle">
                     <Input
                       value={j.key}
                       disabled={!isAdmin}
-                      onChange={(e) => modifier(i, { key: e.target.value })}
+                      onChange={(e) => updateMilestone(i, { key: e.target.value })}
                     />
                   </Field>
                   <Field label="Intitule">
                     <Input
                       value={j.label}
                       disabled={!isAdmin}
-                      onChange={(e) => modifier(i, { label: e.target.value })}
+                      onChange={(e) => updateMilestone(i, { label: e.target.value })}
                     />
                   </Field>
                   <Field label="Jours">
@@ -173,7 +173,7 @@ const TypeCard: React.FC<{
                       type="number"
                       value={j.offset_days}
                       disabled={!isAdmin}
-                      onChange={(e) => modifier(i, { offset_days: Number(e.target.value) })}
+                      onChange={(e) => updateMilestone(i, { offset_days: Number(e.target.value) })}
                     />
                   </Field>
                   <Field label="Minutes" hint="« J0 moins 15 min »">
@@ -181,7 +181,7 @@ const TypeCard: React.FC<{
                       type="number"
                       value={j.offset_minutes}
                       disabled={!isAdmin}
-                      onChange={(e) => modifier(i, { offset_minutes: Number(e.target.value) })}
+                      onChange={(e) => updateMilestone(i, { offset_minutes: Number(e.target.value) })}
                     />
                   </Field>
                   <Field label="Heure locale">
@@ -189,7 +189,7 @@ const TypeCard: React.FC<{
                       placeholder="18:00"
                       value={j.at ?? ""}
                       disabled={!isAdmin}
-                      onChange={(e) => modifier(i, { at: e.target.value || null })}
+                      onChange={(e) => updateMilestone(i, { at: e.target.value || null })}
                     />
                   </Field>
                   <Field label="Ancre">
@@ -197,7 +197,7 @@ const TypeCard: React.FC<{
                       value={j.anchor}
                       disabled={!isAdmin}
                       onChange={(e) =>
-                        modifier(i, { anchor: e.target.value as Milestone["anchor"] })
+                        updateMilestone(i, { anchor: e.target.value as Milestone["anchor"] })
                       }
                     >
                       <option value="start">debut</option>
@@ -210,7 +210,7 @@ const TypeCard: React.FC<{
                         value={j.formats.join(", ")}
                         disabled={!isAdmin}
                         onChange={(e) =>
-                          modifier(i, {
+                          updateMilestone(i, {
                             formats: e.target.value
                               .split(",")
                               .map((s) => s.trim())
@@ -226,7 +226,7 @@ const TypeCard: React.FC<{
                         rows={2}
                         value={j.caption}
                         disabled={!isAdmin}
-                        onChange={(e) => modifier(i, { caption: e.target.value })}
+                        onChange={(e) => updateMilestone(i, { caption: e.target.value })}
                       />
                     </Field>
                   </div>
@@ -236,7 +236,7 @@ const TypeCard: React.FC<{
                     <Button
                       size="sm"
                       variant="danger"
-                      onClick={() => setJalons(jalons.filter((_, k) => k !== i))}
+                      onClick={() => setMilestones(milestones.filter((_, k) => k !== i))}
                     >
                       supprimer ce jalon
                     </Button>
@@ -250,10 +250,10 @@ const TypeCard: React.FC<{
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 onClick={() =>
-                  setJalons([
-                    ...jalons,
+                  setMilestones([
+                    ...milestones,
                     {
-                      key: `j-${jalons.length + 1}`,
+                      key: `j-${milestones.length + 1}`,
                       label: "Nouveau jalon",
                       offset_days: -7,
                       offset_minutes: 0,
@@ -267,7 +267,7 @@ const TypeCard: React.FC<{
               >
                 ajouter un jalon
               </Button>
-              <Button variant="primary" disabled={busy} onClick={enregistrer}>
+              <Button variant="primary" disabled={busy} onClick={save}>
                 Enregistrer
               </Button>
             </div>
@@ -282,7 +282,7 @@ const TypeCard: React.FC<{
   );
 };
 
-// --- Bot Telegram et notifications personnelles ----------------------------
+// --- Telegram bot and personal notifications -------------------------------
 
 interface PublicConfig {
   telegram_bot_username: string | null;
@@ -420,8 +420,8 @@ const BotEtNotifications: React.FC = () => {
                       type="checkbox"
                       checked={optOut.includes(key)}
                       onChange={(e) =>
-                        setOptOut((liste) =>
-                          e.target.checked ? [...liste, key] : liste.filter((k) => k !== key),
+                        setOptOut((list) =>
+                          e.target.checked ? [...list, key] : list.filter((k) => k !== key),
                         )
                       }
                     />
@@ -444,9 +444,9 @@ const BotEtNotifications: React.FC = () => {
   );
 };
 
-// --- Flux iCal --------------------------------------------------------------
+// --- iCal feeds -------------------------------------------------------------
 
-const FluxIcal: React.FC = () => {
+const IcalFeeds: React.FC = () => {
   const base = useCollectiveBase();
   const feeds = useResource<{ scope: string; label: string; url: string }[]>(
     `${base}/calendar/feeds`,
@@ -454,7 +454,7 @@ const FluxIcal: React.FC = () => {
 
   if (feeds.loading) return <Loading />;
 
-  const libelle: Record<string, string> = {
+  const label: Record<string, string> = {
     collective: "collectif",
     user: "personnel",
     group: "groupe",
@@ -473,7 +473,7 @@ const FluxIcal: React.FC = () => {
         <ul className="space-y-2">
           {feeds.data.map((f) => (
             <li key={f.url} className="flex flex-wrap items-center gap-2">
-              <Badge>{libelle[f.scope] ?? f.scope}</Badge>
+              <Badge>{label[f.scope] ?? f.scope}</Badge>
               <span className="text-sm font-medium">{f.label}</span>
               <code className="min-w-0 flex-1 truncate rounded bg-paper px-2 py-1 text-xs">
                 {f.url}
@@ -489,9 +489,9 @@ const FluxIcal: React.FC = () => {
   );
 };
 
-// --- Sauvegardes ------------------------------------------------------------
+// --- Backups ------------------------------------------------------------
 
-const Sauvegardes: React.FC = () => (
+const Backups: React.FC = () => (
   <Card title="Sauvegardes">
     <p className="text-sm">
       La sauvegarde est une tache d'exploitation, pas un bouton dans l'application : un

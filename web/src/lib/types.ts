@@ -12,14 +12,14 @@ export interface Me {
   groups: { id: string; collective_id: string; name: string; is_admin: boolean }[];
 }
 
-/** Jalon de com : une ligne de la timeline d'un type d'evenement (§11.1). */
+/** Comms milestone: one row of an event type's timeline (§11.1). */
 export interface Milestone {
   key: string;
   label: string;
-  /** Decalage en jours par rapport a l'ancre. Negatif = avant. */
+  /** Offset in days from the anchor. Negative = before. */
   offset_days: number;
   offset_minutes: number;
-  /** Heure locale imposee, « 18:00 ». */
+  /** Fixed local time, "18:00". */
   at: string | null;
   formats: string[];
   caption: string;

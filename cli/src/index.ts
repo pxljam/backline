@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * `backline` — la CLI de rendu (§10.3).
+ * `backline` — the render CLI (§10.3).
  *
- * Elle s'authentifie aupres de l'instance, reclame un job, telecharge la
- * description et les medias, rend en local avec Remotion, renvoie le fichier
- * fini, et remonte sa progression. **Le VPS n'encode jamais.**
+ * It authenticates against the instance, claims a job, downloads the
+ * description and the media, renders locally with Remotion, uploads the
+ * finished file, and reports progress. **The VPS never encodes.**
  *
- *   backline login                  associe la machine au compte, via un jeton
- *   backline jobs                   liste les rendus en attente
- *   backline render                 prend un job, le rend, renvoie le resultat
- *   backline render --watch         demon : traite les jobs au fil de l'eau
- *   backline render <id> --preview  rendu rapide basse definition
+ *   backline login                  link this machine to the account, by token
+ *   backline jobs                   list pending renders
+ *   backline render                 take a job, render it, upload the result
+ *   backline render --watch         daemon: process jobs as they arrive
+ *   backline render <id> --preview  fast low-resolution render
  */
 
 import readline from "node:readline/promises";
@@ -44,35 +44,35 @@ async function login(): Promise<void> {
   const fallbackUrl = existing?.apiUrl ?? "https://backline.betafactory.co";
   const apiUrl =
     option("url") ||
-    (await ask(`Adresse de l'instance [${fallbackUrl}] : `)) ||
+    (await ask(`Instance address [${fallbackUrl}]: `)) ||
     fallbackUrl;
 
-  // Le jeton se cree dans l'ecran « Rendus » de l'application, et n'y est
-  // montre qu'une fois. Il est revocable a tout moment.
+  // The token is created in the application's "Rendus" screen, and shown
+  // there only once. It can be revoked at any time.
   const token =
-    option("token") ?? (await ask("Jeton de machine (ecran Rendus de l'application) : "));
+    option("token") ?? (await ask("Machine token (Rendus screen in the app): "));
   if (!token) {
-    console.error("Aucun jeton fourni.");
+    console.error("No token provided.");
     process.exit(1);
   }
 
   const caps = await detect();
   const machineName =
-    option("name") || (await ask(`Nom de cette machine [${hostname()}] : `)) || hostname();
+    option("name") || (await ask(`Name for this machine [${hostname()}]: `)) || hostname();
 
   const api = new Api({ apiUrl, token, machineName });
   const { job } = await api.claim(caps).catch((e: Error) => {
-    console.error(`Connexion refusee : ${e.message}`);
+    console.error(`Connection refused: ${e.message}`);
     process.exit(1);
   });
 
   const file = await config.save({ apiUrl, token, machineName });
-  console.log(`Machine associee. Configuration : ${file}`);
+  console.log(`Machine linked. Configuration: ${file}`);
   console.log(
-    `Materiel : ${caps.gpu ? `GPU ${caps.gpuKind}` : "processeur seul"}, ${caps.concurrency} tache(s) en parallele.`,
+    `Hardware: ${caps.gpu ? `GPU ${caps.gpuKind}` : "CPU only"}, ${caps.concurrency} task(s) in parallel.`,
   );
   if (job) {
-    console.log(`Un job attend deja (${job.id}). Lancer \`backline render\`.`);
+    console.log(`A job is already waiting (${job.id}). Run \`backline render\`.`);
   }
 }
 
@@ -85,12 +85,12 @@ async function jobs(): Promise<void> {
   const api = new Api(cfg);
   const { job } = await api.claim(await detect());
   if (!job) {
-    console.log("Aucun rendu en attente.");
+    console.log("No pending render.");
     return;
   }
-  // Reclamer puis relacher fausserait l'etat : on a pris le job, autant le
-  // dire clairement.
-  console.log(`1 rendu reclame : ${job.id} (${job.kind}). Lancer \`backline render\`.`);
+  // Claiming then releasing would misreport the state: we took the job, so
+  // say so plainly.
+  console.log(`1 render claimed: ${job.id} (${job.kind}). Run \`backline render\`.`);
 }
 
 async function renderOnce(api: Api, caps: Awaited<ReturnType<typeof detect>>): Promise<boolean> {
@@ -100,27 +100,27 @@ async function renderOnce(api: Api, caps: Awaited<ReturnType<typeof detect>>): P
   console.log(`→ job ${job.id} (${job.kind})`);
   try {
     const bundle = await api.bundle(job.id);
-    console.log(`  « ${bundle.name} » — ${Object.keys(bundle.media).length} media(s) a telecharger`);
+    console.log(`  "${bundle.name}" — ${Object.keys(bundle.media).length} media file(s) to download`);
 
     let last = -1;
     const result = await renderJob(bundle, caps, (ratio) => {
       const pct = Math.floor(ratio * 100);
       if (pct !== last && pct % 5 === 0) {
         last = pct;
-        stdout.write(`\r  rendu ${pct}%   `);
+        stdout.write(`\r  rendering ${pct}%   `);
         void api.progress(job.id, ratio);
       }
     });
-    stdout.write("\r  rendu 100%   \n");
+    stdout.write("\r  rendering 100%   \n");
 
     await api.complete(job.id, result.file, result.filename);
-    console.log(`  ✓ ${result.filename} renvoye (${(result.file.length / 1e6).toFixed(1)} Mo)`);
+    console.log(`  ✓ ${result.filename} uploaded (${(result.file.length / 1e6).toFixed(1)} MB)`);
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`  ✗ echec : ${message}`);
-    // L'echec remonte a l'application : un job qui echoue en silence est pire
-    // qu'un job qui echoue.
+    console.error(`  ✗ failed: ${message}`);
+    // The failure is reported back to the application: a job that fails
+    // silently is worse than a job that fails.
     await api.fail(job.id, message);
     return true;
   }
@@ -132,16 +132,16 @@ async function render(): Promise<void> {
   const caps = await detect();
 
   console.log(
-    `${cfg.machineName} — ${caps.gpu ? `GPU ${caps.gpuKind}` : "processeur seul (plus lent, mais ca passe)"}`,
+    `${cfg.machineName} — ${caps.gpu ? `GPU ${caps.gpuKind}` : "CPU only (slower, but it works)"}`,
   );
 
   if (!flag("watch")) {
     const did = await renderOnce(api, caps);
-    if (!did) console.log("Aucun rendu en attente.");
+    if (!did) console.log("No pending render.");
     return;
   }
 
-  console.log("Mode demon : traitement des jobs au fil de l'eau. Ctrl-C pour arreter.");
+  console.log("Daemon mode: processing jobs as they arrive. Ctrl-C to stop.");
   let idle = 0;
   for (;;) {
     const did = await renderOnce(api, caps).catch((e: Error) => {
@@ -152,22 +152,22 @@ async function render(): Promise<void> {
       idle = 0;
       continue;
     }
-    // Attente progressive : on ne martele pas l'API quand il n'y a rien.
+    // Progressive backoff: do not hammer the API when there is nothing to do.
     idle = Math.min(idle + 1, 6);
     await new Promise((r) => setTimeout(r, 5000 * idle));
   }
 }
 
 function help(): void {
-  console.log(`backline — rendu video pour Backline
+  console.log(`backline — video rendering for Backline
 
-  backline login                  associe la machine au compte, via un jeton
-  backline jobs                   liste les rendus en attente
-  backline render                 prend un job, le rend, renvoie le resultat
-  backline render --watch         demon : traite les jobs au fil de l'eau
-  backline render --preview       rendu rapide basse definition
+  backline login                  link this machine to the account, by token
+  backline jobs                   list pending renders
+  backline render                 take a job, render it, upload the result
+  backline render --watch         daemon: process jobs as they arrive
+  backline render --preview       fast low-resolution render
 
-Options : --url <instance>  --token <jeton>  --name <nom de machine>
+Options: --url <instance>  --token <token>  --name <machine name>
 `);
 }
 

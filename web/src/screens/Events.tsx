@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { BacklineEvent, CollectiveDetail, Group, Venue } from "../lib/types";
-import { dateEtHeure, relatif, STATUT_EVENEMENT } from "../lib/format";
+import { dateAndTime, relativeTime, EVENT_STATUS_LABELS } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select,
 } from "../components/ui";
@@ -18,8 +18,8 @@ export const Events: React.FC = () => {
   if (loading) return <Loading />;
   if (error) return <ErrorNote>{error}</ErrorNote>;
 
-  const aVenir = (data ?? []).filter((e) => e.status === "confirmed" || e.status === "draft");
-  const passes = (data ?? []).filter((e) => e.status === "past" || e.status === "cancelled");
+  const upcoming = (data ?? []).filter((e) => e.status === "confirmed" || e.status === "draft");
+  const past = (data ?? []).filter((e) => e.status === "past" || e.status === "cancelled");
 
   return (
     <>
@@ -48,11 +48,11 @@ export const Events: React.FC = () => {
 
       <div className="grid gap-4">
         <Card title="A venir">
-          {aVenir.length === 0 ? <Empty>Rien de prevu.</Empty> : <Liste events={aVenir} />}
+          {upcoming.length === 0 ? <Empty>Rien de prevu.</Empty> : <EventList events={upcoming} />}
         </Card>
-        {passes.length > 0 && (
+        {past.length > 0 && (
           <Card title="Passes">
-            <Liste events={passes} />
+            <EventList events={past} />
           </Card>
         )}
       </div>
@@ -60,31 +60,31 @@ export const Events: React.FC = () => {
   );
 };
 
-const Liste: React.FC<{ events: BacklineEvent[] }> = ({ events }) => (
+const EventList: React.FC<{ events: BacklineEvent[] }> = ({ events }) => (
   <ul className="divide-y divide-line">
     {events.map((e) => {
-      const vacants = e.logistics.reduce((n, s) => n + s.vacant, 0);
-      const sansFiche = e.tech_riders.filter((r) => !r.tech_rider_id).length;
+      const vacant = e.logistics.reduce((n, s) => n + s.vacant, 0);
+      const missingRider = e.tech_riders.filter((r) => !r.tech_rider_id).length;
       return (
         <li key={e.id}>
           <Link to={`/evenements/${e.id}`} className="flex flex-wrap items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="font-medium">{e.title}</p>
               <p className="text-xs text-ink-soft">
-                {e.type_label} · {dateEtHeure(e.starts_at)}
+                {e.type_label} · {dateAndTime(e.starts_at)}
                 {e.venue && ` · ${e.venue.name}`}
-                {e.status === "confirmed" && ` · ${relatif(e.starts_at)}`}
+                {e.status === "confirmed" && ` · ${relativeTime(e.starts_at)}`}
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Badge tone={e.status === "confirmed" ? "good" : "neutral"}>
-                {STATUT_EVENEMENT[e.status]}
+                {EVENT_STATUS_LABELS[e.status]}
               </Badge>
-              {vacants > 0 && <Badge tone="warn">{vacants} poste(s) vacant(s)</Badge>}
+              {vacant > 0 && <Badge tone="warn">{vacant} poste(s) vacant(s)</Badge>}
               {e.comms_summary.late > 0 && (
                 <Badge tone="bad">{e.comms_summary.late} com en retard</Badge>
               )}
-              {sansFiche > 0 && <Badge tone="neutral">{sansFiche} sans fiche technique</Badge>}
+              {missingRider > 0 && <Badge tone="neutral">{missingRider} sans fiche technique</Badge>}
             </div>
           </Link>
         </li>
@@ -111,7 +111,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   ]);
 
   const type = collective?.event_types.find((t) => t.key === typeKey);
-  const estStream = typeKey === "stream";
+  const isStream = typeKey === "stream";
 
   return (
     <Card
@@ -134,7 +134,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
               ends_at: endsAt ? new Date(endsAt).toISOString() : undefined,
               venue_id: venueId || undefined,
               host_group_id: hostGroupId || undefined,
-              platforms: estStream ? platforms.filter((p) => p.platform) : [],
+              platforms: isStream ? platforms.filter((p) => p.platform) : [],
             });
             onDone();
           });
@@ -197,7 +197,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           </Select>
         </Field>
 
-        {estStream && (
+        {isStream && (
           <div className="md:col-span-2">
             <Field label="Plateformes de diffusion" hint="Multi-diffusion possible.">
               <div className="space-y-2">

@@ -1,4 +1,4 @@
-# Surcharge production : TLS automatique, pas de port applicatif expose.
+# Production override: automatic TLS, no application port exposed.
 services:
   proxy:
     ports: ["80:80", "443:443"]

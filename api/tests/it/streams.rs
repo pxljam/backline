@@ -1,12 +1,12 @@
-//! §18 : « Un stream declenche l'alerte "on est en ligne" a tous les membres
-//! 15 minutes avant, sans intervention. »
+//! §18: "A stream fires the 'on est en ligne' alert to every member 15 minutes
+//! ahead, with no intervention"
 
 use crate::harness::TestApp;
 use serde_json::json;
 use uuid::Uuid;
 
 #[tokio::test]
-async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
+async fn the_going_live_alert_goes_out_fifteen_minutes_ahead() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let (event_id, starts_at): (Uuid, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
@@ -18,7 +18,7 @@ async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
     .await
     .unwrap();
 
-    // Le job est programme a l'heure exacte, pas « quelque part avant ».
+    // The job is scheduled at the exact time, not "somewhere before".
     let (run_at,): (chrono::DateTime<chrono::Utc>,) = sqlx::query_as(
         "SELECT run_at FROM jobs WHERE kind = 'stream_live_alert' AND payload->>'event_id' = $1",
     )
@@ -30,7 +30,7 @@ async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
 
     app.run_due_jobs().await;
 
-    // Tous les membres, sans exception.
+    // Every member, without exception.
     let (destinataires,): (i64,) = sqlx::query_as(
         "SELECT count(DISTINCT user_id) FROM notifications WHERE kind = 'stream_live'",
     )
@@ -45,7 +45,7 @@ async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
             .unwrap();
     assert_eq!(destinataires, membres);
 
-    // Avec les liens des plateformes : l'alerte sert a aller voir.
+    // With the platform links: the alert is there so people go and watch.
     let (body,): (String,) =
         sqlx::query_as("SELECT body FROM notifications WHERE kind = 'stream_live' LIMIT 1")
             .fetch_one(&app.db)
@@ -53,7 +53,7 @@ async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
             .unwrap();
     assert!(body.contains("twitch.tv/bonsoirtechno"), "{body}");
 
-    // La trace est posee : l'alerte ne repartira pas deux fois.
+    // The record is laid down: the alert will not go out twice.
     let (sent,): (Option<chrono::DateTime<chrono::Utc>>,) =
         sqlx::query_as("SELECT live_alert_sent_at FROM event_streams WHERE event_id = $1")
             .bind(event_id)
@@ -64,7 +64,7 @@ async fn l_alerte_de_mise_en_ligne_part_quinze_minutes_avant() {
 }
 
 #[tokio::test]
-async fn un_stream_se_cree_sans_opportunite_et_porte_ses_plateformes() {
+async fn a_stream_is_created_without_an_opportunity_and_carries_its_platforms() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -93,10 +93,10 @@ async fn un_stream_se_cree_sans_opportunite_et_porte_ses_plateformes() {
         .await;
     let event = event.expect_ok();
     assert_eq!(event["stream"]["platforms"].as_array().unwrap().len(), 2);
-    // Pas de lieu a negocier : aucune opportunite n'a ete creee.
+    // No venue to negotiate: no opportunity was created.
     assert!(event["venue"].is_null());
 
-    // Les postes techniques d'un stream sont crees, pas ceux d'un concert.
+    // A stream's technical slots are created, not a concert's.
     let labels: Vec<String> = event["logistics"]
         .as_array()
         .unwrap()
@@ -109,23 +109,26 @@ async fn un_stream_se_cree_sans_opportunite_et_porte_ses_plateformes() {
         "{labels:?}"
     );
 
-    // La timeline de com d'un stream est courte et contient le jalon a -15 min.
+    // A stream's comms timeline is short and contains the -15 min milestone.
     let plan = antoine
         .get(&format!("/api/collectives/{cid}/events/{eid}/comms"))
         .await;
     let plan = plan.expect_ok();
-    let jalons: Vec<String> = plan
+    let milestones: Vec<String> = plan
         .as_array()
         .unwrap()
         .iter()
         .map(|t| t["milestone_key"].as_str().unwrap().to_string())
         .collect();
-    assert!(jalons.contains(&"j0-15m".to_string()), "{jalons:?}");
-    assert!(jalons.contains(&"j+1".to_string()), "replay : {jalons:?}");
+    assert!(milestones.contains(&"j0-15m".to_string()), "{milestones:?}");
+    assert!(
+        milestones.contains(&"j+1".to_string()),
+        "replay: {milestones:?}"
+    );
 }
 
 #[tokio::test]
-async fn le_lien_de_replay_se_renseigne_apres_coup() {
+async fn the_replay_link_is_filled_in_afterwards() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let (event_id,): (Uuid,) = sqlx::query_as(

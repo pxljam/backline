@@ -1,6 +1,6 @@
-//! §18 : « Le cadre d'un visuel **ne peut pas quitter le ratio** du format
-//! choisi » et « Tous les visuels d'un evenement sont produits en une action,
-//! a tous les formats, conformes a la charte. »
+//! §18: "A visual's frame **cannot leave the ratio** of the chosen format" and
+//! "Every visual for an event is produced in one action, in every format, true
+//! to the brand"
 
 use crate::harness::TestApp;
 use serde_json::json;
@@ -16,7 +16,7 @@ async fn format_id(app: &TestApp, key: &str) -> Uuid {
 }
 
 #[tokio::test]
-async fn le_catalogue_de_formats_porte_les_ratios_du_prd() {
+async fn the_format_catalogue_carries_the_prd_ratios() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -31,7 +31,7 @@ async fn le_catalogue_de_formats_porte_les_ratios_du_prd() {
             .unwrap()
             .iter()
             .find(|f| f["key"] == key)
-            .unwrap_or_else(|| panic!("format {key} absent"))
+            .unwrap_or_else(|| panic!("format {key} missing"))
             .clone()
     };
 
@@ -44,7 +44,7 @@ async fn le_catalogue_de_formats_porte_les_ratios_du_prd() {
 }
 
 #[tokio::test]
-async fn le_catalogue_s_etend_sans_toucher_au_code() {
+async fn the_catalogue_extends_without_touching_the_code() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -78,7 +78,7 @@ async fn le_catalogue_s_etend_sans_toucher_au_code() {
 }
 
 #[tokio::test]
-async fn le_cadre_ne_peut_pas_quitter_le_ratio_du_format() {
+async fn the_frame_cannot_leave_the_formats_ratio() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -89,8 +89,7 @@ async fn le_cadre_ne_peut_pas_quitter_le_ratio_du_format() {
         .await;
     let tid = templates.expect_ok()[0]["id"].as_str().unwrap().to_string();
 
-    // On tente d'enregistrer une declinaison story avec des dimensions
-    // fantaisistes.
+    // Try to save a story variant with made-up dimensions.
     antoine
         .put(
             &format!("/api/collectives/{cid}/studio/templates/{tid}/variants/{story}"),
@@ -113,12 +112,12 @@ async fn le_cadre_ne_peut_pas_quitter_le_ratio_du_format() {
         variant["layout"]["width"], 1080,
         "le format impose sa largeur"
     );
-    assert_eq!(variant["layout"]["height"], 1920, "et sa hauteur");
+    assert_eq!(variant["layout"]["height"], 1920, "and its height");
     assert_eq!(variant["ratio"], "9:16");
 }
 
 #[tokio::test]
-async fn une_declinaison_part_d_une_adaptation_automatique_corrigeable() {
+async fn a_variant_starts_from_a_correctable_automatic_adaptation() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -138,7 +137,7 @@ async fn une_declinaison_part_d_une_adaptation_automatique_corrigeable() {
     let layout = &derived.expect_ok()["layout"];
     assert_eq!(layout["width"], 2560);
     assert_eq!(layout["height"], 1440);
-    // Les blocs sont bien la, repositionnes — pas une page blanche.
+    // The blocks are there, repositioned — not a blank page.
     assert!(!layout["blocks"].as_array().unwrap().is_empty());
     for bloc in layout["blocks"].as_array().unwrap() {
         let y = bloc["y"].as_f64().unwrap();
@@ -146,7 +145,7 @@ async fn une_declinaison_part_d_une_adaptation_automatique_corrigeable() {
         assert!(y >= 0.0 && y + h <= 1.0001, "bloc hors cadre : y={y} h={h}");
     }
 
-    // Puis on la corrige a la main, sans toucher au maitre.
+    // Then correct it by hand, without touching the master.
     let mut corrige = layout.clone();
     corrige["blocks"][0]["y"] = json!(0.5);
     antoine
@@ -175,7 +174,7 @@ async fn une_declinaison_part_d_une_adaptation_automatique_corrigeable() {
 }
 
 #[tokio::test]
-async fn modifier_un_gabarit_en_archive_une_version() {
+async fn editing_a_template_archives_a_version() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -207,7 +206,7 @@ async fn modifier_un_gabarit_en_archive_une_version() {
 }
 
 #[tokio::test]
-async fn la_charte_est_de_la_donnee_et_le_groupe_surcharge_le_collectif() {
+async fn the_brand_is_data_and_the_group_overrides_the_collective() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let ramas = app.group_id("ramas").await;
@@ -225,7 +224,7 @@ async fn la_charte_est_de_la_donnee_et_le_groupe_surcharge_le_collectif() {
         .unwrap();
     assert_eq!(accent["kind"], "color");
 
-    // Saisir les vraies valeurs ne demande aucune modification de code.
+    // Entering the real values requires no code change.
     antoine
         .put(
             &format!("/api/collectives/{cid}/studio/brand/tokens"),
@@ -250,7 +249,7 @@ async fn la_charte_est_de_la_donnee_et_le_groupe_surcharge_le_collectif() {
         .unwrap();
     assert_eq!(accent["value"]["hex"], "#FF2D55");
 
-    // Le groupe surcharge partiellement, et voit ce dont il herite.
+    // The group overrides partially, and sees what it inherits.
     let romain = app.login_named("Romain").await;
     romain
         .put(
@@ -278,25 +277,25 @@ async fn la_charte_est_de_la_donnee_et_le_groupe_surcharge_le_collectif() {
         .find(|t| t["key"] == "accent")
         .unwrap();
     assert_eq!(accent["value"]["hex"], "#00E0B0");
-    let herite = brand["inherited"]
+    let inherited = brand["inherited"]
         .as_array()
         .unwrap()
         .iter()
         .find(|t| t["key"] == "accent")
         .unwrap();
     assert_eq!(
-        herite["value"]["hex"], "#FF2D55",
+        inherited["value"]["hex"], "#FF2D55",
         "la charte du collectif reste visible"
     );
 }
 
 #[tokio::test]
-async fn un_media_se_televerse_et_ressort_par_une_url_signee() {
+async fn media_is_uploaded_and_comes_back_through_a_signed_url() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
 
-    // Un PNG minimal, mais un vrai : il part reellement dans MinIO.
+    // A minimal PNG, but a real one: it really does go into MinIO.
     let png: Vec<u8> = vec![
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
         0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
@@ -330,7 +329,7 @@ async fn un_media_se_televerse_et_ressort_par_une_url_signee() {
     assert_eq!(list.as_array().unwrap().len(), 1);
     assert_eq!(list[0]["filename"], "photo.png");
 
-    // L'URL signee ramene bien les octets deposes.
+    // The signed URL really does bring back the bytes that were uploaded.
     let url = antoine
         .get(&format!(
             "/api/collectives/{cid}/studio/assets/{asset_id}/url"
@@ -343,7 +342,7 @@ async fn un_media_se_televerse_et_ressort_par_une_url_signee() {
 }
 
 #[tokio::test]
-async fn les_champs_automatiques_se_remplissent_depuis_l_evenement() {
+async fn the_automatic_fields_fill_in_from_the_event() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -368,13 +367,13 @@ async fn les_champs_automatiques_se_remplissent_depuis_l_evenement() {
     assert_eq!(fields["collective"]["name"], "Bonsoir Techno");
     assert!(fields["event"]["title"].as_str().unwrap().contains("Ramas"));
 
-    // Les creneaux sont publiables sur cet evenement : ils sortent.
+    // Set times are publishable on this event: they come out.
     let line_up = fields["line_up"].as_array().unwrap();
     assert!(line_up.iter().any(|l| l["slot"].is_string()), "{line_up:?}");
 }
 
 #[tokio::test]
-async fn un_creneau_non_publiable_ne_sort_jamais_dans_les_visuels() {
+async fn a_non_publishable_set_time_never_shows_up_in_the_visuals() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let antoine = app.login_named("Antoine").await;
@@ -388,7 +387,7 @@ async fn un_creneau_non_publiable_ne_sort_jamais_dans_les_visuels() {
     .await
     .unwrap();
 
-    // Les horaires existent, mais ne sont pas publiables.
+    // The times exist, but are not publishable.
     antoine
         .patch(
             &format!("/api/collectives/{cid}/events/{event_id}"),
@@ -404,7 +403,7 @@ async fn un_creneau_non_publiable_ne_sort_jamais_dans_les_visuels() {
         .await;
     let fields = fields.expect_ok();
     let line_up = fields["line_up"].as_array().unwrap();
-    assert!(!line_up.is_empty(), "l'ordre du line-up reste affiche");
+    assert!(!line_up.is_empty(), "the line-up order is still shown");
     assert!(
         line_up.iter().all(|l| l["slot"].is_null()),
         "aucun visuel ne sort avec un horaire provisoire : {line_up:?}"

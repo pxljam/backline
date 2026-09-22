@@ -1,6 +1,6 @@
 import type { Config } from "./config";
 
-/** Client de l'API de rendu. Une machine ne voit que ce qu'elle a reclame. */
+/** Render API client. A machine only sees what it has claimed. */
 export class Api {
   constructor(private config: Config) {}
 
@@ -26,14 +26,14 @@ export class Api {
       headers: { ...this.headers(), "content-type": "application/json" },
       body: JSON.stringify({ capabilities }),
     });
-    return this.json(res, "reclamation d'un job");
+    return this.json(res, "claiming a job");
   }
 
   async bundle(jobId: string): Promise<JobBundle> {
     const res = await fetch(this.url(`/api/render/jobs/${jobId}/bundle`), {
       headers: this.headers(),
     });
-    return this.json(res, "recuperation de la recette");
+    return this.json(res, "fetching the recipe");
   }
 
   async progress(jobId: string, progress: number): Promise<void> {
@@ -42,7 +42,7 @@ export class Api {
       headers: { ...this.headers(), "content-type": "application/json" },
       body: JSON.stringify({ progress }),
     }).catch(() => {
-      // Une progression perdue n'est pas une raison d'interrompre un rendu.
+      // A lost progress update is no reason to interrupt a render.
     });
   }
 
@@ -54,7 +54,7 @@ export class Api {
       headers: this.headers(),
       body: form,
     });
-    await this.json(res, "envoi du fichier rendu");
+    await this.json(res, "uploading the rendered file");
   }
 
   async fail(jobId: string, error: string): Promise<void> {

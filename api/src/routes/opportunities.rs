@@ -1,6 +1,6 @@
-//! Opportunites, dates candidates, sondage de dispos (§5.1 a §5.3).
+//! Opportunities, candidate dates, availability polls (§5.1 to §5.3).
 //!
-//! C'est le coeur du produit : la ou les allers-retours disparaissent.
+//! This is the heart of the product: where the back and forth disappears.
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -35,7 +35,7 @@ struct OpportunityRow {
     host_group_ids: Vec<Uuid>,
     candidate_dates: Vec<CandidateDate>,
     poll_open: bool,
-    /// Presente une fois la date arretee.
+    /// Present once the date is settled.
     event_id: Option<Uuid>,
 }
 
@@ -177,7 +177,7 @@ struct NewOpportunity {
     conditions: Option<String>,
     #[serde(default)]
     host_group_ids: Vec<Uuid>,
-    /// N dates candidates proposees par le lieu (§5.1).
+    /// N candidate dates proposed by the venue (§5.1).
     #[serde(default)]
     candidate_dates: Vec<NewCandidateDate>,
 }
@@ -298,8 +298,8 @@ async fn check_opportunity(state: &AppState, cid: Uuid, oid: Uuid) -> AppResult<
         .ok_or_else(|| AppError::not_found("opportunite introuvable"))
 }
 
-/// Ouvre le sondage : un message par opportunite a chaque membre concerne,
-/// une ligne par date candidate (§5.2).
+/// Opens the poll: one message per opportunity to each member concerned, one
+/// row per candidate date (§5.2).
 async fn open_poll(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -383,16 +383,16 @@ struct AvailabilityInput {
 
 #[derive(Deserialize)]
 struct SetAvailabilities {
-    /// Toujours present, toujours egal a l'appelant. Le champ existe pour que
-    /// la tentative d'ecrire pour autrui soit **explicite et refusee**, plutot
-    /// que silencieusement reinterpretee.
+    /// Always present, always equal to the caller. The field exists so that an
+    /// attempt to write on someone else's behalf is **explicit and refused**,
+    /// rather than silently reinterpreted.
     #[serde(default)]
     user_id: Option<Uuid>,
     answers: Vec<AvailabilityInput>,
 }
 
-/// Une disponibilite **n'est modifiable que par la personne concernee**,
-/// admins compris (§5.2, §20).
+/// An availability **can only be changed by the person it belongs to**, admins
+/// included (§5.2, §20).
 async fn set_availabilities(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -421,8 +421,8 @@ async fn set_availabilities(
         if !matches!(a.status.as_str(), "yes" | "maybe" | "no") {
             return Err(AppError::bad_request("statut attendu : yes | maybe | no"));
         }
-        // La date doit appartenir a cette opportunite : sinon on ecrirait dans
-        // le sondage d'un autre collectif.
+        // The date must belong to this opportunity: otherwise we would be
+        // writing into another collective's poll.
         let ok: Option<(Uuid,)> =
             sqlx::query_as("SELECT id FROM candidate_dates WHERE id = $1 AND opportunity_id = $2")
                 .bind(a.candidate_date_id)
@@ -452,7 +452,7 @@ async fn set_availabilities(
     Ok(Json(json!({ "ok": true, "count": body.answers.len() })))
 }
 
-/// Les disponibilites sont **visibles par tous les membres** du collectif (§5.2).
+/// Availabilities are **visible to every member** of the collective (§5.2).
 async fn show_matrix(
     State(state): State<AppState>,
     Auth(actor): Auth,

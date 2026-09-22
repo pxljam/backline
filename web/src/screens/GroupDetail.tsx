@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Group, Member, SocialAccount, TechRider } from "../lib/types";
-import { dateCourte } from "../lib/format";
+import { shortDate } from "../lib/format";
 import {
   Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
 } from "../components/ui";
@@ -33,9 +33,9 @@ export const GroupDetail: React.FC = () => {
   const g = group.data;
   if (!g) return null;
 
-  const peutEditer =
+  const canEdit =
     isAdmin || g.members.some((m) => m.user_id === me?.id && m.is_admin);
-  const comptesDuGroupe = accounts.data?.filter((a) => a.group_id === id) ?? [];
+  const groupAccounts = accounts.data?.filter((a) => a.group_id === id) ?? [];
 
   return (
     <>
@@ -53,7 +53,7 @@ export const GroupDetail: React.FC = () => {
                 </span>
                 <div className="flex items-center gap-2">
                   {m.is_admin && <Badge>referent</Badge>}
-                  {peutEditer && (
+                  {canEdit && (
                     <Button
                       size="sm"
                       disabled={busy}
@@ -72,7 +72,7 @@ export const GroupDetail: React.FC = () => {
             ))}
           </ul>
 
-          {peutEditer && (
+          {canEdit && (
             <form
               className="mt-4 flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
@@ -119,11 +119,11 @@ export const GroupDetail: React.FC = () => {
         </Card>
 
         <Card title="Comptes sociaux">
-          {comptesDuGroupe.length === 0 ? (
+          {groupAccounts.length === 0 ? (
             <Empty>Aucun compte declare.</Empty>
           ) : (
             <ul className="divide-y divide-line">
-              {comptesDuGroupe.map((a) => (
+              {groupAccounts.map((a) => (
                 <li key={a.id} className="py-2">
                   <p className="text-sm font-medium capitalize">
                     {a.platform} <span className="font-normal text-ink-soft">{a.handle}</span>
@@ -152,7 +152,7 @@ export const GroupDetail: React.FC = () => {
                 <li key={r.id} className="flex items-center justify-between gap-3 py-2">
                   <span className="text-sm">
                     v{r.version}{" "}
-                    <span className="text-ink-soft">· {dateCourte(r.created_at)}</span>
+                    <span className="text-ink-soft">· {shortDate(r.created_at)}</span>
                   </span>
                   <div className="flex items-center gap-2">
                     <Badge tone={r.status === "published" ? "good" : "neutral"}>
@@ -164,7 +164,7 @@ export const GroupDetail: React.FC = () => {
                     >
                       PDF
                     </a>
-                    {peutEditer && r.status === "draft" && (
+                    {canEdit && r.status === "draft" && (
                       <Button
                         size="sm"
                         disabled={busy}
@@ -183,15 +183,15 @@ export const GroupDetail: React.FC = () => {
               ))}
             </ul>
           )}
-          {peutEditer && (
+          {canEdit && (
             <Button
               className="mt-3"
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  const derniere = riders.data?.[0]?.version;
+                  const latest = riders.data?.[0]?.version;
                   await api.post(`${base}/groups/${id}/tech-riders`, {
-                    from_version: derniere,
+                    from_version: latest,
                   });
                   await riders.reload();
                 })
@@ -202,7 +202,7 @@ export const GroupDetail: React.FC = () => {
           )}
         </Card>
 
-        {peutEditer && riders.data?.[0]?.status === "draft" && (
+        {canEdit && riders.data?.[0]?.status === "draft" && (
           <RiderEditor
             groupId={id}
             rider={riders.data[0]}
@@ -214,7 +214,7 @@ export const GroupDetail: React.FC = () => {
           <PressKitForm
             groupId={id}
             initial={pressKit.data}
-            editable={peutEditer}
+            editable={canEdit}
             onDone={() => void pressKit.reload()}
           />
         </Card>
@@ -223,7 +223,7 @@ export const GroupDetail: React.FC = () => {
   );
 };
 
-/** Saisie structuree de la fiche technique (§12). */
+/** Structured entry of the tech rider (§12). */
 const RiderEditor: React.FC<{ groupId: string; rider: TechRider; onDone: () => void }> = ({
   groupId,
   rider,

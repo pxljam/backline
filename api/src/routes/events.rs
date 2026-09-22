@@ -1,4 +1,4 @@
-//! Evenements, line-up, logistique, streams, feuille de route (§5, §6).
+//! Events, line-up, logistics, streams, run sheet (§5, §6).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -120,7 +120,7 @@ pub struct Presence {
     pub user_id: Uuid,
     pub name: String,
     pub answer: String,
-    /// Jours precis : facultatifs, jamais reclames (§6).
+    /// Specific days: optional, never demanded (§6).
     pub days: Vec<NaiveDate>,
 }
 
@@ -289,8 +289,8 @@ pub async fn load(state: &AppState, cid: Uuid, eid: Uuid) -> AppResult<EventRow>
                 label: gname.or(uname).unwrap_or_else(|| "?".into()),
                 status,
                 stage_role,
-                // Les creneaux ne sortent que s'ils sont publiables (§6). Ici c'est
-                // la vue interne : on les montre, avec leur etat.
+                // Set times only go out if they are publishable (§6). This is
+                // the internal view: show them, with their state.
                 slot_start: s,
                 slot_end: e,
                 acknowledged: ack.is_some(),
@@ -483,7 +483,7 @@ struct NewEvent {
     host_group_id: Option<Uuid>,
     #[serde(default)]
     notes: Option<String>,
-    /// Streams : plateformes de diffusion, multi-diffusion possible (§6).
+    /// Streams: broadcast platforms, simulcasting allowed (§6).
     #[serde(default)]
     platforms: Vec<StreamPlatform>,
     #[serde(default)]
@@ -492,8 +492,8 @@ struct NewEvent {
     planned_duration_min: Option<i32>,
 }
 
-/// Creation directe. Les **streams** passent par ici : pas de lieu a negocier,
-/// donc pas d'opportunite (§5.1).
+/// Direct creation. **Streams** come through here: no venue to negotiate, and
+/// therefore no opportunity (§5.1).
 async fn create(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -513,8 +513,8 @@ async fn create(
     let (event_type_id, is_range) =
         t.ok_or_else(|| AppError::not_found("type d'evenement inconnu"))?;
 
-    // Une residence est un evenement unique portant une plage : la fin est
-    // obligatoire, sinon ce n'est pas une residence (§6).
+    // A residency is a single event carrying a range: the end is mandatory,
+    // otherwise it is not a residency (§6).
     if is_range && body.ends_at.is_none() {
         return Err(AppError::bad_request(
             "une residence porte une date de debut et une date de fin",
@@ -655,8 +655,8 @@ async fn update(
     .execute(&state.db)
     .await?;
 
-    // La date a bouge : tout ce qui etait programme dessus est faux. On annule
-    // et on reprogramme, plutot que d'envoyer un rappel J-7 le lendemain.
+    // The date moved: everything scheduled against it is now wrong. Cancel and
+    // reschedule, rather than sending a D-7 reminder tomorrow.
     if body.starts_at.is_some_and(|s| s != old_start) {
         crate::services::jobs::cancel_by_prefix(&state.db, &format!("event:{eid}:")).await?;
         sqlx::query("DELETE FROM publication_tasks WHERE event_id = $1 AND status = 'draft'")
@@ -696,8 +696,8 @@ async fn add_participation(
     if body.group_id.is_none() && body.user_id.is_none() {
         return Err(AppError::bad_request("viser un groupe ou une personne"));
     }
-    // Un groupe invite peut venir d'un autre collectif (§4) : on ne verifie
-    // donc pas son rattachement, seulement son existence.
+    // A guest group may come from another collective (§4), so we do not check
+    // which collective it belongs to, only that it exists.
     if let Some(gid) = body.group_id {
         let ok: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM groups WHERE id = $1")
             .bind(gid)
@@ -754,8 +754,8 @@ async fn update_participation(
     let scope = state.scope(actor, cid).await?;
     check_event(&state, cid, eid).await?;
 
-    // Accuser reception de son line-up est un geste personnel ; le reste est
-    // de l'arbitrage, donc admin.
+    // Acknowledging your own line-up is a personal gesture; the rest is
+    // arbitration, and therefore admin.
     if !body.acknowledge || body.status.is_some() || body.stage_role.is_some() {
         scope.require_admin()?;
     }
@@ -810,7 +810,7 @@ pub async fn check_event(state: &AppState, cid: Uuid, eid: Uuid) -> AppResult<()
 
 #[derive(Deserialize)]
 struct NewSlot {
-    /// Texte libre, sans catalogue (§5.4, §20).
+    /// Free text, no catalogue (§5.4, §20).
     label: String,
     #[serde(default = "one")]
     quantity: i32,
@@ -870,7 +870,7 @@ async fn remove_slot(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// « Je le prends » — volontariat, chacun pour soi.
+/// "I'll take it" — volunteering, one person at a time.
 async fn take_slot(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -922,7 +922,7 @@ async fn release_slot(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// Autocompletion sur les libelles deja utilises dans le collectif (§4).
+/// Autocomplete over the labels already used in the collective (§4).
 async fn logistics_label_suggestions(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -942,9 +942,9 @@ async fn logistics_label_suggestions(
 
 #[derive(Deserialize)]
 struct SetPresence {
-    /// `coming` | `not_coming` | `unsure` — « tu viens ? », pas « quand ? » (§6)
+    /// `coming` | `not_coming` | `unsure` — "are you coming?", not "when?" (§6)
     answer: String,
-    /// Facultatif, jamais reclame.
+    /// Optional, never demanded.
     #[serde(default)]
     days: Vec<NaiveDate>,
 }
@@ -997,7 +997,7 @@ struct UpdateStream {
     capture_location: Option<String>,
     #[serde(default)]
     planned_duration_min: Option<i32>,
-    /// Renseigne apres coup — il alimente les taches de com J+1 et J+3 (§6).
+    /// Filled in afterwards — it feeds the D+1 and D+3 comms tasks (§6).
     #[serde(default)]
     replay_url: Option<String>,
     #[serde(default)]

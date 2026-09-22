@@ -1,4 +1,4 @@
-//! Sonde du conteneur : sortie 0 si l'API repond.
+//! Container probe: exit 0 if the API answers.
 fn main() {
     let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());
     let port = addr.rsplit(':').next().unwrap_or("8080");

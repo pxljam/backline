@@ -1,11 +1,11 @@
-//! §18 : « Tous les visuels d'un evenement sont produits **en une action**, a
-//! tous les formats, conformes a la charte. »
+//! §18: "Every visual for an event is produced **in one action**, in every
+//! format, true to the brand."
 //!
-//! Le rendu lui-meme appartient au service `stills` (Node + Remotion). Le test
-//! complet tourne quand une instance de ce service est joignable
-//! (`BACKLINE_STILLS_URL`) ; sans elle, on verifie l'autre moitie de
-//! l'exigence : un rendu indisponible est **signale**, et n'emporte pas la com
-//! avec lui.
+//! The rendering itself belongs to the `stills` service (Node + Remotion). The
+//! full test runs when an instance of that service is reachable
+//! (`BACKLINE_STILLS_URL`); without one, the other half of the requirement is
+//! checked: an unavailable renderer is **reported**, and does not take the
+//! comms down with it.
 
 use crate::harness::TestApp;
 use serde_json::json;
@@ -25,7 +25,7 @@ async fn concert(app: &TestApp) -> (Uuid, Uuid) {
 }
 
 #[tokio::test]
-async fn une_seule_action_declenche_tous_les_formats_du_plan() {
+async fn one_action_triggers_every_format_in_the_plan() {
     let Some(stills) = std::env::var("BACKLINE_STILLS_URL").ok() else {
         eprintln!("BACKLINE_STILLS_URL absent — test de rendu complet ignore");
         return;
@@ -53,19 +53,19 @@ async fn une_seule_action_declenche_tous_les_formats_du_plan() {
         .await;
     let plan = plan.expect_ok();
 
-    let visuels: Vec<&serde_json::Value> = plan
+    let visuals: Vec<&serde_json::Value> = plan
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|t| t["visuals"].as_array().unwrap())
         .collect();
-    assert!(!visuels.is_empty(), "aucun visuel produit");
+    assert!(!visuals.is_empty(), "no visual produced");
 
-    let prets = visuels.iter().filter(|v| v["status"] == "ready").count();
-    assert!(prets > 0, "au moins un visuel doit sortir : {visuels:?}");
+    let ready = visuals.iter().filter(|v| v["status"] == "ready").count();
+    assert!(ready > 0, "at least one visual must come out: {visuals:?}");
 
-    // Chaque visuel pret pointe vers un vrai fichier, de la bonne taille.
-    let asset_id = visuels.iter().find(|v| v["status"] == "ready").unwrap()["asset_id"]
+    // Every ready visual points at a real file, of the right size.
+    let asset_id = visuals.iter().find(|v| v["status"] == "ready").unwrap()["asset_id"]
         .as_str()
         .unwrap()
         .to_string();
@@ -78,10 +78,10 @@ async fn une_seule_action_declenche_tous_les_formats_du_plan() {
     let bytes = reqwest::get(&url).await.unwrap().bytes().await.unwrap();
     assert!(
         bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]),
-        "un PNG est attendu"
+        "a PNG is expected"
     );
 
-    // Les rendus portent une date de purge : ils se regenerent a l'identique.
+    // Renders carry a purge date: they regenerate identically.
     let (purge,): (Option<chrono::DateTime<chrono::Utc>>,) =
         sqlx::query_as("SELECT purge_after FROM assets WHERE id = $1")
             .bind(Uuid::parse_str(&asset_id).unwrap())
@@ -95,9 +95,9 @@ async fn une_seule_action_declenche_tous_les_formats_du_plan() {
 }
 
 #[tokio::test]
-async fn un_service_de_rendu_absent_est_signale_sans_bloquer_la_com() {
+async fn a_missing_render_service_is_reported_without_blocking_comms() {
     let mut app = TestApp::new().await;
-    // Une adresse qui ne repond pas : exactement le cas « le rendu est tombe ».
+    // An address that does not answer: exactly the "the renderer went down" case.
     app.set_stills_url(Some("http://127.0.0.1:1".into()));
     backline::seed::seed(&app.db).await.unwrap();
 
@@ -118,7 +118,7 @@ async fn un_service_de_rendu_absent_est_signale_sans_bloquer_la_com() {
         .await;
     let plan = plan.expect_ok();
 
-    let en_echec: Vec<&serde_json::Value> = plan
+    let failed: Vec<&serde_json::Value> = plan
         .as_array()
         .unwrap()
         .iter()
@@ -126,36 +126,33 @@ async fn un_service_de_rendu_absent_est_signale_sans_bloquer_la_com() {
         .filter(|v| v["status"] == "failed")
         .collect();
     assert!(
-        !en_echec.is_empty(),
+        !failed.is_empty(),
         "l'echec doit etre enregistre, pas avale"
     );
     assert!(
-        en_echec[0]["error"]
-            .as_str()
-            .unwrap()
-            .contains("injoignable"),
+        failed[0]["error"].as_str().unwrap().contains("injoignable"),
         "l'erreur doit dire ce qui s'est passe : {}",
-        en_echec[0]["error"]
+        failed[0]["error"]
     );
 
-    // La com, elle, continue : les taches existent toujours et restent
-    // assignables et publiables.
-    let taches = plan.as_array().unwrap();
-    assert!(!taches.is_empty());
+    // The comms carry on: the tasks still exist and stay assignable and
+    // publishable.
+    let tasks = plan.as_array().unwrap();
+    assert!(!tasks.is_empty());
     assert!(
-        taches.iter().all(|t| t["status"] != "published"),
+        tasks.iter().all(|t| t["status"] != "published"),
         "rien n'a ete publie tout seul"
     );
 }
 
 #[tokio::test]
-async fn un_gabarit_manquant_pour_un_format_est_dit_explicitement() {
+async fn a_template_missing_for_a_format_is_said_explicitly() {
     let app = TestApp::seeded().await;
     let (cid, event_id) = concert(&app).await;
     let antoine = app.login_named("Antoine").await;
 
-    // Le gabarit d'amorcage ne couvre pas le format Reel : le jalon J-14 en
-    // demande un.
+    // The seeded template does not cover the Reel format: the D-14 milestone
+    // asks for one.
     antoine
         .post(
             &format!("/api/collectives/{cid}/events/{event_id}/comms/generate"),

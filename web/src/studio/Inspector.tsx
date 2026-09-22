@@ -4,13 +4,12 @@ import type {
 } from "@backline/layout";
 import type { Asset, BrandToken } from "../lib/types";
 import { Button, Field, Input, Select, Textarea } from "../components/ui";
-import { CHAMPS, champ } from "./fields";
-import { aligner } from "./blocks";
+import { EVENT_FIELDS, fieldToken } from "./fields";
+import { align } from "./blocks";
 
 /**
- * Panneau de proprietes. **Seuls les tokens de la charte sont proposes** dans
- * les selecteurs de couleur et de police : on ne peut pas sortir de la charte
- * par accident (§9.1).
+ * Properties panel. **Only brand tokens are offered** in the colour and font
+ * selectors: the brand cannot be left by accident (§9.1).
  */
 
 export interface InspectorProps {
@@ -21,9 +20,9 @@ export interface InspectorProps {
   onProps: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
-  onLayer: (sens: -1 | 1) => void;
-  /** L'editeur video expose en plus la fenetre temporelle et les animations. */
-  temporel?: boolean;
+  onLayer: (direction: -1 | 1) => void;
+  /** The video editor additionally exposes the time window and animations. */
+  timeline?: boolean;
 }
 
 const TokenSelect: React.FC<{
@@ -56,7 +55,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   onDelete,
   onDuplicate,
   onLayer,
-  temporel = false,
+  timeline = false,
 }) => {
   const p = block.props as Record<string, unknown>;
 
@@ -84,14 +83,14 @@ export const Inspector: React.FC<InspectorProps> = ({
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">Aligner</p>
         <div className="flex flex-wrap gap-1.5">
           {[
-            ["gauche", "gauche"],
-            ["centre-h", "centre H"],
-            ["droite", "droite"],
-            ["haut", "haut"],
-            ["centre-v", "centre V"],
-            ["bas", "bas"],
-          ].map(([cle, label]) => (
-            <Button key={cle} size="sm" onClick={() => onChange(aligner(block, cle))}>
+            ["left", "gauche"],
+            ["center-h", "centre H"],
+            ["right", "droite"],
+            ["top", "haut"],
+            ["center-v", "centre V"],
+            ["bottom", "bas"],
+          ].map(([key, label]) => (
+            <Button key={key} size="sm" onClick={() => onChange(align(block, key))}>
               {label}
             </Button>
           ))}
@@ -103,7 +102,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           <Input
             type="number"
             step={0.01}
-            value={arrondi(block.x)}
+            value={round(block.x)}
             onChange={(e) => onChange({ x: Number(e.target.value) })}
           />
         </Field>
@@ -111,7 +110,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           <Input
             type="number"
             step={0.01}
-            value={arrondi(block.y)}
+            value={round(block.y)}
             onChange={(e) => onChange({ y: Number(e.target.value) })}
           />
         </Field>
@@ -119,7 +118,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           <Input
             type="number"
             step={0.01}
-            value={arrondi(block.w)}
+            value={round(block.w)}
             onChange={(e) => onChange({ w: Number(e.target.value) })}
           />
         </Field>
@@ -127,7 +126,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           <Input
             type="number"
             step={0.01}
-            value={arrondi(block.h)}
+            value={round(block.h)}
             onChange={(e) => onChange({ h: Number(e.target.value) })}
           />
         </Field>
@@ -151,7 +150,7 @@ export const Inspector: React.FC<InspectorProps> = ({
       </div>
 
       {block.type === "text" && (
-        <TexteProps props={p as unknown as TextProps} tokens={tokens} onProps={onProps} />
+        <TextBlockProps props={p as unknown as TextProps} tokens={tokens} onProps={onProps} />
       )}
 
       {(block.type === "image" || block.type === "video") && (
@@ -242,12 +241,12 @@ export const Inspector: React.FC<InspectorProps> = ({
         </>
       )}
 
-      {temporel && <Temporel block={block} onChange={onChange} />}
+      {timeline && <TimingProps block={block} onChange={onChange} />}
     </div>
   );
 };
 
-const TexteProps: React.FC<{
+const TextBlockProps: React.FC<{
   props: TextProps;
   tokens: BrandToken[];
   onProps: (patch: Record<string, unknown>) => void;
@@ -266,12 +265,12 @@ const TexteProps: React.FC<{
         Champs automatiques
       </p>
       <div className="flex flex-wrap gap-1">
-        {CHAMPS.map((c) => (
+        {EVENT_FIELDS.map((c) => (
           <button
             key={c.path}
             type="button"
             title={c.label}
-            onClick={() => onProps({ content: `${props.content ?? ""}${champ(c.path)}` })}
+            onClick={() => onProps({ content: `${props.content ?? ""}${fieldToken(c.path)}` })}
             className="rounded border border-line px-1.5 py-0.5 text-[11px] hover:border-ink"
           >
             {c.label}
@@ -390,7 +389,7 @@ const MediaProps: React.FC<{
 
 const ANIMATIONS: Animation["type"][] = ["fade", "slide", "zoom", "reveal"];
 
-const Temporel: React.FC<{ block: Block; onChange: (patch: Partial<Block>) => void }> = ({
+const TimingProps: React.FC<{ block: Block; onChange: (patch: Partial<Block>) => void }> = ({
   block,
   onChange,
 }) => {
@@ -472,6 +471,6 @@ const Temporel: React.FC<{ block: Block; onChange: (patch: Partial<Block>) => vo
   );
 };
 
-function arrondi(v: number): number {
+function round(v: number): number {
   return Math.round(v * 1000) / 1000;
 }

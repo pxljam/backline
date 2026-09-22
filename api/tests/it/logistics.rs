@@ -1,6 +1,6 @@
-//! §18 : « Aucun poste logistique n'arrive vacant au jour J sans qu'au moins
-//! **trois relances** aient ete envoyees. » Plus la feuille de route (§5.5) et
-//! la visibilite des telephones (§3).
+//! §18: "No logistics slot reaches the day vacant without at least **three
+//! reminders** having been sent." Plus the run sheet (§5.5) and phone number
+//! visibility (§3).
 
 use crate::harness::TestApp;
 use serde_json::json;
@@ -20,12 +20,12 @@ async fn concert(app: &TestApp) -> (Uuid, Uuid) {
 }
 
 #[tokio::test]
-async fn trois_relances_partent_avant_le_jour_j() {
+async fn three_reminders_go_out_before_the_day() {
     let app = TestApp::seeded().await;
     let (_cid, event_id) = concert(&app).await;
 
-    // Les trois jalons sont programmes des la creation de l'evenement.
-    let jalons: Vec<(String,)> = sqlx::query_as(
+    // All three milestones are scheduled as soon as the event is created.
+    let milestones: Vec<(String,)> = sqlx::query_as(
         "SELECT dedupe_key FROM jobs WHERE kind = 'logistics_reminder'
            AND payload->>'event_id' = $1 ORDER BY run_at",
     )
@@ -33,59 +33,62 @@ async fn trois_relances_partent_avant_le_jour_j() {
     .fetch_all(&app.db)
     .await
     .unwrap();
-    assert_eq!(jalons.len(), 3, "J-14, J-7, J-2");
-    assert!(jalons[0].0.ends_with("j-14"));
-    assert!(jalons[1].0.ends_with("j-7"));
-    assert!(jalons[2].0.ends_with("j-2"));
+    assert_eq!(milestones.len(), 3, "J-14, J-7, J-2");
+    assert!(milestones[0].0.ends_with("j-14"));
+    assert!(milestones[1].0.ends_with("j-7"));
+    assert!(milestones[2].0.ends_with("j-2"));
 
-    // Ils partent tout seuls quand leur heure arrive.
+    // They go out on their own when their time comes.
     app.run_due_jobs().await;
 
-    let envoyees: Vec<(String, i32)> = sqlx::query_as(
+    let sent: Vec<(String, i32)> = sqlx::query_as(
         "SELECT milestone, recipients FROM logistics_reminders WHERE event_id = $1 ORDER BY sent_at",
     )
     .bind(event_id)
     .fetch_all(&app.db)
     .await
     .unwrap();
-    assert_eq!(envoyees.len(), 3, "trois relances effectivement envoyees");
+    assert_eq!(sent.len(), 3, "trois relances effectivement envoyees");
     assert!(
-        envoyees.iter().all(|(_, n)| *n > 0),
+        sent.iter().all(|(_, n)| *n > 0),
         "chaque relance a des destinataires"
     );
 }
 
 #[tokio::test]
-async fn la_relance_ne_reveille_que_ceux_qui_ne_se_sont_engages_sur_rien() {
+async fn the_reminder_only_wakes_those_who_committed_to_nothing() {
     let app = TestApp::seeded().await;
     let (cid, _event_id) = concert(&app).await;
 
-    // Dans les donnees d'amorcage : Romain tient « son », Antoine « photo »,
-    // et Ramas (donc Anas et Romain) joue. Reste Mathieu — qui joue aussi,
-    // avec Dante3p. On ajoute donc quelqu'un de reellement libre.
-    let libre = app.make_user("Membre libre").await;
-    app.join(cid, libre, "member").await;
+    // In the seed data: Romain holds "son", Antoine "photo", and Ramas (so
+    // Anas and Romain) plays. That leaves Mathieu — who also plays, with
+    // Dante3p. So add someone genuinely free.
+    let free_member = app.make_user("Membre libre").await;
+    app.join(cid, free_member, "member").await;
 
     app.run_due_jobs().await;
 
-    let cibles: Vec<(Uuid,)> = sqlx::query_as(
+    let targets: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT DISTINCT user_id FROM notifications WHERE kind = 'logistics_vacant'",
     )
     .fetch_all(&app.db)
     .await
     .unwrap();
-    let cibles: Vec<Uuid> = cibles.into_iter().map(|(u,)| u).collect();
+    let targets: Vec<Uuid> = targets.into_iter().map(|(u,)| u).collect();
 
-    assert!(cibles.contains(&libre), "le membre libre doit etre relance");
+    assert!(
+        targets.contains(&free_member),
+        "the free member must be reminded"
+    );
     let romain = app.user_id("Romain").await;
     assert!(
-        !cibles.contains(&romain),
+        !targets.contains(&romain),
         "Romain tient deja un poste et joue : on ne le harcele pas"
     );
 }
 
 #[tokio::test]
-async fn un_poste_se_prend_et_se_rend_et_ne_deborde_pas() {
+async fn a_slot_is_taken_and_given_back_and_never_overflows() {
     let app = TestApp::seeded().await;
     let (cid, event_id) = concert(&app).await;
 
@@ -106,7 +109,7 @@ async fn un_poste_se_prend_et_se_rend_et_ne_deborde_pas() {
     .await
     .expect_ok();
 
-    // Le poste est complet : le suivant est refuse, sans ambiguite.
+    // The slot is full: the next one is refused, unambiguously.
     let mathieu = app.login_named("Mathieu").await;
     let res = mathieu
         .post(
@@ -116,7 +119,7 @@ async fn un_poste_se_prend_et_se_rend_et_ne_deborde_pas() {
         .await;
     res.expect_status(409);
 
-    // Anas se retire, Mathieu peut prendre.
+    // Anas steps back, Mathieu can take it.
     anas.delete(&format!(
         "/api/collectives/{cid}/events/{event_id}/logistics/{sid}/take"
     ))
@@ -132,7 +135,7 @@ async fn un_poste_se_prend_et_se_rend_et_ne_deborde_pas() {
 }
 
 #[tokio::test]
-async fn les_libelles_deja_utilises_sont_proposes_en_autocompletion() {
+async fn labels_already_used_are_offered_as_autocomplete() {
     let app = TestApp::seeded().await;
     let (cid, event_id) = concert(&app).await;
     let antoine = app.login_named("Antoine").await;
@@ -147,7 +150,7 @@ async fn les_libelles_deja_utilises_sont_proposes_en_autocompletion() {
         .iter()
         .map(|l| l.as_str().unwrap().to_string())
         .collect();
-    // Un catalogue n'existe pas : ce sont les libelles reellement saisis.
+    // There is no catalogue: these are the labels actually entered.
     assert!(labels.contains(&"son".to_string()), "{labels:?}");
     assert!(
         labels.contains(&"camera".to_string()),
@@ -156,11 +159,11 @@ async fn les_libelles_deja_utilises_sont_proposes_en_autocompletion() {
 }
 
 #[tokio::test]
-async fn la_feuille_de_route_porte_les_telephones_pour_ceux_qui_y_ont_droit() {
+async fn the_run_sheet_carries_phone_numbers_for_those_entitled_to_them() {
     let app = TestApp::seeded().await;
     let (cid, event_id) = concert(&app).await;
 
-    // Un admin voit les telephones.
+    // An admin sees the phone numbers.
     let antoine = app.login_named("Antoine").await;
     let sheet = antoine
         .get(&format!(
@@ -169,42 +172,42 @@ async fn la_feuille_de_route_porte_les_telephones_pour_ceux_qui_y_ont_droit() {
         .await;
     let sheet = sheet.expect_ok();
     assert_eq!(sheet["venue"]["name"], "Le Sonic");
-    let telephone_present = sheet["line_up"]
+    let phone_present = sheet["line_up"]
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|l| l["members"].as_array().unwrap())
         .any(|m| m["phone"].is_string());
-    assert!(telephone_present, "l'admin voit les telephones");
+    assert!(phone_present, "the admin sees the phone numbers");
 
-    // Le contact du lieu aussi : c'est le seul moment ou on en a besoin.
+    // The venue contact too: this is the only moment they are needed.
     assert!(sheet["venue"]["contacts"][0]["phone"].is_string());
 
-    // Un membre du collectif etranger a l'evenement ne les voit pas.
-    let etranger = app.make_user("Membre lointain").await;
-    app.join(cid, etranger, "member").await;
-    let client = app.login_as(etranger).await;
+    // A member of the collective unconnected to the event does not see them.
+    let outsider = app.make_user("Membre lointain").await;
+    app.join(cid, outsider, "member").await;
+    let client = app.login_as(outsider).await;
     let sheet = client
         .get(&format!(
             "/api/collectives/{cid}/events/{event_id}/run-sheet"
         ))
         .await;
     let sheet = sheet.expect_ok();
-    let telephone_present = sheet["line_up"]
+    let phone_present = sheet["line_up"]
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|l| l["members"].as_array().unwrap())
         .any(|m| m["phone"].is_string());
     assert!(
-        !telephone_present,
+        !phone_present,
         "les telephones ne sortent pas du cercle de l'evenement"
     );
     assert!(sheet["venue"]["contacts"][0]["phone"].is_null());
 }
 
 #[tokio::test]
-async fn la_feuille_de_route_part_la_veille() {
+async fn the_run_sheet_goes_out_the_day_before() {
     let app = TestApp::seeded().await;
     let (_cid, event_id) = concert(&app).await;
 
@@ -222,17 +225,22 @@ async fn la_feuille_de_route_part_la_veille() {
         "la feuille de route doit partir a tous les concernes"
     );
 
-    let (body,): (String,) =
-        sqlx::query_as("SELECT body FROM notifications WHERE kind = 'run_sheet' LIMIT 1")
-            .fetch_one(&app.db)
-            .await
-            .unwrap();
-    assert!(body.contains("Le Sonic"), "adresse du lieu : {body}");
-    assert!(body.contains("Postes"), "qui tient quel poste : {body}");
+    // Filter on the event: the seed data also carries a residency, whose own
+    // run sheet would otherwise be picked up here.
+    let (body,): (String,) = sqlx::query_as(
+        "SELECT body FROM notifications
+         WHERE kind = 'run_sheet' AND payload->>'event_id' = $1 LIMIT 1",
+    )
+    .bind(event_id.to_string())
+    .fetch_one(&app.db)
+    .await
+    .unwrap();
+    assert!(body.contains("Le Sonic"), "venue address: {body}");
+    assert!(body.contains("Postes"), "who holds which slot: {body}");
 }
 
 #[tokio::test]
-async fn une_residence_se_declare_d_un_seul_mot() {
+async fn a_residency_is_declared_in_one_word() {
     let app = TestApp::seeded().await;
     let cid = app.collective_id("bonsoir-techno").await;
     let (event_id,): (Uuid,) = sqlx::query_as(
@@ -245,7 +253,7 @@ async fn une_residence_se_declare_d_un_seul_mot() {
     .unwrap();
 
     let mathieu = app.login_named("Mathieu").await;
-    // « Je viens » suffit : aucun jour a preciser.
+    // "Je viens" is enough: no day to specify.
     mathieu
         .post(
             &format!("/api/collectives/{cid}/events/{event_id}/presence"),
@@ -272,7 +280,7 @@ async fn une_residence_se_declare_d_un_seul_mot() {
         "present, dates libres"
     );
 
-    // Et une residence refuse d'exister sans plage.
+    // And a residency refuses to exist without a range.
     let res = antoine
         .post(
             &format!("/api/collectives/{cid}/events"),

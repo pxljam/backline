@@ -1,8 +1,7 @@
-//! Export PDF des fiches techniques par **Typst** (§15).
+//! Tech rider PDF export through **Typst** (§15).
 //!
-//! Sortie deterministe, aucun navigateur dans la boucle : c'est un document
-//! structure, pas une affiche. Le moteur de rendu des visuels (Remotion) n'a
-//! rien a faire ici.
+//! Deterministic output, no browser in the loop: this is a structured document,
+//! not a poster. The visuals render engine (Remotion) has no business here.
 
 use crate::error::{AppError, AppResult};
 use serde_json::Value;
@@ -26,7 +25,7 @@ pub fn available() -> bool {
         .unwrap_or(false)
 }
 
-/// Compile `template` avec `data` serialise en `data.json`, renvoie le PDF.
+/// Compiles `template` with `data` serialised to `data.json`, returns the PDF.
 pub async fn compile(template: &str, data: &Value) -> AppResult<Vec<u8>> {
     let dir = template_dir();
     let template_path = dir.join(template);

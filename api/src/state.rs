@@ -16,7 +16,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Unique porte d'entree vers les donnees d'un collectif.
+    /// The one and only way into a collective's data.
     pub async fn scope(&self, actor: Actor, collective_id: Uuid) -> AppResult<CollectiveScope> {
         CollectiveScope::resolve(&self.db, actor, collective_id).await
     }

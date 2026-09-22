@@ -11,8 +11,8 @@ pub async fn connect(database_url: &str) -> Result<PgPool> {
     Ok(pool)
 }
 
-/// Migrations SQL versionnees, embarquees dans le binaire : jamais de
-/// modification de schema hors migration (§21, conventions).
+/// Versioned SQL migrations, embedded in the binary: no schema change ever
+/// happens outside a migration (§21, conventions).
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
 pub async fn migrate(pool: &PgPool) -> Result<()> {

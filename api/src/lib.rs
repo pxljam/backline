@@ -1,20 +1,20 @@
-// Les requetes sqlx sont ecrites en tuples typees plutot qu'en structs
-// dediees : sur un domaine de cette taille, une struct par SELECT couterait
-// plus en lecture qu'elle ne rapporte. Les tests d'integration tournent sur
-// une vraie base, ce qui couvre ce que la macro `query!` couvrirait.
+// sqlx queries are written as typed tuples rather than dedicated structs: on a
+// domain this size, one struct per SELECT would cost more to read than it
+// returns. The integration tests run against a real database, which covers what
+// the `query!` macro would cover.
 #![allow(clippy::type_complexity)]
 
-//! Backline — API metier.
+//! Backline — domain API.
 //!
-//! La specification complete est dans `PRD.md` a la racine du depot. Les
-//! references `§n` dans les commentaires y renvoient.
+//! The full specification lives in `PRD.md` at the root of the repository. The
+//! `§n` references in the comments point into it.
 //!
-//! Deux invariants structurels traversent tout le code :
+//! Two structural invariants run through the whole codebase:
 //!
-//! 1. **Cloisonnement** — l'acces aux donnees d'un collectif passe toujours par
-//!    un [`scope::CollectiveScope`], impossible a fabriquer sans appartenance.
-//! 2. **Une seule implementation de mise en page** — la description JSON des
-//!    visuels vit dans `layout/`, cote Node ; l'API ne fait que la transporter.
+//! 1. **Isolation** — access to a collective's data always goes through a
+//!    [`scope::CollectiveScope`], which cannot be built without membership.
+//! 2. **One layout implementation** — the JSON description of visuals lives in
+//!    `layout/`, on the Node side; the API only ever transports it.
 
 pub mod auth;
 pub mod config;
@@ -34,7 +34,7 @@ pub use state::AppState;
 use anyhow::Result;
 use std::sync::Arc;
 
-/// Construit l'etat applicatif : base, stockage, canal Telegram.
+/// Builds the application state: database, storage, Telegram channel.
 pub async fn build_state(config: Config) -> Result<AppState> {
     let db = db::connect(&config.database_url).await?;
     if config.run_migrations {
@@ -43,13 +43,13 @@ pub async fn build_state(config: Config) -> Result<AppState> {
 
     let storage = Arc::new(services::storage::Storage::new(&config.s3)?);
     if let Err(e) = storage.ensure_bucket().await {
-        tracing::warn!(error = %e, "bucket S3 indisponible au demarrage");
+        tracing::warn!(error = %e, "S3 bucket unavailable at startup");
     }
 
     let telegram: Arc<dyn services::telegram::Telegram> = match &config.telegram_bot_token {
         Some(token) => Arc::new(services::telegram::HttpTelegram::new(token.clone())),
         None => {
-            tracing::warn!("TELEGRAM_BOT_TOKEN absent — notifications journalisees seulement");
+            tracing::warn!("TELEGRAM_BOT_TOKEN missing — notifications will only be logged");
             Arc::new(services::telegram::LoggingTelegram)
         }
     };

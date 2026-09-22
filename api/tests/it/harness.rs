@@ -1,9 +1,8 @@
-//! Socle des tests d'integration.
+//! Integration test harness.
 //!
-//! **PostgreSQL et MinIO reels, jamais de simulacre** (§15). Les conteneurs
-//! sont demarres une fois pour toute la suite ; chaque test obtient sa propre
-//! base et son propre bucket, ce qui lui garantit l'isolation sans payer un
-//! demarrage de conteneur par test.
+//! **Real PostgreSQL and MinIO, never a fake** (§15). The containers start once
+//! for the whole suite; each test gets its own database and its own bucket,
+//! which buys isolation without paying for a container start per test.
 
 #![allow(dead_code)]
 
@@ -37,8 +36,8 @@ static SHARED: OnceCell<Shared> = OnceCell::const_new();
 async fn shared() -> &'static Shared {
     SHARED
         .get_or_init(|| async {
-            // Meme version qu'en production : la parite locale/production est
-            // une contrainte posee (§15), elle vaut aussi pour les tests.
+            // The same version as production: local/production parity is a
+            // stated constraint (§15), and it holds for the tests too.
             let pg = Postgres::default()
                 .with_user("backline")
                 .with_password("backline")
@@ -46,8 +45,8 @@ async fn shared() -> &'static Shared {
                 .with_tag("16-alpine")
                 .start()
                 .await
-                .expect("postgres de test");
-            let pg_port = pg.get_host_port_ipv4(5432).await.expect("port postgres");
+                .expect("test postgres");
+            let pg_port = pg.get_host_port_ipv4(5432).await.expect("postgres port");
 
             let minio = GenericImage::new(MINIO_IMAGE, MINIO_TAG)
                 .with_exposed_port(9000.tcp())
@@ -57,8 +56,8 @@ async fn shared() -> &'static Shared {
                 .with_cmd(vec!["server", "/data"])
                 .start()
                 .await
-                .expect("minio de test");
-            let minio_port = minio.get_host_port_ipv4(9000).await.expect("port minio");
+                .expect("test minio");
+            let minio_port = minio.get_host_port_ipv4(9000).await.expect("minio port");
 
             Shared {
                 _pg: pg,
@@ -70,7 +69,7 @@ async fn shared() -> &'static Shared {
         .await
 }
 
-/// Une application complete, sur sa propre base et son propre bucket.
+/// A complete application, on its own database and its own bucket.
 pub struct TestApp {
     pub base: String,
     pub db: PgPool,
@@ -80,8 +79,8 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
-        // Les modeles Typst vivent dans `pdf/` a la racine du depot ; en
-        // conteneur ils sont copies dans /app/pdf.
+        // The Typst templates live in `pdf/` at the repository root; in a
+        // container they are copied to /app/pdf.
         let templates = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -90,15 +89,15 @@ impl TestApp {
 
         let shared = shared().await;
 
-        // Base dediee : deux tests ne se voient jamais.
+        // A dedicated database: two tests never see each other.
         let name = format!("bl_{}", Uuid::new_v4().simple());
         let root = sqlx::PgPool::connect(&format!("{}/postgres", shared.pg_url_root))
             .await
-            .expect("connexion postgres");
+            .expect("postgres connection");
         sqlx::query(&format!(r#"CREATE DATABASE "{name}""#))
             .execute(&root)
             .await
-            .expect("creation de la base de test");
+            .expect("creating the test database");
         root.close().await;
 
         let database_url = format!("{}/{name}", shared.pg_url_root);
@@ -116,12 +115,12 @@ impl TestApp {
 
         let state = backline::build_state(config)
             .await
-            .expect("etat applicatif");
+            .expect("application state");
         let db = state.db.clone();
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
-            .expect("port libre");
+            .expect("free port");
         let addr = listener.local_addr().unwrap();
         let app = backline::routes::router(state.clone());
         tokio::spawn(async move {
@@ -139,37 +138,35 @@ impl TestApp {
         }
     }
 
-    /// Branche (ou debranche) le service de rendu des visuels fixes.
+    /// Plugs in (or unplugs) the still visuals render service.
     pub fn set_stills_url(&mut self, url: Option<String>) {
         let mut config = (*self.state.config).clone();
         config.stills_url = url;
         self.state.config = std::sync::Arc::new(config);
     }
 
-    /// Application amorcee avec les donnees du §16.
+    /// Application seeded with the §16 data.
     pub async fn seeded() -> Self {
         let app = Self::new().await;
-        backline::seed::seed(&app.db)
-            .await
-            .expect("donnees d'amorcage");
+        backline::seed::seed(&app.db).await.expect("seed data");
         app
     }
 
-    /// Declenche un passage de la boucle de jobs, plutot que d'attendre une
-    /// horloge : les tests restent deterministes.
+    /// Triggers one pass of the job loop rather than waiting on a clock: the
+    /// tests stay deterministic.
     pub async fn tick(&self) -> usize {
         backline::services::scheduler::tick(&self.state)
             .await
-            .expect("boucle de jobs")
+            .expect("job loop")
     }
 
-    /// Fait passer tous les jobs en attente comme s'ils etaient echus.
+    /// Makes every pending job run as if it were due.
     pub async fn run_due_jobs(&self) {
         sqlx::query("UPDATE jobs SET run_at = now() WHERE status = 'pending'")
             .execute(&self.db)
             .await
             .unwrap();
-        // Plusieurs passages : un job peut en programmer un autre.
+        // Several passes: one job can schedule another.
         for _ in 0..3 {
             self.tick().await;
         }
@@ -180,7 +177,7 @@ impl TestApp {
             .bind(slug)
             .fetch_one(&self.db)
             .await
-            .expect("collectif")
+            .expect("collective")
             .0
     }
 
@@ -189,7 +186,7 @@ impl TestApp {
             .bind(display_name)
             .fetch_one(&self.db)
             .await
-            .expect("utilisateur")
+            .expect("user")
             .0
     }
 
@@ -198,11 +195,11 @@ impl TestApp {
             .bind(slug)
             .fetch_one(&self.db)
             .await
-            .expect("groupe")
+            .expect("group")
             .0
     }
 
-    /// Cree un utilisateur, l'ajoute au collectif et ouvre une session.
+    /// Creates a user, adds them to the collective and opens a session.
     pub async fn login_as(&self, user_id: Uuid) -> Client {
         let token = backline::auth::create_session(&self.db, user_id)
             .await
@@ -219,12 +216,12 @@ impl TestApp {
         self.login_as(id).await
     }
 
-    /// Cree un collectif complet hors donnees d'amorcage : utile pour tester
-    /// le cloisonnement entre deux collectifs.
+    /// Creates a complete collective outside the seed data: useful for testing
+    /// isolation between two collectives.
     pub async fn make_collective(&self, slug: &str, name: &str) -> Uuid {
         backline::services::provisioning::create_collective(&self.db, slug, name)
             .await
-            .expect("collectif")
+            .expect("collective")
     }
 
     pub async fn make_user(&self, display_name: &str) -> Uuid {
@@ -234,7 +231,7 @@ impl TestApp {
         .bind(display_name)
         .fetch_one(&self.db)
         .await
-        .expect("utilisateur")
+        .expect("user")
         .0
     }
 
@@ -248,12 +245,12 @@ impl TestApp {
         .bind(role)
         .execute(&self.db)
         .await
-        .expect("appartenance");
+        .expect("membership");
     }
 }
 
-/// Un client HTTP authentifie. Les tests parlent a l'API par le reseau, comme
-/// le fera l'interface : rien n'est court-circuite.
+/// An authenticated HTTP client. The tests talk to the API over the network,
+/// just as the interface will: nothing is short-circuited.
 pub struct Client {
     pub base: String,
     pub token: String,
@@ -271,11 +268,11 @@ impl Res {
         (200..300).contains(&self.status)
     }
 
-    /// Echoue avec le corps de la reponse : un test rouge doit dire pourquoi.
+    /// Fails with the response body: a red test must say why.
     pub fn expect_ok(&self) -> &Value {
         assert!(
             self.ok(),
-            "attendu 2xx, recu {} : {}",
+            "expected 2xx, got {}: {}",
             self.status,
             self.text
         );
@@ -293,7 +290,7 @@ impl Client {
             .header("Authorization", format!("Bearer {}", self.token))
             .send()
             .await
-            .expect("requete");
+            .expect("request");
         let status = resp.status().as_u16();
         let text = resp.text().await.unwrap_or_default();
         let body = serde_json::from_str(&text).unwrap_or(Value::Null);
@@ -326,11 +323,11 @@ impl Client {
     }
 }
 
-/// Client anonyme, pour les routes publiques (flux iCal, invitations).
+/// Anonymous client, for the public routes (iCal feeds, invitations).
 pub async fn anonymous_get(base: &str, path: &str) -> (u16, String) {
     let resp = reqwest::get(format!("{base}{path}"))
         .await
-        .expect("requete");
+        .expect("request");
     (
         resp.status().as_u16(),
         resp.text().await.unwrap_or_default(),

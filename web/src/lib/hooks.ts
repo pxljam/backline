@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 
 /**
- * Chargement de donnees, version minimale et honnete : on expose l'etat de
- * chargement, l'erreur telle que l'API la formule, et un `recharger`.
+ * Data loading, minimal and honest: we expose the loading state, the error
+ * exactly as the API words it, and a reload.
  */
 export function useResource<T>(path: string | null, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
@@ -21,8 +21,8 @@ export function useResource<T>(path: string | null, deps: unknown[] = []) {
     setLoading(true);
     try {
       const result = await api.get<T>(path);
-      // Une reponse arrivee apres un changement de route ne doit pas ecraser
-      // la suivante.
+      // A response arriving after a route change must not overwrite the one
+      // that followed it.
       if (mine === version.current) {
         setData(result);
         setError(null);
@@ -44,7 +44,7 @@ export function useResource<T>(path: string | null, deps: unknown[] = []) {
   return { data, error, loading, reload, setData };
 }
 
-/** Action qui ecrit : garde l'etat « en cours » et l'erreur affichable. */
+/** A writing action: keeps the "in progress" state and a displayable error. */
 export function useAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function useLocalState<T>(key: string, initial: T): [T, (v: T) => void] {
       try {
         localStorage.setItem(key, JSON.stringify(v));
       } catch {
-        // Mode navigation privee : on continue sans memoriser.
+        // Private browsing: carry on without remembering anything.
       }
     },
     [key],

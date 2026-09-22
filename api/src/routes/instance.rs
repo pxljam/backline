@@ -1,5 +1,5 @@
-//! Administration d'instance (§3, §14). Une seule instance partagee heberge
-//! tous les collectifs ; leur creation est manuelle.
+//! Instance administration (§3, §14). A single shared instance hosts every
+//! collective; creating one is manual.
 
 use crate::error::AppResult;
 use crate::extract::Auth;
@@ -63,7 +63,7 @@ async fn list_collectives(
 struct NewCollective {
     slug: String,
     name: String,
-    /// Premier admin du collectif. Un collectif sans admin est inexploitable.
+    /// The collective's first admin. A collective without one is unusable.
     #[serde(default)]
     admin_user_id: Option<Uuid>,
 }
@@ -90,7 +90,7 @@ async fn create_collective(
     Ok(Json(json!({ "id": id })))
 }
 
-/// Sante technique : ce qui permet de decider s'il faut intervenir.
+/// Technical health: what it takes to decide whether to step in.
 async fn technical_health(
     State(state): State<AppState>,
     Auth(actor): Auth,

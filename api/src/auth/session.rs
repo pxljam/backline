@@ -8,8 +8,8 @@ use uuid::Uuid;
 pub const SESSION_COOKIE: &str = "bl_session";
 const SESSION_DAYS: i64 = 60;
 
-/// Le jeton n'est jamais stocke en clair : seule son empreinte va en base,
-/// exactement comme un mot de passe.
+/// The token is never stored in clear: only its hash goes to the database,
+/// exactly like a password.
 pub fn hash_token(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
 }

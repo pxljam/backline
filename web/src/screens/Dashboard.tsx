@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Dashboard as DashboardData } from "../lib/types";
-import { dateEtHeure, joursAvant, relatif } from "../lib/format";
+import { dateAndTime, daysUntil, relativeTime } from "../lib/format";
 import { Badge, Card, Empty, ErrorNote, Loading, PageTitle } from "../components/ui";
 
-/** « Ce qui bloque » (§14) — pas une liste d'informations, une liste d'actions. */
+/** "What is blocking" (§14) — not a list of information, a list of actions. */
 export const Dashboard: React.FC = () => {
   const base = useCollectiveBase();
   const { me } = useSession();
@@ -16,7 +16,7 @@ export const Dashboard: React.FC = () => {
   if (error) return <ErrorNote>{error}</ErrorNote>;
   if (!data) return null;
 
-  const rienNeBloque =
+  const nothingBlocking =
     data.pending_polls.length === 0 &&
     data.vacant_slots.length === 0 &&
     data.late_tasks.length === 0 &&
@@ -26,7 +26,7 @@ export const Dashboard: React.FC = () => {
     <>
       <PageTitle
         title={`Bonsoir, ${me?.display_name ?? ""}`}
-        subtitle={rienNeBloque ? "Rien ne bloque." : "Ce qui demande une decision."}
+        subtitle={nothingBlocking ? "Rien ne bloque." : "Ce qui demande une decision."}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -69,8 +69,8 @@ export const Dashboard: React.FC = () => {
                       <span className="font-medium">{s.label}</span>
                       <span className="text-ink-soft"> — {s.event_title}</span>
                     </span>
-                    <Badge tone={joursAvant(s.starts_at) <= 7 ? "bad" : "warn"}>
-                      {s.vacant} place{s.vacant > 1 ? "s" : ""} · {relatif(s.starts_at)}
+                    <Badge tone={daysUntil(s.starts_at) <= 7 ? "bad" : "warn"}>
+                      {s.vacant} place{s.vacant > 1 ? "s" : ""} · {relativeTime(s.starts_at)}
                     </Badge>
                   </Link>
                 </li>
@@ -92,7 +92,7 @@ export const Dashboard: React.FC = () => {
                   >
                     <span className="text-sm font-medium">{t.label}</span>
                     <span className="block text-xs text-ink-soft">
-                      {t.event_title} · prevu {relatif(t.scheduled_at)}
+                      {t.event_title} · prevu {relativeTime(t.scheduled_at)}
                       {!t.assignee_id && " · personne d'assigne"}
                     </span>
                   </Link>
@@ -118,7 +118,7 @@ export const Dashboard: React.FC = () => {
                       {e.venue && <span className="text-ink-soft"> — {e.venue}</span>}
                     </span>
                     <span className="shrink-0 text-xs text-ink-soft">
-                      {dateEtHeure(e.starts_at)}
+                      {dateAndTime(e.starts_at)}
                     </span>
                   </Link>
                 </li>

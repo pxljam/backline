@@ -9,13 +9,13 @@ import { Badge, Button, Card, ErrorNote, Field, Loading, Select } from "../compo
 import { Canvas } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { toBrand, useMediaMap } from "./brand";
-import { DONNEES_EXEMPLE } from "./fields";
-import { NOMS_BLOCS, deplacerCalque, dupliquer, nouveauBloc } from "./blocks";
+import { SAMPLE_DATA } from "./fields";
+import { BLOCK_NAMES, moveLayer, duplicateBlock, newBlock } from "./blocks";
 
 /**
- * Editeur de gabarit (§9.1 a §9.3). Un gabarit est concu sur un **format
- * maitre** puis decline : chaque declinaison memorise ses propres ajustements
- * sans toucher au maitre, et le cadre reste verrouille au ratio du format.
+ * Template editor (§9.1 to §9.3). A template is designed on a **master
+ * format** then derived: each variant remembers its own adjustments without
+ * touching the master, and the frame stays locked to the format's ratio.
  */
 export const TemplateEditor: React.FC = () => {
   const { id = "" } = useParams();
@@ -31,9 +31,9 @@ export const TemplateEditor: React.FC = () => {
   const [formatId, setFormatId] = useState<string>("");
   const [layout, setLayout] = useState<Layout | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
-  const [modifie, setModifie] = useState(false);
-  const [magnetisme, setMagnetisme] = useState(true);
-  const [zonesSures, setZonesSures] = useState(true);
+  const [dirty, setDirty] = useState(false);
+  const [snap, setSnap] = useState(true);
+  const [safeAreas, setSafeAreas] = useState(true);
   const [eventId, setEventId] = useState("");
 
   const brand = useResource<BrandView>(
@@ -43,26 +43,26 @@ export const TemplateEditor: React.FC = () => {
     [template.data?.group_id],
   );
 
-  // La declinaison affichee par defaut est le format maitre.
+  // The variant shown by default is the master format.
   useEffect(() => {
     if (!template.data) return;
-    const maitre = template.data.variants.find((v) => v.is_master) ?? template.data.variants[0];
-    setFormatId((actuel) =>
-      actuel && template.data?.variants.some((v) => v.format_id === actuel)
-        ? actuel
-        : (maitre?.format_id ?? ""),
+    const master = template.data.variants.find((v) => v.is_master) ?? template.data.variants[0];
+    setFormatId((current) =>
+      current && template.data?.variants.some((v) => v.format_id === current)
+        ? current
+        : (master?.format_id ?? ""),
     );
   }, [template.data]);
 
-  const variante = template.data?.variants.find((v) => v.format_id === formatId);
+  const variant = template.data?.variants.find((v) => v.format_id === formatId);
 
   useEffect(() => {
-    if (variante) {
-      setLayout(structuredClone(variante.layout));
+    if (variant) {
+      setLayout(structuredClone(variant.layout));
       setSelection(null);
-      setModifie(false);
+      setDirty(false);
     }
-  }, [variante?.format_id, template.data?.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [variant?.format_id, template.data?.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fields = useResource<FieldData>(
     eventId ? `${base}/studio/preview-fields/${eventId}` : null,
@@ -71,14 +71,14 @@ export const TemplateEditor: React.FC = () => {
 
   const assetIds = useMemo(() => {
     const ids: string[] = [];
-    const visiter = (blocks: Block[]) => {
+    const visit = (blocks: Block[]) => {
       for (const b of blocks) {
         const a = (b.props as { assetId?: string }).assetId;
         if (a) ids.push(a);
-        if (b.children) visiter(b.children);
+        if (b.children) visit(b.children);
       }
     };
-    if (layout) visiter(layout.blocks);
+    if (layout) visit(layout.blocks);
     if (layout?.background?.assetId) ids.push(layout.background.assetId);
     for (const token of brand.data?.tokens ?? []) {
       const value = token.value as { assetId?: string };
@@ -89,52 +89,52 @@ export const TemplateEditor: React.FC = () => {
 
   const media = useMediaMap(base, assetIds);
   const tokens = brand.data ? [...(brand.data.inherited ?? []), ...brand.data.tokens] : [];
-  const charte = brand.data ? toBrand(brand.data.tokens, brand.data.inherited) : {};
+  const brandTokens = brand.data ? toBrand(brand.data.tokens, brand.data.inherited) : {};
 
   if (template.loading || !layout) return <Loading />;
 
-  const bloc = layout.blocks.find((b) => b.id === selection) ?? null;
+  const block = layout.blocks.find((b) => b.id === selection) ?? null;
 
-  const majBlocks = (blocks: Block[]) => {
+  const updateBlocks = (blocks: Block[]) => {
     setLayout({ ...layout, blocks });
-    setModifie(true);
+    setDirty(true);
   };
 
-  const patchBloc = (patch: Partial<Block>) =>
-    bloc && majBlocks(layout.blocks.map((b) => (b.id === bloc.id ? { ...b, ...patch } : b)));
+  const patchBlock = (patch: Partial<Block>) =>
+    block && updateBlocks(layout.blocks.map((b) => (b.id === block.id ? { ...b, ...patch } : b)));
 
   const patchProps = (patch: Record<string, unknown>) =>
-    bloc &&
-    majBlocks(
+    block &&
+    updateBlocks(
       layout.blocks.map((b) =>
-        b.id === bloc.id ? { ...b, props: { ...(b.props as object), ...patch } } : b,
+        b.id === block.id ? { ...b, props: { ...(b.props as object), ...patch } } : b,
       ),
     );
 
-  const ajouter = (type: BlockType) => {
-    const b = nouveauBloc(type, layout.blocks.length);
-    majBlocks([...layout.blocks, b]);
+  const addBlock = (type: BlockType) => {
+    const b = newBlock(type, layout.blocks.length);
+    updateBlocks([...layout.blocks, b]);
     setSelection(b.id);
   };
 
-  const enregistrer = () =>
+  const save = () =>
     void run(async () => {
       await api.put(`${base}/studio/templates/${id}/variants/${formatId}`, { layout });
-      setModifie(false);
+      setDirty(false);
       await template.reload();
     });
 
-  const ajouterFormat = (nouveauFormatId: string) =>
+  const addFormat = (newFormatId: string) =>
     void run(async () => {
-      await api.post(`${base}/studio/templates/${id}/variants`, { format_id: nouveauFormatId });
+      await api.post(`${base}/studio/templates/${id}/variants`, { format_id: newFormatId });
       await template.reload();
-      setFormatId(nouveauFormatId);
+      setFormatId(newFormatId);
     });
 
-  const formatsRestants =
+  const remainingFormats =
     formats.data?.filter((f) => !template.data?.variants.some((v) => v.format_id === f.id)) ?? [];
 
-  const donnees: FieldData = fields.data ?? DONNEES_EXEMPLE;
+  const data: FieldData = fields.data ?? SAMPLE_DATA;
 
   return (
     <>
@@ -148,14 +148,14 @@ export const TemplateEditor: React.FC = () => {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">{template.data?.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            v{template.data?.version} · {variante?.width} × {variante?.height} ({variante?.ratio})
-            {variante?.is_master && " · format maitre"}
+            v{template.data?.version} · {variant?.width} × {variant?.height} ({variant?.ratio})
+            {variant?.is_master && " · format maitre"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {modifie && <Badge tone="warn">non enregistre</Badge>}
+          {dirty && <Badge tone="warn">non enregistre</Badge>}
           {isAdmin && (
-            <Button variant="primary" disabled={busy || !modifie} onClick={enregistrer}>
+            <Button variant="primary" disabled={busy || !dirty} onClick={save}>
               Enregistrer
             </Button>
           )}
@@ -177,14 +177,14 @@ export const TemplateEditor: React.FC = () => {
             {v.is_master && " ★"}
           </button>
         ))}
-        {isAdmin && formatsRestants.length > 0 && (
+        {isAdmin && remainingFormats.length > 0 && (
           <Select
             className="w-auto"
             value=""
-            onChange={(e) => e.target.value && ajouterFormat(e.target.value)}
+            onChange={(e) => e.target.value && addFormat(e.target.value)}
           >
             <option value="">+ decliner…</option>
-            {formatsRestants.map((f) => (
+            {remainingFormats.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.platform} — {f.label} ({f.ratio})
               </option>
@@ -197,26 +197,26 @@ export const TemplateEditor: React.FC = () => {
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {isAdmin &&
-              (Object.keys(NOMS_BLOCS) as BlockType[])
+              (Object.keys(BLOCK_NAMES) as BlockType[])
                 .filter((t) => t !== "group")
                 .map((t) => (
-                  <Button key={t} size="sm" onClick={() => ajouter(t)}>
-                    + {NOMS_BLOCS[t]}
+                  <Button key={t} size="sm" onClick={() => addBlock(t)}>
+                    + {BLOCK_NAMES[t]}
                   </Button>
                 ))}
             <label className="ml-auto flex items-center gap-1.5 text-xs">
               <input
                 type="checkbox"
-                checked={magnetisme}
-                onChange={(e) => setMagnetisme(e.target.checked)}
+                checked={snap}
+                onChange={(e) => setSnap(e.target.checked)}
               />
               magnetisme
             </label>
             <label className="flex items-center gap-1.5 text-xs">
               <input
                 type="checkbox"
-                checked={zonesSures}
-                onChange={(e) => setZonesSures(e.target.checked)}
+                checked={safeAreas}
+                onChange={(e) => setSafeAreas(e.target.checked)}
               />
               zones sures
             </label>
@@ -224,15 +224,15 @@ export const TemplateEditor: React.FC = () => {
 
           <Canvas
             layout={layout}
-            brand={charte}
-            data={donnees}
+            brand={brandTokens}
+            data={data}
             media={media}
             selection={selection}
             onSelect={setSelection}
-            onBlocks={majBlocks}
-            magnetisme={magnetisme}
-            zonesSures={zonesSures}
-            lectureSeule={!isAdmin}
+            onBlocks={updateBlocks}
+            snap={snap}
+            safeAreas={safeAreas}
+            readOnly={!isAdmin}
           />
 
           <div className="mt-3">
@@ -251,13 +251,13 @@ export const TemplateEditor: React.FC = () => {
 
         <div className="space-y-4">
           <Card title="Fond">
-            <FondEditeur
+            <BackgroundEditor
               background={layout.background ?? null}
               tokens={tokens}
               assets={assets.data ?? []}
               onChange={(background) => {
                 setLayout({ ...layout, background });
-                setModifie(true);
+                setDirty(true);
               }}
             />
           </Card>
@@ -275,7 +275,7 @@ export const TemplateEditor: React.FC = () => {
                       }`}
                     >
                       <span className="truncate">
-                        {NOMS_BLOCS[b.type]}
+                        {BLOCK_NAMES[b.type]}
                         {b.type === "text" &&
                           ` — ${String((b.props as { content?: string }).content ?? "").slice(0, 18)}`}
                       </span>
@@ -286,24 +286,24 @@ export const TemplateEditor: React.FC = () => {
             </ul>
           </Card>
 
-          {bloc && (
-            <Card title={NOMS_BLOCS[bloc.type]}>
+          {block && (
+            <Card title={BLOCK_NAMES[block.type]}>
               <Inspector
-                block={bloc}
+                block={block}
                 tokens={tokens}
                 assets={assets.data ?? []}
-                onChange={patchBloc}
+                onChange={patchBlock}
                 onProps={patchProps}
                 onDelete={() => {
-                  majBlocks(layout.blocks.filter((b) => b.id !== bloc.id));
+                  updateBlocks(layout.blocks.filter((b) => b.id !== block.id));
                   setSelection(null);
                 }}
                 onDuplicate={() => {
-                  const copie = dupliquer(bloc);
-                  majBlocks([...layout.blocks, copie]);
-                  setSelection(copie.id);
+                  const copy = duplicateBlock(block);
+                  updateBlocks([...layout.blocks, copy]);
+                  setSelection(copy.id);
                 }}
-                onLayer={(sens) => majBlocks(deplacerCalque(layout.blocks, bloc.id, sens))}
+                onLayer={(direction) => updateBlocks(moveLayer(layout.blocks, block.id, direction))}
               />
             </Card>
           )}
@@ -313,13 +313,13 @@ export const TemplateEditor: React.FC = () => {
   );
 };
 
-export const FondEditeur: React.FC<{
+export const BackgroundEditor: React.FC<{
   background: Background | null;
   tokens: { kind: string; key: string; label: string }[];
   assets: Asset[];
   onChange: (background: Background | null) => void;
 }> = ({ background, tokens, assets, onChange }) => {
-  const couleurs = tokens.filter((t) => t.kind === "color");
+  const colors = tokens.filter((t) => t.kind === "color");
 
   return (
     <div className="space-y-2">
@@ -329,12 +329,12 @@ export const FondEditeur: React.FC<{
           onChange={(e) => {
             const type = e.target.value as Background["type"] | "";
             if (!type) return onChange(null);
-            if (type === "color") return onChange({ type, token: couleurs[0]?.key });
+            if (type === "color") return onChange({ type, token: colors[0]?.key });
             if (type === "gradient")
               return onChange({
                 type,
-                fromToken: couleurs[0]?.key,
-                toToken: couleurs[1]?.key,
+                fromToken: colors[0]?.key,
+                toToken: colors[1]?.key,
                 angle: 180,
               });
             return onChange({ type });
@@ -353,7 +353,7 @@ export const FondEditeur: React.FC<{
             value={background.token ?? ""}
             onChange={(e) => onChange({ ...background, token: e.target.value })}
           >
-            {couleurs.map((t) => (
+            {colors.map((t) => (
               <option key={t.key} value={t.key}>
                 {t.label}
               </option>
@@ -369,7 +369,7 @@ export const FondEditeur: React.FC<{
               value={background.fromToken ?? ""}
               onChange={(e) => onChange({ ...background, fromToken: e.target.value })}
             >
-              {couleurs.map((t) => (
+              {colors.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
                 </option>
@@ -381,7 +381,7 @@ export const FondEditeur: React.FC<{
               value={background.toToken ?? ""}
               onChange={(e) => onChange({ ...background, toToken: e.target.value })}
             >
-              {couleurs.map((t) => (
+              {colors.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
                 </option>

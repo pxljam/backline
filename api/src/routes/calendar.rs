@@ -1,4 +1,4 @@
-//! Calendrier unifie et flux iCal (§7).
+//! Unified calendar and iCal feeds (§7).
 
 use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
@@ -19,8 +19,8 @@ pub fn router() -> Router<AppState> {
         .route("/feeds", get(feeds))
 }
 
-/// Route publique, hors `/api` : c'est l'URL que l'on colle dans Google
-/// Calendar. Le jeton secret **est** l'authentification.
+/// Public route, outside `/api`: this is the URL pasted into Google Calendar.
+/// The secret token **is** the authentication.
 pub fn public_router() -> Router<AppState> {
     Router::new().route("/:token", get(ical_feed))
 }
@@ -35,7 +35,7 @@ struct CalendarQuery {
     group_id: Option<Uuid>,
     #[serde(default)]
     mine: Option<bool>,
-    /// Inclut les dates candidates en arbitrage (affichees en pointilles).
+    /// Includes candidate dates still under arbitration (shown dotted).
     #[serde(default = "yes")]
     candidates: bool,
 }
@@ -123,8 +123,8 @@ async fn calendar(
         )
         .collect();
 
-    // Dates candidates encore en arbitrage : elles occupent le calendrier sans
-    // etre des engagements.
+    // Candidate dates still under arbitration: they take up room in the
+    // calendar without being commitments.
     if q.candidates && q.group_id.is_none() {
         let rows: Vec<(Uuid, Uuid, String, NaiveDate, Option<chrono::NaiveTime>, Option<String>, Option<String>)> =
             sqlx::query_as(
@@ -171,7 +171,7 @@ struct Feed {
     url: String,
 }
 
-/// Un flux par membre, un par groupe, un par collectif (§7).
+/// One feed per member, one per group, one per collective (§7).
 async fn feeds(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -193,7 +193,7 @@ async fn feeds(
         url: format!("{base}/ical/{token}.ics"),
     });
 
-    // Flux personnel : seul son proprietaire recoit l'URL.
+    // Personal feed: only its owner receives the URL.
     let token = ical::ensure_token(&state.db, "user", scope.user_id()).await?;
     out.push(Feed {
         scope: "user".into(),
@@ -223,8 +223,8 @@ async fn feeds(
     Ok(Json(out))
 }
 
-/// Le membre voit ses evenements dans son agenda **sans s'etre connecte a
-/// autre chose que le bot** (§18).
+/// A member sees their events in their calendar **without having signed in to
+/// anything but the bot** (§18).
 async fn ical_feed(
     State(state): State<AppState>,
     Path(token): Path<String>,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Block } from "@backline/layout";
-import { aligner, deplacerCalque, dupliquer, nouveauBloc, repartirVertical } from "./blocks";
+import { align, moveLayer, duplicateBlock, newBlock, distributeVertically } from "./blocks";
 import { toBrand } from "./brand";
 import type { BrandToken } from "../lib/types";
 
-const bloc = (id: string, y: number): Block => ({
+const block = (id: string, y: number): Block => ({
   id,
   type: "text",
   x: 0.1,
@@ -14,43 +14,43 @@ const bloc = (id: string, y: number): Block => ({
   props: { content: id },
 });
 
-describe("manipulation des blocs", () => {
-  it("centre un bloc sans calcul mental", () => {
-    expect(aligner(bloc("a", 0), "centre-h").x).toBeCloseTo(0.3);
-    expect(aligner(bloc("a", 0), "droite").x).toBeCloseTo(0.6);
-    expect(aligner(bloc("a", 0), "bas").y).toBeCloseTo(0.9);
+describe("block manipulation", () => {
+  it("centres a block without mental arithmetic", () => {
+    expect(align(block("a", 0), "center-h").x).toBeCloseTo(0.3);
+    expect(align(block("a", 0), "right").x).toBeCloseTo(0.6);
+    expect(align(block("a", 0), "bottom").y).toBeCloseTo(0.9);
   });
 
-  it("repartit verticalement entre le premier et le dernier", () => {
-    const blocs = [bloc("a", 0), bloc("b", 0.1), bloc("c", 0.8)];
-    const repartis = repartirVertical(blocs, ["a", "b", "c"]);
-    expect(repartis.map((b) => b.y)).toEqual([0, 0.4, 0.8]);
+  it("spreads vertically between the first and the last", () => {
+    const blocks = [block("a", 0), block("b", 0.1), block("c", 0.8)];
+    const spread = distributeVertically(blocks, ["a", "b", "c"]);
+    expect(spread.map((b) => b.y)).toEqual([0, 0.4, 0.8]);
   });
 
-  it("echange deux calques voisins", () => {
-    const blocs = [
-      { ...bloc("a", 0), z: 0 },
-      { ...bloc("b", 0.2), z: 1 },
+  it("swaps two neighbouring layers", () => {
+    const blocks = [
+      { ...block("a", 0), z: 0 },
+      { ...block("b", 0.2), z: 1 },
     ];
-    const monte = deplacerCalque(blocs, "a", 1);
-    expect(monte.find((b) => b.id === "a")?.z).toBe(1);
-    expect(monte.find((b) => b.id === "b")?.z).toBe(0);
+    const raised = moveLayer(blocks, "a", 1);
+    expect(raised.find((b) => b.id === "a")?.z).toBe(1);
+    expect(raised.find((b) => b.id === "b")?.z).toBe(0);
   });
 
-  it("duplique en decalant, avec un nouvel identifiant", () => {
-    const copie = dupliquer(bloc("a", 0.2));
-    expect(copie.id).not.toBe("a");
-    expect(copie.y).toBeCloseTo(0.22);
+  it("duplicates with an offset and a new identifier", () => {
+    const copy = duplicateBlock(block("a", 0.2));
+    expect(copy.id).not.toBe("a");
+    expect(copy.y).toBeCloseTo(0.22);
   });
 
-  it("cree un texte deja rattache a la charte", () => {
-    const b = nouveauBloc("text", 0);
+  it("creates a text block already bound to the brand", () => {
+    const b = newBlock("text", 0);
     expect(b.type).toBe("text");
     expect((b.props as { colorToken?: string }).colorToken).toBe("text");
   });
 });
 
-describe("charte", () => {
+describe("brand", () => {
   const token = (key: string, hex: string): BrandToken => ({
     kind: "color",
     key,
@@ -59,7 +59,7 @@ describe("charte", () => {
     position: 0,
   });
 
-  it("le groupe ne surcharge que ce qu'il redefinit", () => {
+  it("the group only overrides what it redefines", () => {
     const brand = toBrand([token("accent", "#ff0000")], [
       token("accent", "#000000"),
       token("background", "#ffffff"),

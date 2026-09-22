@@ -1,4 +1,4 @@
-//! Tableau de bord : **ce qui bloque** (§14).
+//! Dashboard: **what is blocking** (§14).
 
 use crate::error::AppResult;
 use crate::extract::Auth;
@@ -20,7 +20,7 @@ struct PendingPoll {
     opportunity_id: Uuid,
     title: String,
     dates: i64,
-    /// `true` si *moi* je n'ai pas encore repondu — c'est l'action attendue.
+    /// `true` if *I* have not answered yet — that is the expected action.
     mine_missing: bool,
 }
 
@@ -101,7 +101,7 @@ async fn dashboard(
     .fetch_all(&state.db)
     .await?;
 
-    // Les 30 prochains jours.
+    // The next 30 days.
     let upcoming: Vec<(Uuid, String, DateTime<Utc>, String, Option<String>)> = sqlx::query_as(
         "SELECT e.id, e.title, e.starts_at, t.key, v.name
          FROM events e
@@ -115,7 +115,7 @@ async fn dashboard(
     .fetch_all(&state.db)
     .await?;
 
-    // Fiches techniques manquantes : signalees, jamais bloquantes (§12).
+    // Missing tech riders: reported, never blocking (§12).
     let missing_riders: Vec<(Uuid, String, String)> = sqlx::query_as(
         "SELECT e.id, e.title, g.name
          FROM event_tech_riders etr

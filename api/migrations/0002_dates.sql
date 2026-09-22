@@ -1,4 +1,4 @@
--- Etape 2 du §17 : la decision de date. Lieux, opportunites, sondage, matrice.
+-- Step 2 of §17: settling on a date. Venues, opportunities, poll, matrix.
 
 CREATE TABLE venues (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,7 +37,7 @@ CREATE TABLE opportunities (
 );
 CREATE INDEX opportunities_collective_idx ON opportunities(collective_id);
 
--- Porteurs pressentis. Aucune ligne = le collectif porte l'opportunite.
+-- Prospective hosts. No row = the collective hosts the opportunity.
 CREATE TABLE opportunity_hosts (
     opportunity_id UUID NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
     group_id       UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -63,8 +63,8 @@ CREATE TABLE availability_polls (
     closed_at      TIMESTAMPTZ
 );
 
--- Une disponibilite n'est ecrite que par son auteur (§5.2), admins compris.
--- La regle est portee par la couche d'acces, ce tableau n'en garde que la trace.
+-- An availability is only written by its author (§5.2), admins included.
+-- The rule lives in the access layer; this table only records the outcome.
 CREATE TABLE availabilities (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     poll_id           UUID NOT NULL REFERENCES availability_polls(id) ON DELETE CASCADE,

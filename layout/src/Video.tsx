@@ -5,11 +5,11 @@ import { LayoutRenderer } from "./Renderer";
 import { mediaUrl } from "./resolve";
 
 /**
- * Composition Remotion d'une **video** : une suite de plans, chacun avec sa
- * duree et sa transition d'entree, plus une piste audio unique (§10.2).
+ * Remotion composition for a **video**: a sequence of scenes, each with its own
+ * duration and entry transition, plus a single audio track (§10.2).
  *
- * Les blocs sont exactement ceux des visuels fixes : une seule implementation
- * de la mise en page, et donc « ce que voit l'admin est ce qui sort ».
+ * The blocks are exactly those of still visuals: one layout implementation, and
+ * therefore "what the admin sees is what comes out".
  */
 
 export function totalDuration(spec: VideoSpec): number {
@@ -33,8 +33,8 @@ const SceneLayer: React.FC<{
     blocks: scene.blocks,
   };
 
-  // La transition d'entree appartient au plan entrant : un fondu entre deux
-  // plans n'est pas un troisieme objet a gerer.
+  // The entry transition belongs to the incoming scene: a crossfade between
+  // two scenes is not a third object to manage.
   const transition = scene.transition ?? { type: "cut" as const };
   const fadeFrames = transition.type === "fade" ? (transition.durationInFrames ?? 12) : 0;
   const slideFrames = transition.type === "slide" ? (transition.durationInFrames ?? 12) : 0;

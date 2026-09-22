@@ -4,35 +4,35 @@ import type { Block, Brand, FieldData, Layout, MediaMap } from "@backline/layout
 import { Still, safeArea } from "@backline/layout";
 
 /**
- * Le canevas de l'editeur (§9.1) : **une souris, pas de code**.
+ * The editor canvas (§9.1): **a mouse, not code**.
  *
- * Le rendu affiche est exactement celui du moteur — le meme composant que le
- * service de visuels fixes et la CLI video. L'editeur ne dessine que ses
- * poignees par-dessus : ce que voit l'admin est ce qui sort.
+ * What it shows is exactly what the engine renders — the same component as the
+ * still visuals service and the video CLI. The editor only draws its handles on
+ * top: what the admin sees is what comes out.
  */
 
-const PAS_GRILLE = 1 / 24;
+const GRID_STEP = 1 / 24;
 const TOLERANCE = 0.008;
 const MIN = 0.02;
 
-type Poignee = "nw" | "ne" | "sw" | "se";
-type Mode = "move" | Poignee | "rotate";
+type Handle = "nw" | "ne" | "sw" | "se";
+type Mode = "move" | Handle | "rotate";
 
-interface Geste {
+interface Gesture {
   mode: Mode;
   id: string;
-  depart: Block;
+  start: Block;
   x0: number;
   y0: number;
-  gauche: number;
-  haut: number;
-  largeur: number;
-  hauteur: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 interface Guide {
-  axe: "x" | "y";
-  valeur: number;
+  axis: "x" | "y";
+  value: number;
 }
 
 export interface CanvasProps {
@@ -43,9 +43,9 @@ export interface CanvasProps {
   selection: string | null;
   onSelect: (id: string | null) => void;
   onBlocks: (blocks: Block[]) => void;
-  magnetisme: boolean;
-  zonesSures: boolean;
-  lectureSeule?: boolean;
+  snap: boolean;
+  safeAreas: boolean;
+  readOnly?: boolean;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -56,129 +56,129 @@ export const Canvas: React.FC<CanvasProps> = ({
   selection,
   onSelect,
   onBlocks,
-  magnetisme,
-  zonesSures,
-  lectureSeule = false,
+  snap,
+  safeAreas,
+  readOnly = false,
 }) => {
-  const cadre = useRef<HTMLDivElement>(null);
-  const geste = useRef<Geste | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const gesture = useRef<Gesture | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
 
-  const blocs = [...layout.blocks].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
+  const blocks = [...layout.blocks].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
 
-  const remplacer = useCallback(
+  const replace = useCallback(
     (id: string, patch: Partial<Block>) =>
       onBlocks(layout.blocks.map((b) => (b.id === id ? { ...b, ...patch } : b))),
     [layout.blocks, onBlocks],
   );
 
-  // --- Magnetisme et guides ------------------------------------------------
+  // --- Snapping and guides -------------------------------------------------
 
-  const accrocher = useCallback(
-    (bloc: Block, id: string): { bloc: Block; guides: Guide[] } => {
-      if (!magnetisme) return { bloc, guides: [] };
+  const snapTo = useCallback(
+    (block: Block, id: string): { block: Block; guides: Guide[] } => {
+      if (!snap) return { block, guides: [] };
 
-      const autres = layout.blocks.filter((b) => b.id !== id);
-      const cibles = (axe: "x" | "y") => {
-        const valeurs = [0, 0.5, 1];
-        for (const b of autres) {
-          const debut = axe === "x" ? b.x : b.y;
-          const taille = axe === "x" ? b.w : b.h;
-          valeurs.push(debut, debut + taille / 2, debut + taille);
+      const others = layout.blocks.filter((b) => b.id !== id);
+      const targets = (axis: "x" | "y") => {
+        const values = [0, 0.5, 1];
+        for (const b of others) {
+          const start = axis === "x" ? b.x : b.y;
+          const size = axis === "x" ? b.w : b.h;
+          values.push(start, start + size / 2, start + size);
         }
-        return valeurs;
+        return values;
       };
 
-      const trouves: Guide[] = [];
-      const ajuste = { ...bloc };
+      const found: Guide[] = [];
+      const adjusted = { ...block };
 
-      for (const axe of ["x", "y"] as const) {
-        const debut = axe === "x" ? ajuste.x : ajuste.y;
-        const taille = axe === "x" ? ajuste.w : ajuste.h;
-        const points = [debut, debut + taille / 2, debut + taille];
-        let meilleur: { delta: number; valeur: number } | null = null;
+      for (const axis of ["x", "y"] as const) {
+        const start = axis === "x" ? adjusted.x : adjusted.y;
+        const size = axis === "x" ? adjusted.w : adjusted.h;
+        const points = [start, start + size / 2, start + size];
+        let best: { delta: number; value: number } | null = null;
         for (const position of points) {
-          for (const cible of cibles(axe)) {
-            const delta = cible - position;
+          for (const target of targets(axis)) {
+            const delta = target - position;
             if (
               Math.abs(delta) <= TOLERANCE &&
-              (!meilleur || Math.abs(delta) < Math.abs(meilleur.delta))
+              (!best || Math.abs(delta) < Math.abs(best.delta))
             ) {
-              meilleur = { delta, valeur: cible };
+              best = { delta, value: target };
             }
           }
         }
-        if (meilleur) {
-          if (axe === "x") ajuste.x += meilleur.delta;
-          else ajuste.y += meilleur.delta;
-          trouves.push({ axe, valeur: meilleur.valeur });
+        if (best) {
+          if (axis === "x") adjusted.x += best.delta;
+          else adjusted.y += best.delta;
+          found.push({ axis, value: best.value });
         } else {
-          // A defaut d'un autre bloc, la grille.
-          const arrondi = Math.round(debut / PAS_GRILLE) * PAS_GRILLE;
-          if (Math.abs(arrondi - debut) <= TOLERANCE) {
-            if (axe === "x") ajuste.x = arrondi;
-            else ajuste.y = arrondi;
+          // Failing another block, the grid.
+          const rounded = Math.round(start / GRID_STEP) * GRID_STEP;
+          if (Math.abs(rounded - start) <= TOLERANCE) {
+            if (axis === "x") adjusted.x = rounded;
+            else adjusted.y = rounded;
           }
         }
       }
 
-      return { bloc: ajuste, guides: trouves };
+      return { block: adjusted, guides: found };
     },
-    [layout.blocks, magnetisme],
+    [layout.blocks, snap],
   );
 
-  // --- Gestes ---------------------------------------------------------------
+  // --- Gestures -------------------------------------------------------------
 
-  const demarrer = (e: React.PointerEvent, bloc: Block, mode: Mode) => {
-    if (lectureSeule || bloc.locked) return;
+  const startGesture = (e: React.PointerEvent, block: Block, mode: Mode) => {
+    if (readOnly || block.locked) return;
     e.stopPropagation();
     e.preventDefault();
-    const rect = cadre.current?.getBoundingClientRect();
+    const rect = frame.current?.getBoundingClientRect();
     if (!rect) return;
-    geste.current = {
+    gesture.current = {
       mode,
-      id: bloc.id,
-      depart: bloc,
+      id: block.id,
+      start: block,
       x0: e.clientX,
       y0: e.clientY,
-      gauche: rect.left,
-      haut: rect.top,
-      largeur: rect.width,
-      hauteur: rect.height,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
     };
-    onSelect(bloc.id);
+    onSelect(block.id);
     (e.target as Element).setPointerCapture?.(e.pointerId);
   };
 
   useEffect(() => {
-    const bouger = (e: PointerEvent) => {
-      const g = geste.current;
+    const onMove = (e: PointerEvent) => {
+      const g = gesture.current;
       if (!g) return;
-      const dx = (e.clientX - g.x0) / g.largeur;
-      const dy = (e.clientY - g.y0) / g.hauteur;
-      const d = g.depart;
+      const dx = (e.clientX - g.x0) / g.width;
+      const dy = (e.clientY - g.y0) / g.height;
+      const d = g.start;
 
       if (g.mode === "rotate") {
-        // Angle entre le centre du bloc et le pointeur. La poignee est au-dessus
-        // du centre : 0 degre doit donc correspondre a « vers le haut ».
-        const centreX = g.gauche + (d.x + d.w / 2) * g.largeur;
-        const centreY = g.haut + (d.y + d.h / 2) * g.hauteur;
-        const angle = (Math.atan2(e.clientY - centreY, e.clientX - centreX) * 180) / Math.PI + 90;
-        const arrondi = e.shiftKey ? Math.round(angle / 15) * 15 : Math.round(angle);
-        remplacer(g.id, { rotation: arrondi });
+        // Angle between the block's centre and the pointer. The handle sits
+        // above the centre, so 0 degrees must mean "upwards".
+        const centerX = g.left + (d.x + d.w / 2) * g.width;
+        const centerY = g.top + (d.y + d.h / 2) * g.height;
+        const angle = (Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180) / Math.PI + 90;
+        const rounded = e.shiftKey ? Math.round(angle / 15) * 15 : Math.round(angle);
+        replace(g.id, { rotation: rounded });
         return;
       }
 
-      let suivant: Block;
+      let next: Block;
       switch (g.mode) {
         case "move":
-          suivant = { ...d, x: d.x + dx, y: d.y + dy };
+          next = { ...d, x: d.x + dx, y: d.y + dy };
           break;
         case "se":
-          suivant = { ...d, w: Math.max(MIN, d.w + dx), h: Math.max(MIN, d.h + dy) };
+          next = { ...d, w: Math.max(MIN, d.w + dx), h: Math.max(MIN, d.h + dy) };
           break;
         case "sw":
-          suivant = {
+          next = {
             ...d,
             x: Math.min(d.x + d.w - MIN, d.x + dx),
             w: Math.max(MIN, d.w - dx),
@@ -186,7 +186,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           };
           break;
         case "ne":
-          suivant = {
+          next = {
             ...d,
             y: Math.min(d.y + d.h - MIN, d.y + dy),
             w: Math.max(MIN, d.w + dx),
@@ -194,7 +194,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           };
           break;
         case "nw":
-          suivant = {
+          next = {
             ...d,
             x: Math.min(d.x + d.w - MIN, d.x + dx),
             y: Math.min(d.y + d.h - MIN, d.y + dy),
@@ -206,48 +206,48 @@ export const Canvas: React.FC<CanvasProps> = ({
           return;
       }
 
-      const { bloc, guides: trouves } = accrocher(suivant, g.id);
-      setGuides(trouves);
-      remplacer(g.id, bloc);
+      const { block, guides: found } = snapTo(next, g.id);
+      setGuides(found);
+      replace(g.id, block);
     };
 
-    const finir = () => {
-      geste.current = null;
+    const onUp = () => {
+      gesture.current = null;
       setGuides([]);
     };
 
-    window.addEventListener("pointermove", bouger);
-    window.addEventListener("pointerup", finir);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
     return () => {
-      window.removeEventListener("pointermove", bouger);
-      window.removeEventListener("pointerup", finir);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
     };
-  }, [accrocher, remplacer]);
+  }, [snapTo, replace]);
 
-  // --- Clavier : deplacement fin et suppression -----------------------------
+  // --- Keyboard: fine movement and deletion ---------------------------------
 
   useEffect(() => {
-    const touche = (e: KeyboardEvent) => {
-      if (lectureSeule || !selection) return;
-      const actif = document.activeElement?.tagName;
-      if (actif === "INPUT" || actif === "TEXTAREA" || actif === "SELECT") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (readOnly || !selection) return;
+      const focused = document.activeElement?.tagName;
+      if (focused === "INPUT" || focused === "TEXTAREA" || focused === "SELECT") return;
 
-      const bloc = layout.blocks.find((b) => b.id === selection);
-      if (!bloc || bloc.locked) return;
-      const pas = e.shiftKey ? 0.05 : 0.005;
+      const block = layout.blocks.find((b) => b.id === selection);
+      if (!block || block.locked) return;
+      const step = e.shiftKey ? 0.05 : 0.005;
 
       switch (e.key) {
         case "ArrowLeft":
-          remplacer(bloc.id, { x: bloc.x - pas });
+          replace(block.id, { x: block.x - step });
           break;
         case "ArrowRight":
-          remplacer(bloc.id, { x: bloc.x + pas });
+          replace(block.id, { x: block.x + step });
           break;
         case "ArrowUp":
-          remplacer(bloc.id, { y: bloc.y - pas });
+          replace(block.id, { y: block.y - step });
           break;
         case "ArrowDown":
-          remplacer(bloc.id, { y: bloc.y + pas });
+          replace(block.id, { y: block.y + step });
           break;
         case "Backspace":
         case "Delete":
@@ -263,15 +263,15 @@ export const Canvas: React.FC<CanvasProps> = ({
       e.preventDefault();
     };
 
-    window.addEventListener("keydown", touche);
-    return () => window.removeEventListener("keydown", touche);
-  }, [layout.blocks, lectureSeule, onBlocks, onSelect, remplacer, selection]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [layout.blocks, readOnly, onBlocks, onSelect, replace, selection]);
 
-  const zone = safeArea(brand, layout.width, layout.height);
+  const safe = safeArea(brand, layout.width, layout.height);
 
   return (
     <div
-      ref={cadre}
+      ref={frame}
       className="relative w-full select-none overflow-hidden rounded-lg border border-line bg-[repeating-conic-gradient(#e9e6e1_0%_25%,#f7f5f2_0%_50%)] bg-[length:16px_16px]"
       style={{ aspectRatio: `${layout.width} / ${layout.height}` }}
       onPointerDown={() => onSelect(null)}
@@ -290,15 +290,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         spaceKeyToPlayOrPause={false}
       />
 
-      {zonesSures && (
+      {safeAreas && (
         <div className="pointer-events-none absolute inset-0">
           <div
             className="absolute border-2 border-dashed border-sky-500/40"
             style={{
-              left: `${zone.x * 100}%`,
-              right: `${zone.x * 100}%`,
-              top: `${zone.top * 100}%`,
-              bottom: `${zone.bottom * 100}%`,
+              left: `${safe.x * 100}%`,
+              right: `${safe.x * 100}%`,
+              top: `${safe.top * 100}%`,
+              bottom: `${safe.bottom * 100}%`,
             }}
           />
         </div>
@@ -309,36 +309,36 @@ export const Canvas: React.FC<CanvasProps> = ({
           key={i}
           className="pointer-events-none absolute bg-fuchsia-500"
           style={
-            g.axe === "x"
-              ? { left: `${g.valeur * 100}%`, top: 0, bottom: 0, width: 1 }
-              : { top: `${g.valeur * 100}%`, left: 0, right: 0, height: 1 }
+            g.axis === "x"
+              ? { left: `${g.value * 100}%`, top: 0, bottom: 0, width: 1 }
+              : { top: `${g.value * 100}%`, left: 0, right: 0, height: 1 }
           }
         />
       ))}
 
-      {blocs.map((bloc) => {
-        const actif = bloc.id === selection;
+      {blocks.map((block) => {
+        const active = block.id === selection;
         return (
           <div
-            key={bloc.id}
-            onPointerDown={(e) => demarrer(e, bloc, "move")}
-            className={`absolute ${bloc.locked ? "cursor-not-allowed" : "cursor-move"} ${
-              actif ? "outline outline-2 outline-ink" : "hover:outline hover:outline-1 hover:outline-ink/40"
+            key={block.id}
+            onPointerDown={(e) => startGesture(e, block, "move")}
+            className={`absolute ${block.locked ? "cursor-not-allowed" : "cursor-move"} ${
+              active ? "outline outline-2 outline-ink" : "hover:outline hover:outline-1 hover:outline-ink/40"
             }`}
             style={{
-              left: `${bloc.x * 100}%`,
-              top: `${bloc.y * 100}%`,
-              width: `${bloc.w * 100}%`,
-              height: `${bloc.h * 100}%`,
-              transform: `rotate(${bloc.rotation ?? 0}deg)`,
+              left: `${block.x * 100}%`,
+              top: `${block.y * 100}%`,
+              width: `${block.w * 100}%`,
+              height: `${block.h * 100}%`,
+              transform: `rotate(${block.rotation ?? 0}deg)`,
             }}
           >
-            {actif && !lectureSeule && !bloc.locked && (
+            {active && !readOnly && !block.locked && (
               <>
-                {(["nw", "ne", "sw", "se"] as Poignee[]).map((p) => (
+                {(["nw", "ne", "sw", "se"] as Handle[]).map((p) => (
                   <span
                     key={p}
-                    onPointerDown={(e) => demarrer(e, bloc, p)}
+                    onPointerDown={(e) => startGesture(e, block, p)}
                     className="absolute h-3 w-3 rounded-sm border border-ink bg-paper"
                     style={{
                       left: p.endsWith("w") ? -6 : undefined,
@@ -350,7 +350,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   />
                 ))}
                 <span
-                  onPointerDown={(e) => demarrer(e, bloc, "rotate")}
+                  onPointerDown={(e) => startGesture(e, block, "rotate")}
                   className="absolute left-1/2 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border border-ink bg-paper"
                   style={{ top: -22 }}
                   title="Rotation"

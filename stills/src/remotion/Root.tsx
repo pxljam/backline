@@ -4,16 +4,16 @@ import { Still } from "@backline/layout";
 import type { Brand, FieldData, Layout, MediaMap } from "@backline/layout";
 
 /**
- * Le service `stills` ne rend **que des visuels fixes** — aucun encodage video
- * ne tourne sur le VPS (§15).
+ * The `stills` service renders **still visuals only** — no video encoding runs
+ * on the VPS (§15).
  *
- * Il n'y a pas de composant de mise en page ici : on monte ceux de `layout/`,
- * exactement ceux qu'affiche l'editeur et qu'utilisera la CLI video.
+ * There is no layout component here: we mount the ones from `layout/`, exactly
+ * those the editor displays and the video CLI will use.
  */
 
 /**
- * `Record<string, unknown>` : Remotion exige des props serialisables, la
- * description JSON en est une par construction.
+ * `Record<string, unknown>`: Remotion requires serialisable props, and the
+ * JSON description is one by construction.
  */
 export interface StillProps extends Record<string, unknown> {
   layout: Layout;
@@ -42,8 +42,8 @@ export const RemotionRoot: React.FC = () => (
       data: {} as FieldData,
       media: {} as MediaMap,
     }}
-    // Le format **impose** ses dimensions : le cadre ne peut pas quitter le
-    // ratio du format choisi (§9.2).
+    // The format **dictates** its dimensions: the frame cannot leave the
+    // ratio of the chosen format (§9.2).
     calculateMetadata={({ props }: { props: StillProps }) => ({
       width: props.layout?.width ?? PLACEHOLDER.width,
       height: props.layout?.height ?? PLACEHOLDER.height,

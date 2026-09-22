@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from "react";
 
 /**
- * Telegram Login Widget. Le script depose un bouton officiel ; Telegram signe
- * les donnees, et **la signature est verifiee cote Rust** (§15) — le widget
- * n'est qu'une porte, pas une preuve.
+ * Telegram Login Widget. The script drops in an official button; Telegram
+ * signs the data, and **the signature is verified on the Rust side** (§15) —
+ * the widget is a door, not a proof.
  */
 export const TelegramLogin: React.FC<{
   botUsername: string;
@@ -17,8 +17,8 @@ export const TelegramLogin: React.FC<{
     const node = host.current;
     if (!node) return;
 
-    // Le widget appelle une fonction globale : on en pose une, propre a ce
-    // montage, et on la retire en partant.
+    // The widget calls a global function: install one scoped to this mount,
+    // and remove it on the way out.
     const callbackName = `onTelegramAuth_${Math.random().toString(36).slice(2)}`;
     (window as unknown as Record<string, unknown>)[callbackName] = (
       user: Record<string, unknown>,

@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-/// Service du bot Telegram (§13). Separe de l'API : une panne de Telegram ne
-/// doit ni ralentir ni faire tomber les requetes web.
+/// Telegram bot service (§13). Separate from the API: a Telegram outage must
+/// neither slow down nor bring down web requests.
 #[tokio::main]
 async fn main() -> Result<()> {
     backline::init_tracing();
