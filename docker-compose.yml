@@ -59,7 +59,7 @@ services:
       mc alias set local http://storage:9000 ${MINIO_ROOT_USER:-backline} ${MINIO_ROOT_PASSWORD:-backline-dev-secret} &&
       mc mb --ignore-existing local/${S3_BUCKET:-backline} &&
       mc anonymous set download local/${S3_BUCKET:-backline} &&
-      echo 'bucket pret'"
+      echo 'bucket ready'"
     restart: "no"
 
   api:
