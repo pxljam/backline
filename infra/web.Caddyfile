@@ -1,0 +1,8 @@
+# Sert le bundle statique du front. Toute route inconnue retombe sur
+# index.html : le routage est cote navigateur.
+:80 {
+	root * /srv
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}

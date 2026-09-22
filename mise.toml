@@ -1,0 +1,70 @@
+[tools]
+rust = "1.90.0"
+node = "22"
+pnpm = "9"
+typst = "0.15.1"
+
+[env]
+_.file = ".env"
+DATABASE_URL = "postgres://backline:backline@localhost:5433/backline"
+RUST_LOG = "info,backline=debug,sqlx=warn"
+
+[tasks.dev]
+description = "Tout l'environnement local"
+run = "docker compose -f docker-compose.yml -f compose.local.yml up --build"
+
+[tasks.down]
+run = "docker compose -f docker-compose.yml -f compose.local.yml down -v"
+
+[tasks."db:up"]
+description = "Postgres + MinIO seuls (pour dev natif et tests)"
+run = "docker compose -f docker-compose.yml -f compose.local.yml up -d db storage"
+
+[tasks.migrate]
+depends = ["db:up"]
+run = "cd api && cargo run --bin migrate"
+
+[tasks.seed]
+depends = ["migrate"]
+run = "cd api && cargo run --bin seed"
+
+[tasks.test]
+description = "Tests d'integration (testcontainers) + front"
+run = [
+  "cd api && cargo test --workspace -- --test-threads=4",
+  "cd web && pnpm test run",
+]
+
+[tasks.check]
+description = "Typage + lint + tests — a passer avant tout push"
+run = [
+  "cd api && cargo fmt --check",
+  "cd api && cargo clippy --workspace --all-targets -- -D warnings",
+  "cd api && cargo test --workspace -- --test-threads=4",
+  "cd web && pnpm run check",
+  "cd layout && pnpm run check",
+  "cd stills && pnpm run check",
+  "cd cli && pnpm run check",
+]
+
+[tasks."db:dump"]
+description = "Sauvegarde de la base — archive horodatee dans infra/backups/"
+run = """
+mkdir -p infra/backups
+docker compose exec -T db pg_dump -U "${POSTGRES_USER:-backline}" "${POSTGRES_DB:-backline}" \
+  | gzip > "infra/backups/backline-$(date +%Y%m%d-%H%M%S).sql.gz"
+"""
+
+[tasks."db:restore"]
+description = "Restauration — mise run db:restore -- infra/backups/<archive>.sql.gz"
+run = """
+test -f "$1" || { echo "archive introuvable : $1" >&2; exit 1; }
+gunzip -c "$1" | docker compose exec -T db psql -U "${POSTGRES_USER:-backline}" -d "${POSTGRES_DB:-backline}"
+"""
+
+[tasks."storage:sync"]
+description = "Miroir du bucket de medias vers infra/backups/storage/"
+run = """
+mkdir -p infra/backups/storage
+docker compose run --rm -v "$PWD/infra/backups/storage:/mirror" --entrypoint /bin/sh storage-init   -c "mc alias set local http://storage:9000 ${MINIO_ROOT_USER:-backline} ${MINIO_ROOT_PASSWORD:-backline-dev-secret} && mc mirror --overwrite local/${S3_BUCKET:-backline} /mirror"
+"""

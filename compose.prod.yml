@@ -1,0 +1,13 @@
+# Surcharge production : TLS automatique, pas de port applicatif expose.
+services:
+  proxy:
+    ports: ["80:80", "443:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-backline.betafactory.co}
+  api:
+    environment:
+      RUN_SEED: "0"
+      TELEGRAM_MODE: webhook
+  bot:
+    environment:
+      TELEGRAM_MODE: webhook

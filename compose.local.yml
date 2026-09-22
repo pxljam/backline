@@ -1,0 +1,14 @@
+# Surcharge locale : ports exposes, pas de TLS.
+services:
+  db:
+    ports: ["5433:5432"]
+  storage:
+    ports: ["9100:9000", "9101:9001"]
+  api:
+    ports: ["8080:8080"]
+  stills:
+    ports: ["3100:3000"]
+  proxy:
+    ports: ["8088:8088"]
+    environment:
+      SITE_ADDRESS: ":8088"
