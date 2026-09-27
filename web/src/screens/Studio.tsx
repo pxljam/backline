@@ -259,6 +259,7 @@ const Videos: React.FC = () => {
 /** Upload only — no AI génération (§9.5). */
 const MediaLibrary: React.FC = () => {
   const base = useCollectiveBase();
+  const { isAdmin } = useSession();
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
   const { data: groups } = useResource<Group[]>(`${base}/groups`);
   const { run, busy, error } = useAction();
@@ -345,6 +346,25 @@ const MediaLibrary: React.FC = () => {
                   {fileSize(a.bytes)}
                   {a.tags.length > 0 && ` · ${a.tags.join(", ")}`}
                 </p>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="mt-2 w-full"
+                    disabled={busy}
+                    onClick={() => {
+                      // Uploaded media never come back on their own (§15): the
+                      // file is gone for good, so it is worth one question.
+                      if (!confirm(`Supprimer « ${a.filename} » définitivement ?`)) return;
+                      void run(async () => {
+                        await api.del(`${base}/studio/assets/${a.id}`);
+                        await assets.reload();
+                      });
+                    }}
+                  >
+                    supprimer
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

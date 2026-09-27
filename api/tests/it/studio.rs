@@ -409,3 +409,58 @@ async fn a_non_publishable_set_time_never_shows_up_in_the_visuals() {
         "aucun visuel ne sort avec un horaire provisoire : {line_up:?}"
     );
 }
+
+/// Uploaded media never come back (§15), so removing one is deliberate — and
+/// refused while a template, a video or the brand still points at it: the
+/// reference would only fail much later, at render time, with nothing to
+/// explain it.
+#[tokio::test]
+async fn a_media_is_removed_unless_something_still_uses_it() {
+    let app = TestApp::seeded().await;
+    let cid = app.collective_id("bonsoir-techno").await;
+    let antoine = app.login_as(app.user_id("Antoine").await).await;
+
+    let (asset_id,): (uuid::Uuid,) = sqlx::query_as(
+        "INSERT INTO assets (collective_id, kind, filename, mime, bytes, storage_key)
+         VALUES ($1, 'image', 'affiche.png', 'image/png', 2048, 'k/affiche.png') RETURNING id",
+    )
+    .bind(cid)
+    .fetch_one(&app.db)
+    .await
+    .unwrap();
+
+    // A variant of the seeded template starts pointing at it.
+    let (variant,): (uuid::Uuid,) = sqlx::query_as("SELECT id FROM template_variants LIMIT 1")
+        .fetch_one(&app.db)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE template_variants SET layout = $2 WHERE id = $1")
+        .bind(variant)
+        .bind(serde_json::json!({ "blocks": [{ "assetId": asset_id.to_string() }] }))
+        .execute(&app.db)
+        .await
+        .unwrap();
+
+    let res = antoine
+        .delete(&format!("/api/collectives/{cid}/studio/assets/{asset_id}"))
+        .await;
+    res.expect_status(409);
+
+    // Once nothing points at it, it goes.
+    sqlx::query("UPDATE template_variants SET layout = '{\"blocks\":[]}'::jsonb WHERE id = $1")
+        .bind(variant)
+        .execute(&app.db)
+        .await
+        .unwrap();
+    antoine
+        .delete(&format!("/api/collectives/{cid}/studio/assets/{asset_id}"))
+        .await
+        .expect_ok();
+
+    let (left,): (i64,) = sqlx::query_as("SELECT count(*) FROM assets WHERE id = $1")
+        .bind(asset_id)
+        .fetch_one(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(left, 0);
+}

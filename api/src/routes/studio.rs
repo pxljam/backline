@@ -45,6 +45,7 @@ pub fn router() -> Router<AppState> {
                 .layer(DefaultBodyLimit::max(ASSET_MAX_BYTES)),
         )
         .route("/assets/:asset_id/url", get(asset_url))
+        .route("/assets/:asset_id", axum::routing::delete(delete_asset))
         .route("/preview-fields/:event_id", get(preview_fields))
 }
 
@@ -871,6 +872,91 @@ fn kind_of(mime: &str) -> &'static str {
         _ if mime.contains("font") => "font",
         _ => "image",
     }
+}
+
+/// Removes a media, from the database and from storage.
+///
+/// Refused while something still points at it: a template, a video or a brand
+/// logo referencing a missing file would fail at render time, far from here and
+/// with nothing to explain it. The person is told what holds it instead.
+///
+/// Uploaded media are never purged automatically (§15) — only this, on purpose.
+async fn delete_asset(
+    State(state): State<AppState>,
+    Auth(actor): Auth,
+    Path((cid, asset_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let scope = state.scope(actor, cid).await?;
+    scope.require_admin()?;
+
+    let row: Option<(String, String)> = sqlx::query_as(
+        "SELECT filename, storage_key FROM assets WHERE id = $1 AND collective_id = $2",
+    )
+    .bind(asset_id)
+    .bind(cid)
+    .fetch_optional(&state.db)
+    .await?;
+    let (filename, storage_key) = row.ok_or_else(|| AppError::not_found("média introuvable"))?;
+
+    // The id is carried inside layout and spec JSON, so the text of the
+    // document is what has to be searched.
+    let needle = format!("%{asset_id}%");
+    let (in_templates,): (i64,) = sqlx::query_as(
+        "SELECT count(DISTINCT t.id) FROM template_variants v
+         JOIN templates t ON t.id = v.template_id
+         WHERE t.collective_id = $1 AND v.layout::text LIKE $2",
+    )
+    .bind(cid)
+    .bind(&needle)
+    .fetch_one(&state.db)
+    .await?;
+    let (in_videos,): (i64,) = sqlx::query_as(
+        "SELECT count(*) FROM video_compositions
+         WHERE collective_id = $1 AND spec::text LIKE $2",
+    )
+    .bind(cid)
+    .bind(&needle)
+    .fetch_one(&state.db)
+    .await?;
+    let (in_brand,): (i64,) = sqlx::query_as(
+        "SELECT count(*) FROM brand_tokens bt JOIN brands b ON b.id = bt.brand_id
+         WHERE b.collective_id = $1 AND bt.value::text LIKE $2",
+    )
+    .bind(cid)
+    .bind(&needle)
+    .fetch_one(&state.db)
+    .await?;
+
+    if in_templates + in_videos + in_brand > 0 {
+        let mut used = Vec::new();
+        if in_templates > 0 {
+            used.push(format!("{in_templates} gabarit(s)"));
+        }
+        if in_videos > 0 {
+            used.push(format!("{in_videos} composition(s) vidéo"));
+        }
+        if in_brand > 0 {
+            used.push("la charte graphique".to_string());
+        }
+        return Err(AppError::conflict(format!(
+            "« {filename} » est utilisé par {} — le retirer d'abord",
+            used.join(" et ")
+        )));
+    }
+
+    sqlx::query("DELETE FROM assets WHERE id = $1 AND collective_id = $2")
+        .bind(asset_id)
+        .bind(cid)
+        .execute(&state.db)
+        .await?;
+
+    // The row is what the application reads; a leftover object costs disk, not
+    // correctness, so a storage failure is logged rather than raised.
+    if let Err(e) = state.storage.delete(&storage_key).await {
+        tracing::warn!(error = %e, key = %storage_key, "media removed but its file stayed");
+    }
+
+    Ok(Json(json!({ "ok": true })))
 }
 
 /// A signed, time-limited URL: this is what the browser and the render CLI
