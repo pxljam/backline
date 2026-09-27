@@ -1,15 +1,22 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Dashboard as DashboardData } from "../lib/types";
 import { dateAndTime, daysUntil, relativeTime } from "../lib/format";
-import { Badge, Card, Empty, ErrorNote, Loading, PageTitle } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorNote, Loading, Note, PageTitle } from "../components/ui";
+import { FirstSteps } from "../components/FirstSteps";
+import { Tour } from "../components/Tour";
 
 /** "What is blocking" (§14) — not a list of information, a list of actions. */
 export const Dashboard: React.FC = () => {
   const base = useCollectiveBase();
-  const { me } = useSession();
+  const { me, isAdmin, collectiveId } = useSession();
+  // Set by the invitation screen, so a first sign-in lands on a greeting rather
+  // than on a wall of empty cards.
+  const [params, setParams] = useSearchParams();
+  const bienvenue = params.get("bienvenue") === "1";
+  const [tour, setTour] = React.useState(false);
   const { data, loading, error } = useResource<DashboardData>(`${base}/dashboard`);
 
   if (loading) return <Loading />;
@@ -26,8 +33,29 @@ export const Dashboard: React.FC = () => {
     <>
       <PageTitle
         title={`Bonsoir, ${me?.display_name ?? ""}`}
-        subtitle={nothingBlocking ? "Rien ne bloque." : "Ce qui demande une decision."}
+        subtitle={nothingBlocking ? "Rien ne bloque." : "Ce qui demande une décision."}
+        action={
+          <Button size="sm" icon="spark" onClick={() => setTour(true)}>
+            Visite guidée
+          </Button>
+        }
       />
+
+      <Tour open={tour} onClose={() => setTour(false)} />
+
+      {bienvenue && (
+        <Note icon="spark" className="mb-4">
+          <p className="font-medium">Bienvenue{me?.display_name ? `, ${me.display_name}` : ""}.</p>
+          <p className="text-ink-soft">
+            Ce tableau de bord ne liste pas tout : il liste ce qui bloque.{" "}
+            <button className="underline" onClick={() => setParams({}, { replace: true })}>
+              j'ai compris
+            </button>
+          </p>
+        </Note>
+      )}
+
+      {collectiveId && <FirstSteps data={data} isAdmin={isAdmin} collectiveId={collectiveId} />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Sondages en attente">
@@ -38,14 +66,14 @@ export const Dashboard: React.FC = () => {
               {data.pending_polls.map((p) => (
                 <li key={p.opportunity_id}>
                   <Link
-                    to={`/opportunites/${p.opportunity_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-ink"
+                    to={`/opportunités/${p.opportunity_id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
                   >
                     <span className="text-sm">{p.title}</span>
                     {p.mine_missing ? (
-                      <Badge tone="warn">a toi de repondre</Badge>
+                      <Badge tone="warn">a toi de répondre</Badge>
                     ) : (
-                      <Badge tone="good">tu as repondu</Badge>
+                      <Badge tone="good">tu as répondu</Badge>
                     )}
                   </Link>
                 </li>
@@ -54,7 +82,7 @@ export const Dashboard: React.FC = () => {
           )}
         </Card>
 
-        <Card title="Postes a pourvoir">
+        <Card title="Postes à pourvoir">
           {data.vacant_slots.length === 0 ? (
             <Empty>Tous les postes sont tenus.</Empty>
           ) : (
@@ -62,8 +90,8 @@ export const Dashboard: React.FC = () => {
               {data.vacant_slots.slice(0, 8).map((s, i) => (
                 <li key={`${s.event_id}-${s.label}-${i}`}>
                   <Link
-                    to={`/evenements/${s.event_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-ink"
+                    to={`/événements/${s.event_id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
                   >
                     <span className="text-sm">
                       <span className="font-medium">{s.label}</span>
@@ -81,19 +109,19 @@ export const Dashboard: React.FC = () => {
 
         <Card title="Com en retard">
           {data.late_tasks.length === 0 ? (
-            <Empty>La com est a jour.</Empty>
+            <Empty>La com est à jour.</Empty>
           ) : (
             <ul className="space-y-2">
               {data.late_tasks.slice(0, 8).map((t) => (
                 <li key={t.task_id}>
                   <Link
-                    to={`/evenements/${t.task_id && ""}`}
+                    to={`/événements/${t.task_id && ""}`}
                     className="pointer-events-none block rounded-lg border border-line px-3 py-2"
                   >
                     <span className="text-sm font-medium">{t.label}</span>
                     <span className="block text-xs text-ink-soft">
-                      {t.event_title} · prevu {relativeTime(t.scheduled_at)}
-                      {!t.assignee_id && " · personne d'assigne"}
+                      {t.event_title} · prévu {relativeTime(t.scheduled_at)}
+                      {!t.assignee_id && " · personne d'assigné"}
                     </span>
                   </Link>
                 </li>
@@ -104,14 +132,14 @@ export const Dashboard: React.FC = () => {
 
         <Card title="30 prochains jours">
           {data.upcoming.length === 0 ? (
-            <Empty>Rien de prevu.</Empty>
+            <Empty>Rien de prévu.</Empty>
           ) : (
             <ul className="space-y-2">
               {data.upcoming.map((e) => (
                 <li key={e.id}>
                   <Link
-                    to={`/evenements/${e.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-ink"
+                    to={`/événements/${e.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
                   >
                     <span className="text-sm">
                       <span className="font-medium">{e.title}</span>
@@ -138,7 +166,7 @@ export const Dashboard: React.FC = () => {
               ))}
             </ul>
             <p className="mt-3 text-xs text-ink-soft">
-              Rien n'est bloque : un concert se joue tres bien sans PDF.
+              Rien n'est bloque : un concert se joue très bien sans PDF.
             </p>
           </Card>
         )}
@@ -147,16 +175,16 @@ export const Dashboard: React.FC = () => {
           <p className="text-sm">
             {data.render_machines_online === 0 ? (
               <>
-                <Badge tone="bad">aucune machine connectee</Badge>
+                <Badge tone="bad">aucune machine connectée</Badge>
                 <span className="mt-2 block text-ink-soft">
-                  Aucune video ne peut sortir. Les taches de com restent livrables avec leur
+                  Aucune vidéo ne peut sortir. Les tâches de com restent livrables avec leur
                   visuel fixe.
                 </span>
               </>
             ) : (
               <Badge tone="good">
                 {data.render_machines_online} machine
-                {data.render_machines_online > 1 ? "s" : ""} connectee
+                {data.render_machines_online > 1 ? "s" : ""} connectée
                 {data.render_machines_online > 1 ? "s" : ""}
               </Badge>
             )}

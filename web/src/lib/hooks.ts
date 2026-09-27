@@ -29,7 +29,7 @@ export function useResource<T>(path: string | null, deps: unknown[] = []) {
       }
     } catch (e) {
       if (mine === version.current) {
-        setError(e instanceof ApiError ? e.message : "Erreur reseau");
+        setError(e instanceof ApiError ? e.message : "Erreur réseau");
       }
     } finally {
       if (mine === version.current) setLoading(false);
@@ -55,7 +55,7 @@ export function useAction() {
     try {
       return await fn();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Erreur reseau");
+      setError(e instanceof ApiError ? e.message : "Erreur réseau");
       return null;
     } finally {
       setBusy(false);

@@ -26,7 +26,8 @@ export const Invitation: React.FC = () => {
     const ok = await run(() => api.post(`/api/auth/invitation/${code}`, body));
     if (ok !== null) {
       await reload();
-      navigate("/");
+      // A greeting rather than a wall of empty cards (see Dashboard).
+      navigate("/?bienvenue=1");
     }
   };
 
@@ -37,7 +38,7 @@ export const Invitation: React.FC = () => {
       <div className="mx-auto max-w-sm px-6 py-20 text-center">
         <h1 className="text-lg font-semibold">Invitation introuvable</h1>
         <p className="mt-2 text-sm text-ink-soft">
-          {error ?? "Ce lien a deja servi, ou il a expire."} Demande un nouveau lien a un
+          {error ?? "Ce lien a déjà servi, ou il a expiré."} Demande un nouveau lien a un
           administrateur.
         </p>
       </div>
@@ -51,8 +52,8 @@ export const Invitation: React.FC = () => {
       <p className="mt-1 text-sm text-ink-soft">
         {data.collectives.length > 0
           ? `Tu rejoins ${data.collectives.join(", ")}.`
-          : "Ton compte est pret."}{" "}
-        Lie ton compte pour entrer — ce lien ne sert qu'une fois.
+          : "Ton compte est prêt."}{" "}
+        Lié ton compte pour entrer — ce lien ne sert qu'une fois.
       </p>
 
       {data.bot_username && (
@@ -77,7 +78,7 @@ export const Invitation: React.FC = () => {
         <Field label="E-mail (optionnel)">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <Field label="Mot de passe" hint="10 caracteres minimum">
+        <Field label="Mot de passe" hint="10 caractères minimum">
           <Input
             type="password"
             autoComplete="new-password"

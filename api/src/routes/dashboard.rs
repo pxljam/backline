@@ -141,7 +141,40 @@ async fn dashboard(
             .fetch_one(&state.db)
             .await?;
 
+    // What a brand new collective still has to set up (§17). Counted here
+    // rather than guessed in the browser: the card that reads this is never
+    // wrong, needs nothing stored, and heals itself if the last group is
+    // deleted. One query, on a payload the dashboard already fetches.
+    let (members, groups, venues, opportunities, templates, logo_tokens): (
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+    ) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM memberships WHERE collective_id = $1),
+                (SELECT count(*) FROM groups WHERE collective_id = $1),
+                (SELECT count(*) FROM venues WHERE collective_id = $1),
+                (SELECT count(*) FROM opportunities WHERE collective_id = $1),
+                (SELECT count(*) FROM templates WHERE collective_id = $1),
+                (SELECT count(*) FROM brand_tokens bt
+                 JOIN brands b ON b.id = bt.brand_id
+                 WHERE b.collective_id = $1 AND bt.kind = 'logo')",
+    )
+    .bind(cid)
+    .fetch_one(&state.db)
+    .await?;
+
     Ok(Json(json!({
+        "setup": {
+            "members": members,
+            "groups": groups,
+            "venues": venues,
+            "opportunities": opportunities,
+            "templates": templates,
+            "brand_has_logo": logo_tokens > 0,
+        },
         "pending_polls": pending_polls,
         "vacant_slots": vacant.into_iter().map(|(event_id, event_title, starts_at, label, vacant)| {
             VacantSlot { event_id, event_title, starts_at, label, vacant }
