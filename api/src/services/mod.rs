@@ -3,6 +3,7 @@ pub mod comms;
 pub mod events;
 pub mod formats;
 pub mod ical;
+pub mod invitations;
 pub mod jobs;
 pub mod matrix;
 pub mod notify;

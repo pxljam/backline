@@ -14,7 +14,7 @@ pub const CATALOG: &[FormatDef] = &[
     FormatDef {
         key: "ig_square",
         platform: "Instagram",
-        label: "Carre",
+        label: "Carré",
         width: 1080,
         height: 1080,
         kind: "image",
@@ -30,7 +30,7 @@ pub const CATALOG: &[FormatDef] = &[
     FormatDef {
         key: "ig_story",
         platform: "Instagram",
-        label: "Story / Reel",
+        label: "Story / Réel",
         width: 1080,
         height: 1920,
         kind: "image",
@@ -38,7 +38,7 @@ pub const CATALOG: &[FormatDef] = &[
     FormatDef {
         key: "reel_9_16",
         platform: "Instagram",
-        label: "Reel",
+        label: "Réel",
         width: 1080,
         height: 1920,
         kind: "video",
@@ -46,7 +46,7 @@ pub const CATALOG: &[FormatDef] = &[
     FormatDef {
         key: "tiktok_9_16",
         platform: "TikTok",
-        label: "Video / image",
+        label: "Vidéo / image",
         width: 1080,
         height: 1920,
         kind: "video",
@@ -70,7 +70,7 @@ pub const CATALOG: &[FormatDef] = &[
     FormatDef {
         key: "yt_banner",
         platform: "YouTube",
-        label: "Banniere de chaine",
+        label: "Bannière de chaîne",
         width: 2560,
         height: 1440,
         kind: "image",

@@ -105,7 +105,7 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
             ),
             m(
                 "j-14",
-                "Extrait audio ou video",
+                "Extrait audio ou vidéo",
                 -14,
                 "18:00",
                 &["reel_9_16"],
@@ -139,12 +139,12 @@ pub fn default_timeline(type_key: &str) -> Vec<Milestone> {
         "residency" => vec![
             m(
                 "j-14",
-                "Annonce de la residence",
+                "Annonce de la résidence",
                 -14,
                 "18:00",
                 &["ig_portrait", "ig_story"],
             ),
-            m("j-7", "On entre en residence", -7, "18:00", &["ig_story"]),
+            m("j-7", "On entre en résidence", -7, "18:00", &["ig_story"]),
             m("coulisses-1", "Coulisses 1", 1, "18:00", &["ig_story"]),
             m("coulisses-2", "Coulisses 2", 3, "18:00", &["ig_story"]),
             Milestone {
@@ -221,12 +221,12 @@ pub fn default_logistics(type_key: &str) -> Vec<(&'static str, i32)> {
             ("transport backline", 2),
             ("photo", 1),
         ],
-        "dj_night" => vec![("regie son", 1), ("lumiere", 1), ("bar", 2), ("photo", 1)],
-        "residency" => vec![("transport materiel", 1), ("captation", 1)],
+        "dj_night" => vec![("régie son", 1), ("lumiere", 1), ("bar", 2), ("photo", 1)],
+        "residency" => vec![("transport matériel", 1), ("captation", 1)],
         "stream" => vec![
             ("camera", 2),
             ("lumiere", 1),
-            ("regie / encodage", 1),
+            ("régie / encodage", 1),
             ("gestion du chat", 1),
             ("connexion", 1),
         ],

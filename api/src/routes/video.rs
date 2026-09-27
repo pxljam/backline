@@ -7,7 +7,7 @@ use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
 use crate::services::{jobs, notify};
 use crate::state::AppState;
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::request::Parts;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
@@ -34,6 +34,10 @@ pub fn router() -> Router<AppState> {
         .route("/render-jobs", get(list_jobs))
 }
 
+/// 2 GB: a long 1080p export, with room to spare. The file is streamed to
+/// storage, so the ceiling is about refusing nonsense, not about memory.
+const RENDER_MAX_BYTES: usize = 2 * 1024 * 1024 * 1024;
+
 /// CLI and machine routes, outside the collective scope.
 pub fn machine_router() -> Router<AppState> {
     Router::new()
@@ -45,7 +49,11 @@ pub fn machine_router() -> Router<AppState> {
         .route("/claim", post(claim_job))
         .route("/jobs/:job_id/bundle", get(job_bundle))
         .route("/jobs/:job_id/progress", put(report_progress))
-        .route("/jobs/:job_id/complete", post(complete_job))
+        .route(
+            "/jobs/:job_id/complete",
+            // A finished render is the largest body the API ever receives.
+            post(complete_job).layer(DefaultBodyLimit::max(RENDER_MAX_BYTES)),
+        )
         .route("/jobs/:job_id/fail", post(fail_job))
 }
 
@@ -604,7 +612,7 @@ async fn job_bundle(
     // (§10.3, risk treatment).
     if claimed_by != Some(machine.machine_id) {
         return Err(AppError::forbidden(
-            "ce job est reclame par une autre machine",
+            "ce job est réclamé par une autre machine",
         ));
     }
 
@@ -730,7 +738,7 @@ async fn complete_job(
         row.ok_or_else(|| AppError::not_found("job introuvable"))?;
     if claimed_by != Some(machine.machine_id) {
         return Err(AppError::forbidden(
-            "ce job est reclame par une autre machine",
+            "ce job est réclamé par une autre machine",
         ));
     }
 
@@ -753,7 +761,7 @@ async fn complete_job(
         }
     }
     if data.is_empty() {
-        return Err(AppError::bad_request("aucun fichier recu"));
+        return Err(AppError::bad_request("aucun fichier reçu"));
     }
 
     let asset_id = Uuid::new_v4();
@@ -841,9 +849,9 @@ async fn fail_job(
                         user_id,
                         collective_id: Some(collective_id),
                         kind: "admin_alert",
-                        title: "Rendu video en echec".into(),
+                        title: "Rendu vidéo en échec".into(),
                         body: format!(
-                            "{} — la tache de com reste livrable avec son visuel fixe.",
+                            "{} — la tâche de com reste livrable avec son visuel fixe.",
                             body.error
                         ),
                         payload: json!({ "render_job_id": job_id }),

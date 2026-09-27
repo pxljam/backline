@@ -31,7 +31,7 @@ pub async fn compile(template: &str, data: &Value) -> AppResult<Vec<u8>> {
     let template_path = dir.join(template);
     if !template_path.exists() {
         return Err(AppError::Internal(anyhow::anyhow!(
-            "modele Typst introuvable : {}",
+            "modèle Typst introuvable : {}",
             template_path.display()
         )));
     }
@@ -73,13 +73,13 @@ async fn compile_in(
         .await
         .map_err(|e| {
             AppError::Internal(anyhow::anyhow!(
-                "typst introuvable ({e}). Installer le binaire ou definir TYPST_BIN."
+                "typst introuvable ({e}). Installer le binaire ou définir TYPST_BIN."
             ))
         })?;
 
     if !output.status.success() {
         return Err(AppError::Internal(anyhow::anyhow!(
-            "typst a echoue: {}",
+            "typst a échoué: {}",
             String::from_utf8_lossy(&output.stderr)
         )));
     }

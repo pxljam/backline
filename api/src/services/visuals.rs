@@ -273,7 +273,7 @@ async fn render_still(
         .config
         .stills_url
         .as_ref()
-        .ok_or_else(|| AppError::Internal(anyhow::anyhow!("service de rendu non configure")))?;
+        .ok_or_else(|| AppError::Internal(anyhow::anyhow!("service de rendu non configuré")))?;
 
     let body = json!({
         "layout": layout,

@@ -236,7 +236,7 @@ pub async fn load(state: &AppState, cid: Uuid, eid: Uuid) -> AppResult<EventRow>
         venue_id,
         host_group_id,
         notes,
-    ) = row.ok_or_else(|| AppError::not_found("evenement introuvable"))?;
+    ) = row.ok_or_else(|| AppError::not_found("événement introuvable"))?;
 
     let venue = match venue_id {
         Some(vid) => {
@@ -511,13 +511,13 @@ async fn create(
     .fetch_optional(&state.db)
     .await?;
     let (event_type_id, is_range) =
-        t.ok_or_else(|| AppError::not_found("type d'evenement inconnu"))?;
+        t.ok_or_else(|| AppError::not_found("type d'événement inconnu"))?;
 
     // A residency is a single event carrying a range: the end is mandatory,
     // otherwise it is not a residency (§6).
     if is_range && body.ends_at.is_none() {
         return Err(AppError::bad_request(
-            "une residence porte une date de debut et une date de fin",
+            "une résidence porte une date de début et une date de fin",
         ));
     }
     if let Some(gid) = body.host_group_id {
@@ -619,11 +619,11 @@ async fn update(
             .bind(cid)
             .fetch_optional(&state.db)
             .await?;
-    let (old_start,) = before.ok_or_else(|| AppError::not_found("evenement introuvable"))?;
+    let (old_start,) = before.ok_or_else(|| AppError::not_found("événement introuvable"))?;
 
     if let Some(s) = &body.set_times_state {
         if !matches!(s.as_str(), "undefined" | "to_confirm" | "defined") {
-            return Err(AppError::bad_request("etat de creneaux inconnu"));
+            return Err(AppError::bad_request("état de créneaux inconnu"));
         }
     }
 
@@ -805,7 +805,7 @@ pub async fn check_event(state: &AppState, cid: Uuid, eid: Uuid) -> AppResult<()
             .fetch_optional(&state.db)
             .await?;
     ok.map(|_| ())
-        .ok_or_else(|| AppError::not_found("evenement introuvable"))
+        .ok_or_else(|| AppError::not_found("événement introuvable"))
 }
 
 #[derive(Deserialize)]
@@ -832,7 +832,7 @@ async fn add_slot(
     scope.require_admin()?;
     check_event(&state, cid, eid).await?;
     if body.quantity < 1 {
-        return Err(AppError::bad_request("quantite minimale : 1"));
+        return Err(AppError::bad_request("quantité minimale : 1"));
     }
     let (pos,): (i32,) = sqlx::query_as(
         "SELECT COALESCE(max(position) + 1, 0) FROM logistics_slots WHERE event_id = $1",
@@ -959,7 +959,7 @@ async fn set_presence(
     check_event(&state, cid, eid).await?;
     if !matches!(body.answer.as_str(), "coming" | "not_coming" | "unsure") {
         return Err(AppError::bad_request(
-            "reponse attendue : coming | not_coming | unsure",
+            "réponse attendue : coming | not_coming | unsure",
         ));
     }
 

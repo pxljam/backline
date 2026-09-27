@@ -7,6 +7,6 @@ async fn main() -> Result<()> {
     let db = backline::db::connect(&config.database_url).await?;
     backline::db::migrate(&db).await?;
     backline::seed::run(&db).await?;
-    println!("donnees d'amorcage installees");
+    println!("données d'amorçage installées");
     Ok(())
 }

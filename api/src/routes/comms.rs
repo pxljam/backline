@@ -200,7 +200,7 @@ async fn my_tasks(
         load_tasks(
             &state,
             cid,
-            "(p.assignee_id = $2 OR p.backup_assignee_id = $2) AND p.status <> 'published'",
+            "(p.assignée_id = $2 OR p.backup_assignée_id = $2) AND p.status <> 'published'",
             scope.user_id(),
         )
         .await?,
@@ -260,7 +260,7 @@ async fn update_task(
         // `published` is only reached by an explicit human action (§18).
         if s == "published" {
             return Err(AppError::bad_request(
-                "utiliser « ✅ publie » pour confirmer une publication",
+                "utiliser « ✅ publié » pour confirmer une publication",
             ));
         }
         if !matches!(s.as_str(), "draft" | "ready" | "assigned" | "missed") {
@@ -336,7 +336,7 @@ async fn assign_task(
             .await?;
     let account_id = account
         .and_then(|(a,)| a)
-        .ok_or_else(|| AppError::bad_request("rattacher d'abord cette tache a un compte social"))?;
+        .ok_or_else(|| AppError::bad_request("rattacher d'abord cette tâche à un compte social"))?;
 
     for candidate in [body.assignee_id, body.backup_assignee_id]
         .into_iter()
@@ -352,7 +352,7 @@ async fn assign_task(
         .await?;
         if has_access.is_none() {
             return Err(AppError::forbidden(
-                "cette personne n'a pas acces au compte vise — lui donner l'acces d'abord",
+                "cette personne n'a pas accès au compte vise — lui donner l'accès d'abord",
             ));
         }
     }
@@ -387,9 +387,9 @@ async fn assign_task(
                 kind: "publication_assigned",
                 title: format!("Tu publies : {label}"),
                 body: format!(
-                    "Prevu le {}",
+                    "Prévu le {}",
                     when.with_timezone(&chrono_tz::Europe::Paris)
-                        .format("%d/%m a %H:%M")
+                        .format("%d/%m à %H:%M")
                 ),
                 payload: json!({ "task_id": tid }),
             },
@@ -423,12 +423,12 @@ async fn mark_published(
     .bind(tid)
     .fetch_optional(&state.db)
     .await?;
-    let (assignee, backup) = row.ok_or_else(|| AppError::not_found("tache introuvable"))?;
+    let (assignee, backup) = row.ok_or_else(|| AppError::not_found("tâche introuvable"))?;
 
     // The owner, their stand-in, or an admin who published in their place.
     let me = scope.user_id();
     if assignee != Some(me) && backup != Some(me) && !scope.is_admin() {
-        return Err(AppError::forbidden("cette tache ne t'est pas assignee"));
+        return Err(AppError::forbidden("cette tâche ne t'est pas assignée"));
     }
 
     sqlx::query(
@@ -457,7 +457,7 @@ async fn check_task(state: &AppState, cid: Uuid, tid: Uuid) -> AppResult<()> {
     .fetch_optional(&state.db)
     .await?;
     ok.map(|_| ())
-        .ok_or_else(|| AppError::not_found("tache introuvable"))
+        .ok_or_else(|| AppError::not_found("tâche introuvable"))
 }
 
 /// Exposed for the scheduler: generating the visuals is a job.

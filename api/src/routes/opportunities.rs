@@ -85,7 +85,7 @@ async fn load(state: &AppState, cid: Uuid, oid: Uuid) -> AppResult<OpportunityRo
     .fetch_optional(&state.db)
     .await?;
     let (id, title, status, conditions, venue_id) =
-        row.ok_or_else(|| AppError::not_found("opportunite introuvable"))?;
+        row.ok_or_else(|| AppError::not_found("opportunité introuvable"))?;
 
     let venue = match venue_id {
         Some(vid) => {
@@ -295,7 +295,7 @@ async fn check_opportunity(state: &AppState, cid: Uuid, oid: Uuid) -> AppResult<
             .fetch_optional(&state.db)
             .await?;
     ok.map(|_| ())
-        .ok_or_else(|| AppError::not_found("opportunite introuvable"))
+        .ok_or_else(|| AppError::not_found("opportunité introuvable"))
 }
 
 /// Opens the poll: one message per opportunity to each member concerned, one
@@ -348,7 +348,7 @@ async fn open_poll(
                 collective_id: Some(cid),
                 kind: "poll_open",
                 title: format!("Dispos demandees : {title}"),
-                body: format!("{dates} dates candidates. ✅ dispo / ❔ peut-etre / ❌ non, et 🎸 si tu veux jouer."),
+                body: format!("{dates} dates candidates. ✅ dispo / ❔ peut-être / ❌ non, et 🎸 si tu veux jouer."),
                 payload: json!({ "opportunity_id": oid }),
             },
         )
@@ -429,7 +429,7 @@ async fn set_availabilities(
                 .bind(oid)
                 .fetch_optional(&mut *tx)
                 .await?;
-        ok.ok_or_else(|| AppError::bad_request("date candidate hors de cette opportunite"))?;
+        ok.ok_or_else(|| AppError::bad_request("date candidate hors de cette opportunité"))?;
 
         sqlx::query(
             "INSERT INTO availabilities (poll_id, candidate_date_id, user_id, status, wants_to_play)

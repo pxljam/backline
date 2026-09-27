@@ -105,7 +105,7 @@ async fn a_stream_is_created_without_an_opportunity_and_carries_its_platforms() 
         .collect();
     assert!(labels.contains(&"camera".to_string()), "{labels:?}");
     assert!(
-        labels.contains(&"regie / encodage".to_string()),
+        labels.contains(&"régie / encodage".to_string()),
         "{labels:?}"
     );
 

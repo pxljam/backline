@@ -4,13 +4,17 @@ use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
 use crate::services::{formats as fmt, templates};
 use crate::state::AppState;
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
+
+/// 64 MB: comfortably above a photo or a font file, far below a video — those
+/// arrive through the render pipeline, not the media library.
+const ASSET_MAX_BYTES: usize = 64 * 1024 * 1024;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -31,7 +35,15 @@ pub fn router() -> Router<AppState> {
             "/templates/:template_id/duplicate",
             post(duplicate_template),
         )
-        .route("/assets", get(list_assets).post(upload_asset))
+        .route(
+            "/assets",
+            get(list_assets)
+                .post(upload_asset)
+                // A logo or a press photo goes well past axum's 2 MB default,
+                // which would otherwise reject the first real upload with a
+                // bare 413 (§9.5).
+                .layer(DefaultBodyLimit::max(ASSET_MAX_BYTES)),
+        )
         .route("/assets/:asset_id/url", get(asset_url))
         .route("/preview-fields/:event_id", get(preview_fields))
 }
@@ -808,7 +820,7 @@ async fn upload_asset(
     }
 
     if data.is_empty() {
-        return Err(AppError::bad_request("aucun fichier recu"));
+        return Err(AppError::bad_request("aucun fichier reçu"));
     }
     if let Some(gid) = group_id {
         scope.check_group(&state.db, gid).await?;

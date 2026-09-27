@@ -127,7 +127,7 @@ pub async fn build(
     .fetch_optional(db)
     .await?;
     let (id, title, starts_at, doors_at, soundcheck_at, venue_id, _set_public) =
-        ev.ok_or_else(|| AppError::not_found("evenement introuvable"))?;
+        ev.ok_or_else(|| AppError::not_found("événement introuvable"))?;
 
     let venue = match venue_id {
         Some(vid) => {
@@ -293,7 +293,7 @@ pub fn to_text(rs: &RunSheet) -> String {
     out.push_str(&format!(
         "<b>{}</b>\n{}\n",
         rs.title,
-        local.format("%A %d/%m a %H:%M")
+        local.format("%A %d/%m à %H:%M")
     ));
 
     if let Some(v) = &rs.venue {

@@ -92,7 +92,7 @@ async fn a_task_is_only_assigned_to_someone_with_access_to_the_account() {
         )
         .await;
     res.expect_status(403);
-    assert!(res.text.contains("acces au compte"), "{}", res.text);
+    assert!(res.text.contains("accès au compte"), "{}", res.text);
 
     // Antoine does have the access.
     let antoine_id = app.user_id("Antoine").await;

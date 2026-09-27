@@ -352,7 +352,7 @@ async fn a_failed_render_goes_back_in_the_queue_then_gives_up_and_says_so() {
 
     let (alerts,): (i64,) = sqlx::query_as(
         "SELECT count(*) FROM notifications WHERE kind = 'admin_alert'
-           AND payload->>'render_job_id' = $1 AND title LIKE '%echec%'",
+           AND payload->>'render_job_id' = $1 AND title LIKE '%échec%'",
     )
     .bind(&job_id)
     .fetch_one(&app.db)

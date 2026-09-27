@@ -198,7 +198,7 @@ async fn feeds(
     out.push(Feed {
         scope: "user".into(),
         scope_id: scope.user_id(),
-        label: "Mes evenements".into(),
+        label: "Mes événements".into(),
         url: format!("{base}/ical/{token}.ics"),
     });
 

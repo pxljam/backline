@@ -374,7 +374,7 @@ async fn nothing_is_published_without_a_tap_from_the_assigned_person() {
         .await
         .unwrap();
     assert_eq!(statut, "assigned");
-    assert_eq!(fake.last_answer(), "Cette tache ne t'est pas assignee");
+    assert_eq!(fake.last_answer(), "Cette tâche ne t'est pas assignée");
 
     // The assigned person, though, confirms in one tap.
     bot::handle_update(&app.state, button(111, &format!("publie:{task_id}")))

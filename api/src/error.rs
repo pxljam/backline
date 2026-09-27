@@ -19,7 +19,7 @@ pub enum AppError {
     Conflict(String),
     #[error("erreur interne")]
     Internal(#[from] anyhow::Error),
-    #[error("erreur base de donnees")]
+    #[error("erreur base de données")]
     Db(#[from] sqlx::Error),
 }
 
@@ -43,7 +43,7 @@ impl AppError {
     pub fn detail(&self) -> String {
         match self {
             Self::Internal(e) => format!("{e:#}"),
-            Self::Db(e) => format!("base de donnees : {e}"),
+            Self::Db(e) => format!("base de données : {e}"),
             other => other.to_string(),
         }
     }

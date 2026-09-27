@@ -82,7 +82,7 @@ pub async fn build(
             .fetch_optional(db)
             .await?;
     if exists.is_none() {
-        return Err(crate::error::AppError::not_found("opportunite introuvable"));
+        return Err(crate::error::AppError::not_found("opportunité introuvable"));
     }
 
     let poll: Option<(Uuid, Option<chrono::DateTime<chrono::Utc>>)> =

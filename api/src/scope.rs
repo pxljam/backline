@@ -44,7 +44,7 @@ impl Actor {
         if self.is_instance_admin {
             Ok(())
         } else {
-            Err(AppError::forbidden("reserve a l'administrateur d'instance"))
+            Err(AppError::forbidden("réservé à l'administrateur d'instance"))
         }
     }
 }
@@ -112,7 +112,7 @@ impl CollectiveScope {
         if self.is_admin() {
             Ok(())
         } else {
-            Err(AppError::forbidden("reserve aux admins du collectif"))
+            Err(AppError::forbidden("réservé aux admins du collectif"))
         }
     }
 
@@ -123,7 +123,7 @@ impl CollectiveScope {
             Ok(())
         } else {
             Err(AppError::forbidden(
-                "une disponibilite ne peut etre ecrite que par la personne concernee",
+                "une disponibilité ne peut être écrite que par la personne concernée",
             ))
         }
     }
@@ -145,7 +145,7 @@ impl CollectiveScope {
         .await?;
         match row {
             Some((true,)) => Ok(()),
-            _ => Err(AppError::forbidden("reserve aux admins du groupe")),
+            _ => Err(AppError::forbidden("réservé aux admins du groupe")),
         }
     }
 

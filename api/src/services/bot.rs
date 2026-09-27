@@ -93,13 +93,13 @@ pub fn keyboard_for(kind: &str, payload: &Value) -> Option<Value> {
 
     match kind {
         "poll_open" => id("opportunity_id")
-            .map(|oid| json!([[{ "text": "Repondre au sondage", "callback_data": format!("dispos:{oid}") }]])),
+            .map(|oid| json!([[{ "text": "Répondre au sondage", "callback_data": format!("dispos:{oid}") }]])),
         "publication_due" | "publication_assigned" => id("task_id")
-            .map(|tid| json!([[{ "text": "✅ publie", "callback_data": format!("publie:{tid}") }]])),
+            .map(|tid| json!([[{ "text": "✅ publié", "callback_data": format!("publie:{tid}") }]])),
         "logistics_vacant" => id("event_id")
             .map(|eid| json!([[{ "text": "Voir les postes", "callback_data": format!("postes:{eid}") }]])),
         "lineup_retained" => id("event_id")
-            .map(|eid| json!([[{ "text": "✅ bien recu", "callback_data": format!("ack:{eid}") }]])),
+            .map(|eid| json!([[{ "text": "✅ bien reçu", "callback_data": format!("ack:{eid}") }]])),
         _ => None,
     }
 }
@@ -130,7 +130,7 @@ async fn handle_message(state: &AppState, msg: Message) -> AppResult<()> {
         return reply(
             state,
             chat_id,
-            "Ce compte Telegram n'est lie a aucun membre. Envoie <code>/start &lt;code&gt;</code> \
+            "Ce compte Telegram n'est lié à aucun membre. Envoie <code>/start &lt;code&gt;</code> \
              avec le code de ton invitation.",
             None,
         )
@@ -158,7 +158,7 @@ async fn link_account(state: &AppState, msg: &Message, code: &str) -> AppResult<
     if code.is_empty() {
         let existing = user_for_telegram_id(&state.db, Some(from.id)).await?;
         let text = if existing.is_some() {
-            format!("Ton compte est deja lie.\n{HELP}")
+            format!("Ton compte est déjà lié.\n{HELP}")
         } else {
             "Envoie <code>/start &lt;code&gt;</code> avec le code de ton invitation.".into()
         };
@@ -178,7 +178,7 @@ async fn link_account(state: &AppState, msg: &Message, code: &str) -> AppResult<
 
     let Some((invitation_id, user_id, name)) = row else {
         tx.rollback().await?;
-        return reply(state, chat_id, "Invitation inconnue ou perimee.", None).await;
+        return reply(state, chat_id, "Invitation inconnue ou périmée.", None).await;
     };
 
     sqlx::query(
@@ -199,7 +199,7 @@ async fn link_account(state: &AppState, msg: &Message, code: &str) -> AppResult<
     reply(
         state,
         chat_id,
-        &format!("Compte lie : <b>{name}</b>.\n{HELP}"),
+        &format!("Compte lié : <b>{name}</b>.\n{HELP}"),
         None,
     )
     .await
@@ -209,7 +209,7 @@ async fn link_account(state: &AppState, msg: &Message, code: &str) -> AppResult<
 
 async fn availabilities(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
     let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
-        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+        return reply(state, chat_id, "Tu n'appartiens à aucun collectif.", None).await;
     };
 
     let polls: Vec<(Uuid, String)> = sqlx::query_as(
@@ -273,7 +273,7 @@ async fn send_poll(
         };
 
         let when = match heure {
-            Some(h) => format!("{} a {}", jour.format("%d/%m/%Y"), h.format("%H:%M")),
+            Some(h) => format!("{} à {}", jour.format("%d/%m/%Y"), h.format("%H:%M")),
             None => jour.format("%d/%m/%Y").to_string(),
         };
 
@@ -293,7 +293,7 @@ async fn send_poll(
 
 async fn agenda(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
     let Some((cid, name)) = current_collective(&state.db, user_id).await? else {
-        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+        return reply(state, chat_id, "Tu n'appartiens à aucun collectif.", None).await;
     };
 
     let events: Vec<(String, chrono::DateTime<Utc>, Option<String>, String)> = sqlx::query_as(
@@ -307,14 +307,14 @@ async fn agenda(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
     .await?;
 
     if events.is_empty() {
-        return reply(state, chat_id, &format!("{name} : rien de prevu."), None).await;
+        return reply(state, chat_id, &format!("{name} : rien de prévu."), None).await;
     }
 
     let lines: Vec<String> = events
         .into_iter()
         .map(|(title, when, venue, status)| {
             let local = when.with_timezone(&Paris);
-            let venue = venue.unwrap_or_else(|| "lieu a caler".into());
+            let venue = venue.unwrap_or_else(|| "lieu à caler".into());
             let mention = if status == "draft" {
                 " (brouillon)"
             } else {
@@ -338,7 +338,7 @@ async fn agenda(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
 
 async fn slots(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
     let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
-        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+        return reply(state, chat_id, "Tu n'appartiens à aucun collectif.", None).await;
     };
 
     let slots: Vec<(Uuid, String, i32, i64, String, chrono::DateTime<Utc>)> = sqlx::query_as(
@@ -390,7 +390,7 @@ async fn publish(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()>
     .await?;
 
     if tasks.is_empty() {
-        return reply(state, chat_id, "Aucune publication a ta charge.", None).await;
+        return reply(state, chat_id, "Aucune publication à ta charge.", None).await;
     }
 
     for (tid, label, caption, hashtags, when, evenement) in tasks {
@@ -399,7 +399,7 @@ async fn publish(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()>
             "<b>{label}</b> — {evenement}\n{}\n\n{caption}\n{hashtags}",
             local.format("%d/%m %H:%M")
         );
-        let keyboard = json!([[{ "text": "✅ publie", "callback_data": format!("publie:{tid}") }]]);
+        let keyboard = json!([[{ "text": "✅ publié", "callback_data": format!("publie:{tid}") }]]);
         // The visual goes out with the text: everything is ready to paste (§11.2).
         let photo = task_visual(state, tid).await;
         send(state, chat_id, &text, Some(keyboard), photo).await?;
@@ -409,7 +409,7 @@ async fn publish(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()>
 
 async fn riders(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> {
     let Some((cid, _)) = current_collective(&state.db, user_id).await? else {
-        return reply(state, chat_id, "Tu n'appartiens a aucun collectif.", None).await;
+        return reply(state, chat_id, "Tu n'appartiens à aucun collectif.", None).await;
     };
 
     let groups: Vec<(Uuid, String, Option<i32>)> = sqlx::query_as(
@@ -453,7 +453,7 @@ async fn riders(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult<()> 
                 reply(
                     state,
                     chat_id,
-                    &format!("<b>{name}</b> — aucune fiche publiee."),
+                    &format!("<b>{name}</b> — aucune fiche publiée."),
                     None,
                 )
                 .await?
@@ -477,7 +477,7 @@ async fn collectives(state: &AppState, chat_id: i64, user_id: Uuid) -> AppResult
         return reply(
             state,
             chat_id,
-            &format!("Tu n'es que dans <b>{name}</b> — rien a basculer."),
+            &format!("Tu n'es que dans <b>{name}</b> — rien à basculer."),
             None,
         )
         .await;
@@ -505,7 +505,7 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
     let (action, args) = parse_callback(&data);
 
     let Some(user_id) = user_for_telegram_id(&state.db, Some(cb.from.id)).await? else {
-        return acknowledge_callback(state, &cb.id, "Compte non lie").await;
+        return acknowledge_callback(state, &cb.id, "Compte non lié").await;
     };
 
     let uuid = |i: usize| -> Option<Uuid> { args.get(i).and_then(|s| Uuid::parse_str(s).ok()) };
@@ -516,7 +516,7 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
                 return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
             match answer_availability(state, user_id, date_id, status).await? {
-                true => acknowledge_callback(state, &cb.id, "Reponse enregistree").await,
+                true => acknowledge_callback(state, &cb.id, "Réponse enregistrée").await,
                 false => acknowledge_callback(state, &cb.id, "Sondage clos").await,
             }
         }
@@ -562,7 +562,7 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
                 return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
             match take_slot(state, user_id, slot_id).await? {
-                true => acknowledge_callback(state, &cb.id, "C'est note, le poste est a toi").await,
+                true => acknowledge_callback(state, &cb.id, "C'est noté, le poste est à toi").await,
                 false => acknowledge_callback(state, &cb.id, "Ce poste est complet").await,
             }
         }
@@ -571,9 +571,9 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
                 return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
             match mark_published(state, user_id, tid).await? {
-                true => acknowledge_callback(state, &cb.id, "Publication confirmee, merci").await,
+                true => acknowledge_callback(state, &cb.id, "Publication confirmée, merci").await,
                 false => {
-                    acknowledge_callback(state, &cb.id, "Cette tache ne t'est pas assignee").await
+                    acknowledge_callback(state, &cb.id, "Cette tâche ne t'est pas assignée").await
                 }
             }
         }
@@ -582,7 +582,7 @@ async fn handle_callback(state: &AppState, cb: CallbackQuery) -> AppResult<()> {
                 return acknowledge_callback(state, &cb.id, "Bouton illisible").await;
             };
             acknowledge_line_up(state, user_id, eid).await?;
-            acknowledge_callback(state, &cb.id, "Bien recu").await
+            acknowledge_callback(state, &cb.id, "Bien reçu").await
         }
         "fiche" => {
             let Some(gid) = uuid(0) else {
@@ -784,7 +784,7 @@ async fn send_rider(
     .await?;
 
     let Some((rider_id, version, data, name)) = row else {
-        return reply(state, chat_id, "Aucune fiche publiee pour ce groupe.", None).await;
+        return reply(state, chat_id, "Aucune fiche publiée pour ce groupe.", None).await;
     };
 
     let payload = json!({
@@ -798,7 +798,7 @@ async fn send_rider(
         Ok(bytes) => bytes,
         Err(e) => {
             tracing::warn!(error = %e, "bot: PDF compilation");
-            return reply(state, chat_id, "La fiche n'a pas pu etre produite.", None).await;
+            return reply(state, chat_id, "La fiche n'a pas pu être produite.", None).await;
         }
     };
 
@@ -963,7 +963,7 @@ mod tests {
             format!("postes:{id}"),
             format!("ack:{id}"),
         ] {
-            assert!(data.len() <= 64, "{data} depasse 64 octets");
+            assert!(data.len() <= 64, "{data} dépasse 64 octets");
         }
     }
 }

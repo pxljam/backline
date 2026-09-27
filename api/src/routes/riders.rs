@@ -189,7 +189,7 @@ async fn update_rider(
     let (status,) = row.ok_or_else(|| AppError::not_found("fiche technique introuvable"))?;
     if status == "published" {
         return Err(AppError::conflict(
-            "cette version est publiee — en creer une nouvelle pour la modifier",
+            "cette version est publiée — en créer une nouvelle pour la modifier",
         ));
     }
 

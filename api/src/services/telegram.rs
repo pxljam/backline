@@ -167,7 +167,7 @@ impl Telegram for HttpTelegram {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            anyhow::bail!("telegram {method} a repondu {status}: {text}");
+            anyhow::bail!("telegram {method} a répondu {status}: {text}");
         }
         Ok(())
     }
@@ -188,7 +188,7 @@ impl Telegram for HttpTelegram {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            anyhow::bail!("telegram sendDocument a repondu {status}: {text}");
+            anyhow::bail!("telegram sendDocument a répondu {status}: {text}");
         }
         Ok(())
     }

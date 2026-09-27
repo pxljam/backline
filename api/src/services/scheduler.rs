@@ -146,7 +146,7 @@ async fn logistics_reminder(db: &PgPool, event_id: Uuid, milestone: &str) -> App
                 user_id: *user_id,
                 collective_id: Some(collective_id),
                 kind: "logistics_vacant",
-                title: format!("{milestone} — postes a pourvoir : {title}"),
+                title: format!("{milestone} — postes à pourvoir : {title}"),
                 body: format!("Le {when}. Encore libre : {list}"),
                 payload: json!({ "event_id": event_id, "milestone": milestone }),
             },
@@ -203,7 +203,7 @@ async fn tech_rider_missing(db: &PgPool, event_id: Uuid) -> AppResult<()> {
                     collective_id: Some(collective_id),
                     kind: "tech_rider_missing",
                     title: format!("{group_name} : pas de fiche technique"),
-                    body: "Un evenement approche. Rien ne bloque, mais le lieu n'aura rien a lire."
+                    body: "Un événement approche. Rien ne bloque, mais le lieu n'aura rien à lire."
                         .into(),
                     payload: json!({ "event_id": event_id, "group_id": group_id }),
                 },
@@ -393,8 +393,8 @@ async fn publication_due(db: &PgPool, task_id: Uuid) -> AppResult<()> {
                         user_id,
                         collective_id: Some(collective_id),
                         kind: "admin_alert",
-                        title: format!("Tache de com sans responsable : {label}"),
-                        body: "L'heure est passee et personne n'est assigne.".into(),
+                        title: format!("Tâche de com sans responsable : {label}"),
+                        body: "L'heure est passée et personne n'est assigné.".into(),
                         payload: json!({ "task_id": task_id }),
                     },
                 )
@@ -435,8 +435,8 @@ async fn publication_reminder(db: &PgPool, task_id: Uuid) -> AppResult<()> {
                 user_id,
                 collective_id: Some(collective_id),
                 kind: "publication_due",
-                title: format!("Toujours pas publie : {label}"),
-                body: "Appuie sur « ✅ publie » une fois le post en ligne.".into(),
+                title: format!("Toujours pas publié : {label}"),
+                body: "Appuie sur « ✅ publié » une fois le post en ligne.".into(),
                 payload: json!({ "task_id": task_id }),
             },
         )
@@ -489,8 +489,8 @@ async fn publication_admin_alert(db: &PgPool, task_id: Uuid) -> AppResult<()> {
                 user_id,
                 collective_id: Some(collective_id),
                 kind: "admin_alert",
-                title: format!("Publication non confirmee : {label}"),
-                body: "Trois heures sans confirmation. La tache est marquee ratee.".into(),
+                title: format!("Publication non confirmée : {label}"),
+                body: "Trois heures sans confirmation. La tâche est marquée ratée.".into(),
                 payload: json!({ "task_id": task_id }),
             },
         )
@@ -531,11 +531,11 @@ async fn render_unclaimed_alert(db: &PgPool, render_job_id: Uuid) -> AppResult<(
                 collective_id: Some(collective_id),
                 kind: "admin_alert",
                 title: format!(
-                    "Rendu video non reclame : {}",
+                    "Rendu vidéo non réclamé : {}",
                     name.clone().unwrap_or_else(|| "composition".into())
                 ),
                 body: format!(
-                    "{} machine(s) connectee(s). La tache de com reste livrable avec son visuel fixe.",
+                    "{} machine(s) connectée(s). La tâche de com reste livrable avec son visuel fixe.",
                     machines.0
                 ),
                 payload: json!({ "render_job_id": render_job_id }),

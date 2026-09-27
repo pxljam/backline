@@ -64,7 +64,7 @@ impl Storage {
             Ok(_) => Ok(()),
             // A race between instances at startup: of no consequence.
             Err(e) if format!("{e:?}").contains("BucketAlreadyOwnedByYou") => Ok(()),
-            Err(e) => Err(e).context("creation du bucket"),
+            Err(e) => Err(e).context("création du bucket"),
         }
     }
 
@@ -72,7 +72,7 @@ impl Storage {
         self.inner
             .put_object_with_content_type(key, &bytes, content_type)
             .await
-            .with_context(|| format!("televersement de {key}"))?;
+            .with_context(|| format!("téléversement de {key}"))?;
         Ok(())
     }
 

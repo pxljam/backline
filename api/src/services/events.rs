@@ -69,10 +69,10 @@ pub async fn convert(
     .fetch_optional(db)
     .await?;
     let (_, venue_id, opp_title, status) =
-        opp.ok_or_else(|| AppError::not_found("opportunite introuvable"))?;
+        opp.ok_or_else(|| AppError::not_found("opportunité introuvable"))?;
 
     if status == "confirmed" {
-        return Err(AppError::conflict("cette opportunite est deja confirmee"));
+        return Err(AppError::conflict("cette opportunité est déjà confirmée"));
     }
 
     let date: Option<(NaiveDate, Option<NaiveTime>, Option<NaiveTime>)> = sqlx::query_as(
@@ -94,7 +94,7 @@ pub async fn convert(
     .fetch_optional(db)
     .await?;
     let (event_type_id, _is_range) =
-        event_type.ok_or_else(|| AppError::not_found("type d'evenement inconnu"))?;
+        event_type.ok_or_else(|| AppError::not_found("type d'événement inconnu"))?;
 
     if let Some(gid) = req.host_group_id {
         scope.check_group(db, gid).await?;
@@ -313,7 +313,7 @@ async fn notify_lineup(
             .await?;
     let when = starts_at
         .with_timezone(&Paris)
-        .format("%d/%m/%Y a %H:%M")
+        .format("%d/%m/%Y à %H:%M")
         .to_string();
 
     let retained: Vec<(Uuid,)> = sqlx::query_as(
@@ -335,7 +335,7 @@ async fn notify_lineup(
                 collective_id: Some(scope.collective_id()),
                 kind: "lineup_retained",
                 title: format!("Tu joues : {title}"),
-                body: format!("Le {when}. Merci de confirmer ta presence."),
+                body: format!("Le {when}. Merci de confirmer ta présence."),
                 payload: json!({ "event_id": event_id }),
             },
         )

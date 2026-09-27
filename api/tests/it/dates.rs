@@ -230,7 +230,7 @@ async fn an_availability_is_written_only_by_its_author_admins_included() {
         .await;
     res.expect_status(403);
     assert!(
-        res.text.contains("personne concernee"),
+        res.text.contains("personne concernée"),
         "le refus doit dire pourquoi : {}",
         res.text
     );

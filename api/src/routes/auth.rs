@@ -65,7 +65,7 @@ async fn login_telegram(
     Json(body): Json<auth::TelegramLoginData>,
 ) -> AppResult<impl IntoResponse> {
     let token_secret = state.config.telegram_bot_token.as_ref().ok_or_else(|| {
-        AppError::forbidden("connexion Telegram non configuree sur cette instance")
+        AppError::forbidden("connexion Telegram non configurée sur cette instance")
     })?;
 
     if !auth::verify_telegram_login(&body, token_secret, chrono::Utc::now().timestamp()) {
@@ -79,7 +79,7 @@ async fn login_telegram(
 
     // No implicit creation: an account exists because an admin created it.
     let (user_id,) = row.ok_or_else(|| {
-        AppError::forbidden("ce compte Telegram n'est lie a aucun membre — demande une invitation")
+        AppError::forbidden("ce compte Telegram n'est lié à aucun membre — demande une invitation")
     })?;
 
     let token = session::create_session(&state.db, user_id).await?;
@@ -132,7 +132,7 @@ async fn peek_invitation(
     .fetch_optional(&state.db)
     .await?;
     let (user_id, display_name) =
-        row.ok_or_else(|| AppError::not_found("invitation inconnue ou perimee"))?;
+        row.ok_or_else(|| AppError::not_found("invitation inconnue ou périmée"))?;
 
     let collectives: Vec<(String,)> = sqlx::query_as(
         "SELECT c.name FROM memberships m JOIN collectives c ON c.id = m.collective_id
@@ -178,12 +178,12 @@ async fn accept_invitation(
     .fetch_optional(&mut *tx)
     .await?;
     let (invitation_id, user_id) =
-        row.ok_or_else(|| AppError::not_found("invitation inconnue ou perimee"))?;
+        row.ok_or_else(|| AppError::not_found("invitation inconnue ou périmée"))?;
 
     match (&body.telegram, &body.password) {
         (Some(tg), _) => {
             let secret = state.config.telegram_bot_token.as_ref().ok_or_else(|| {
-                AppError::forbidden("connexion Telegram non configuree sur cette instance")
+                AppError::forbidden("connexion Telegram non configurée sur cette instance")
             })?;
             if !auth::verify_telegram_login(tg, secret, chrono::Utc::now().timestamp()) {
                 return Err(AppError::forbidden("signature Telegram invalide"));
@@ -201,7 +201,7 @@ async fn accept_invitation(
         (None, Some(pw)) => {
             if pw.chars().count() < 10 {
                 return Err(AppError::bad_request(
-                    "mot de passe trop court (10 caracteres)",
+                    "mot de passe trop court (10 caractères)",
                 ));
             }
             let hash = auth::hash_password(pw).map_err(AppError::Internal)?;

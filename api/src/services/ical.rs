@@ -143,7 +143,7 @@ mod tests {
     fn produces_a_valid_calendar_and_folds_long_lines() {
         let ev = IcalEvent {
             id: Uuid::nil(),
-            title: "Bonsoir Techno x Ramas — une soiree au titre volontairement tres long pour depasser la limite".into(),
+            title: "Bonsoir Techno x Ramas — une soirée au titre volontairement très long pour dépasser la limite".into(),
             starts_at: Utc::now(),
             ends_at: None,
             status: "confirmed".into(),
@@ -158,7 +158,7 @@ mod tests {
         assert!(out.contains("STATUS:CONFIRMED"));
         assert!(
             out.contains("\r\n "),
-            "les lignes longues doivent etre pliees"
+            "les lignes longues doivent être pliees"
         );
         for line in out.split("\r\n") {
             assert!(line.len() <= 75, "ligne trop longue: {line}");
