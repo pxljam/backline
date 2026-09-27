@@ -106,7 +106,7 @@ export const Renders: React.FC = () => {
             }}
           >
             <div className="min-w-44 flex-1">
-              <Field label="Associer une machine" hint="Le jeton n'est montre qu'une fois.">
+              <Field inline label="Associer une machine" hint="Le jeton n'est montre qu'une fois.">
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}

@@ -55,7 +55,7 @@ export const Groups: React.FC = () => {
               }}
             >
               <div className="min-w-60 flex-1">
-                <Field label="Nom">
+                <Field inline label="Nom">
                   <Input value={name} onChange={(e) => setName(e.target.value)} required />
                 </Field>
               </div>

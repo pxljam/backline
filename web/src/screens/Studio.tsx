@@ -73,12 +73,12 @@ const Templates: React.FC = () => {
               }}
             >
               <div className="min-w-48 flex-1">
-                <Field label="Nom">
+                <Field inline label="Nom">
                   <Input value={name} onChange={(e) => setName(e.target.value)} required />
                 </Field>
               </div>
               <div className="min-w-48 flex-1">
-                <Field label="Format maître" hint="Le ratio sera verrouillé.">
+                <Field inline label="Format maître" hint="Le ratio sera verrouillé.">
                   <Select value={formatId} onChange={(e) => setFormatId(e.target.value)}>
                     {formats.data?.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -190,12 +190,12 @@ const Videos: React.FC = () => {
             }}
           >
             <div className="min-w-44 flex-1">
-              <Field label="Nom">
+              <Field inline label="Nom">
                 <Input value={name} onChange={(e) => setName(e.target.value)} required />
               </Field>
             </div>
             <div className="min-w-44 flex-1">
-              <Field label="Format">
+              <Field inline label="Format">
                 <Select value={formatId} onChange={(e) => setFormatId(e.target.value)}>
                   {videoFormats.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -206,7 +206,7 @@ const Videos: React.FC = () => {
               </Field>
             </div>
             <div className="min-w-44 flex-1">
-              <Field label="Événement" hint="Pour remplir les champs automatiques.">
+              <Field inline label="Événement" hint="Pour remplir les champs automatiques.">
                 <Select value={eventId} onChange={(e) => setEventId(e.target.value)}>
                   <option value="">aucun</option>
                   {events.data?.map((ev) => (
@@ -291,12 +291,12 @@ const MediaLibrary: React.FC = () => {
             }}
           >
             <div className="min-w-48 flex-1">
-              <Field label="Fichier" hint="Photos, captations, visuels produits ailleurs.">
+              <Field inline label="Fichier" hint="Photos, captations, visuels produits ailleurs.">
                 <input ref={fileRef} type="file" className="text-sm" required />
               </Field>
             </div>
             <div className="min-w-40">
-              <Field label="Groupe">
+              <Field inline label="Groupe">
                 <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
                   <option value="">collectif</option>
                   {groups?.map((g) => (
@@ -308,7 +308,7 @@ const MediaLibrary: React.FC = () => {
               </Field>
             </div>
             <div className="min-w-40">
-              <Field label="Étiquettes" hint="Séparées par des virgules.">
+              <Field inline label="Étiquettes" hint="Séparées par des virgules.">
                 <Input value={tags} onChange={(e) => setTags(e.target.value)} />
               </Field>
             </div>

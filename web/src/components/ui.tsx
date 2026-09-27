@@ -87,13 +87,31 @@ export const Field: React.FC<{
   label: string;
   hint?: string;
   children: React.ReactNode;
-}> = ({ label, hint, children }) => (
-  <label className="block">
+  /**
+   * For a field sharing a row with others, aligned by the bottom edge.
+   *
+   * A hint sitting in the flow makes its field taller, which pushes its
+   * control up while the neighbours stay put — the row then reads as broken
+   * even though every control is the same height. Out of the flow, the control
+   * keeps the line and the hint hangs underneath.
+   */
+  inline?: boolean;
+}> = ({ label, hint, children, inline }) => (
+  <label className={cx("block", inline && "relative")}>
     <span className="mb-1 block font-display text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
       {label}
     </span>
     {children}
-    {hint && <span className="mt-1 block text-xs text-ink-soft">{hint}</span>}
+    {hint && (
+      <span
+        className={cx(
+          "block text-xs text-ink-soft",
+          inline ? "absolute left-0 top-full mt-1" : "mt-1",
+        )}
+      >
+        {hint}
+      </span>
+    )}
   </label>
 );
 

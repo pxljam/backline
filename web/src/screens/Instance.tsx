@@ -148,12 +148,12 @@ export const Instance: React.FC = () => {
             }}
           >
             <div className="min-w-44 flex-1">
-              <Field label="Nom">
+              <Field inline label="Nom">
                 <Input value={name} onChange={(e) => setName(e.target.value)} required />
               </Field>
             </div>
             <div className="min-w-44 flex-1">
-              <Field label="Identifiant" hint="En minuscules, sans espace.">
+              <Field inline label="Identifiant" hint="En minuscules, sans espace.">
                 <Input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
@@ -163,7 +163,7 @@ export const Instance: React.FC = () => {
               </Field>
             </div>
             <div className="min-w-44 flex-1">
-              <Field label="Premier admin" hint="Sans lui, le collectif est ingérable.">
+              <Field inline label="Premier admin" hint="Sans lui, le collectif est ingérable.">
                 <Select value={adminUserId} onChange={(e) => setAdminUserId(e.target.value)}>
                   <option value="">plus tard</option>
                   {(users.data ?? []).map((u) => (

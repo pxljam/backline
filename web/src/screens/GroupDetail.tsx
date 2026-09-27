@@ -147,7 +147,7 @@ export const GroupDetail: React.FC = () => {
               }}
             >
               <div className="min-w-40 flex-1">
-                <Field label="Ajouter">
+                <Field inline label="Ajouter">
                   <Select
                     value={nouveauMembre}
                     onChange={(e) => setNouveauMembre(e.target.value)}
@@ -165,7 +165,7 @@ export const GroupDetail: React.FC = () => {
                 </Field>
               </div>
               <div className="min-w-40 flex-1">
-                <Field label="Role" hint="Texte libre : « MAO », « batterie »…">
+                <Field inline label="Role" hint="Texte libre : « MAO », « batterie »…">
                   <Input value={roleLibre} onChange={(e) => setRoleLibre(e.target.value)} />
                 </Field>
               </div>
