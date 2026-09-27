@@ -28,6 +28,14 @@ path = "src/bin/bot.rs"
 name = "healthcheck"
 path = "src/bin/healthcheck.rs"
 
+[[bin]]
+name = "bootstrap-admin"
+path = "src/bin/bootstrap_admin.rs"
+
+[[bin]]
+name = "accounts"
+path = "src/bin/accounts.rs"
+
 [dependencies]
 axum = { version = "0.7", features = ["macros", "multipart"] }
 tokio = { version = "1", features = ["full"] }

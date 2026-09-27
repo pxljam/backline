@@ -51,7 +51,7 @@ pub async fn create_collective(db: &PgPool, slug: &str, name: &str) -> AppResult
 
 pub async fn seed_event_types(db: &PgPool, collective_id: Uuid) -> AppResult<()> {
     let types: [(&str, &str, bool, bool); 4] = [
-        ("dj_night", "Soiree DJ electro", true, false),
+        ("dj_night", "Soirée DJ électro", true, false),
         ("concert", "Concert", true, false),
         // A residency is ONE event over a range, not a series (§6).
         ("residency", "Residence", false, true),
@@ -164,7 +164,7 @@ pub async fn seed_brand(
         ),
         (
             "safe_area",
-            "Zone de securite",
+            "Zone de sécurité",
             json!({ "top": 0.14, "bottom": 0.18, "x": 0.06 }),
         ),
     ]
@@ -185,4 +185,59 @@ pub async fn seed_brand(
     }
 
     Ok(brand_id)
+}
+
+/// Creates a user, or finds them if they already exist.
+///
+/// Email is the identity key: one account per person, spanning collectives
+/// (§3). A user created here carries no credential — the invitation link is
+/// what turns them into someone who can sign in.
+pub async fn upsert_user(
+    db: &PgPool,
+    display_name: &str,
+    stage_name: Option<&str>,
+    phone: &str,
+    email: Option<&str>,
+) -> AppResult<Uuid> {
+    if let Some(email) = email {
+        if let Some((id,)) =
+            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM users WHERE lower(email) = lower($1)")
+                .bind(email)
+                .fetch_optional(db)
+                .await?
+        {
+            return Ok(id);
+        }
+    }
+    let (id,): (Uuid,) = sqlx::query_as(
+        "INSERT INTO users (display_name, stage_name, phone, email) VALUES ($1, $2, $3, $4)
+         RETURNING id",
+    )
+    .bind(display_name)
+    .bind(stage_name)
+    .bind(phone)
+    .bind(email)
+    .fetch_one(db)
+    .await?;
+    crate::services::ical::ensure_token(db, "user", id).await?;
+    Ok(id)
+}
+
+/// Attaches a user to a collective, or changes the role they already hold.
+pub async fn add_member(
+    db: &PgPool,
+    collective_id: Uuid,
+    user_id: Uuid,
+    role: &str,
+) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO memberships (collective_id, user_id, role) VALUES ($1, $2, $3)
+         ON CONFLICT (collective_id, user_id) DO UPDATE SET role = EXCLUDED.role",
+    )
+    .bind(collective_id)
+    .bind(user_id)
+    .bind(role)
+    .execute(db)
+    .await?;
+    Ok(())
 }

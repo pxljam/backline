@@ -5,6 +5,7 @@
 //! database duplicates nothing.
 
 use crate::error::AppResult;
+use crate::services::provisioning::{add_member, upsert_user};
 use crate::services::{comms, events as events_svc, ical, provisioning};
 use anyhow::Result;
 use chrono::{Duration, NaiveTime, Utc};
@@ -27,51 +28,6 @@ async fn already_seeded(db: &PgPool) -> Result<bool> {
             .fetch_one(db)
             .await?;
     Ok(n > 0)
-}
-
-/// Creates a user, or finds them if they already exist.
-async fn upsert_user(
-    db: &PgPool,
-    display_name: &str,
-    stage_name: Option<&str>,
-    phone: &str,
-    email: Option<&str>,
-) -> AppResult<Uuid> {
-    if let Some(email) = email {
-        if let Some((id,)) =
-            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM users WHERE lower(email) = lower($1)")
-                .bind(email)
-                .fetch_optional(db)
-                .await?
-        {
-            return Ok(id);
-        }
-    }
-    let (id,): (Uuid,) = sqlx::query_as(
-        "INSERT INTO users (display_name, stage_name, phone, email) VALUES ($1, $2, $3, $4)
-         RETURNING id",
-    )
-    .bind(display_name)
-    .bind(stage_name)
-    .bind(phone)
-    .bind(email)
-    .fetch_one(db)
-    .await?;
-    ical::ensure_token(db, "user", id).await?;
-    Ok(id)
-}
-
-async fn add_member(db: &PgPool, collective_id: Uuid, user_id: Uuid, role: &str) -> AppResult<()> {
-    sqlx::query(
-        "INSERT INTO memberships (collective_id, user_id, role) VALUES ($1, $2, $3)
-         ON CONFLICT (collective_id, user_id) DO UPDATE SET role = EXCLUDED.role",
-    )
-    .bind(collective_id)
-    .bind(user_id)
-    .bind(role)
-    .execute(db)
-    .await?;
-    Ok(())
 }
 
 async fn add_group(
@@ -227,7 +183,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         .bind(platform)
         .bind(handle)
         .bind(format!("https://{platform}.com/bonsoirtechno"))
-        .bind("Detenu par Antoine.")
+        .bind("Détenu par Antoine.")
         .fetch_one(db)
         .await?;
         sqlx::query(
@@ -257,12 +213,12 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
             { "channel": 3, "source": "Voix", "mic": "SM58", "insert": "", "stand": "perche" }
         ],
         "backline": {
-            "brought": "2 controleurs, 1 synthe, 1 interface audio",
-            "requested": "2 tables a hauteur reglable, 4 prises 230V par poste"
+            "brought": "2 contrôleurs, 1 synthe, 1 interface audio",
+            "requested": "2 tables à hauteur réglable, 4 prises 230V par poste"
         },
-        "sound": { "monitors": "2 wedges", "circuits": "2 circuits independants", "foh": "systeme adapte a la jauge" },
+        "sound": { "monitors": "2 wedges", "circuits": "2 circuits indépendants", "foh": "système adapté à la jauge" },
         "light": "Ambiance sombre, contres froids, pas de poursuite.",
-        "hospitality": "Loge fermant a cle, eau, 4 repas vegetariens.",
+        "hospitality": "Loge fermant à clé, eau, 4 repas végétariens.",
         "arrival": { "load_in": "17:00", "soundcheck": "18:30" },
         "contacts": [ { "name": "Romain", "role": "technique", "phone": "+33600000003" } ]
     }))
@@ -287,7 +243,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     // --- Venue + contact ---------------------------------------------------
     let (venue,): (Uuid,) = sqlx::query_as(
         "INSERT INTO venues (collective_id, name, address, city, country, capacity, notes)
-         VALUES ($1, 'Le Sonic', '4 quai des Etroits', 'Lyon', 'France', 250, 'Peniche, chargement par le quai.')
+         VALUES ($1, 'Le Sonic', '4 quai des Étroits', 'Lyon', 'France', 250, 'Péniche, chargement par le quai.')
          RETURNING id",
     )
     .bind(collective)
@@ -305,7 +261,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
     let (opportunity,): (Uuid,) = sqlx::query_as(
         "INSERT INTO opportunities
             (collective_id, venue_id, venue_contact_id, title, conditions, status, created_by)
-         VALUES ($1, $2, $3, 'Soiree Bonsoir Techno au Sonic', 'Trois dates proposees par le lieu. Backline a confirmer.', 'poll_open', $4)
+         VALUES ($1, $2, $3, 'Soirée Bonsoir Techno au Sonic', 'Trois dates proposées par le lieu. Backline à confirmer.', 'poll_open', $4)
          RETURNING id",
     )
     .bind(collective)
@@ -445,7 +401,7 @@ pub async fn seed(db: &PgPool) -> AppResult<()> {
         db,
         collective,
         "residency",
-        "Residence Ramas — studio de la Croix-Rousse",
+        "Résidence Ramas — studio de la Croix-Rousse",
         Utc::now() + Duration::days(60),
         Some(Utc::now() + Duration::days(64)),
         None,
