@@ -10,6 +10,7 @@ interface Peek {
   display_name: string;
   collectives: string[];
   bot_username: string | null;
+  has_email: boolean;
 }
 
 /** Single-use invitation link (§3). It is consumed once. */
@@ -75,8 +76,21 @@ export const Invitation: React.FC = () => {
         <p className="text-xs uppercase tracking-wide text-ink-soft">
           {data.bot_username ? "Ou, sans Telegram" : "Choisis un mot de passe"}
         </p>
-        <Field label="E-mail (optionnel)">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field
+          label={data.has_email ? "E-mail (optionnel)" : "E-mail"}
+          hint={
+            data.has_email
+              ? "Laisse vide pour garder celui que l'administrateur a renseigné."
+              : "C'est avec cette adresse que tu te connecteras."
+          }
+        >
+          <Input
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required={!data.has_email}
+          />
         </Field>
         <Field label="Mot de passe" hint="10 caractères minimum">
           <Input

@@ -118,20 +118,22 @@ struct InvitationPeek {
     display_name: String,
     collectives: Vec<String>,
     bot_username: Option<String>,
+    /// Without one, a password is useless: signing in is by email.
+    has_email: bool,
 }
 
 async fn peek_invitation(
     State(state): State<AppState>,
     Path(code): Path<String>,
 ) -> AppResult<Json<InvitationPeek>> {
-    let row: Option<(Uuid, String)> = sqlx::query_as(
-        "SELECT u.id, u.display_name FROM invitations i JOIN users u ON u.id = i.user_id
+    let row: Option<(Uuid, String, Option<String>)> = sqlx::query_as(
+        "SELECT u.id, u.display_name, u.email FROM invitations i JOIN users u ON u.id = i.user_id
          WHERE i.code = $1 AND i.used_at IS NULL AND i.expires_at > now()",
     )
     .bind(&code)
     .fetch_optional(&state.db)
     .await?;
-    let (user_id, display_name) =
+    let (user_id, display_name, email) =
         row.ok_or_else(|| AppError::not_found("invitation inconnue ou périmée"))?;
 
     let collectives: Vec<(String,)> = sqlx::query_as(
@@ -146,6 +148,7 @@ async fn peek_invitation(
         display_name,
         collectives: collectives.into_iter().map(|(n,)| n).collect(),
         bot_username: state.config.telegram_bot_username.clone(),
+        has_email: email.is_some(),
     }))
 }
 
@@ -204,6 +207,40 @@ async fn accept_invitation(
                     "mot de passe trop court (10 caractères)",
                 ));
             }
+            let email = body
+                .email
+                .as_deref()
+                .map(str::trim)
+                .filter(|e| !e.is_empty());
+
+            // Signing in is by email, so a password without one activates an
+            // account nobody can enter — and the activation used to answer 200.
+            let (existing,): (Option<String>,) =
+                sqlx::query_as("SELECT email FROM users WHERE id = $1")
+                    .bind(user_id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            if email.is_none() && existing.is_none() {
+                return Err(AppError::bad_request(
+                    "une adresse e-mail est nécessaire pour se connecter sans Telegram",
+                ));
+            }
+
+            // The address is unique across the instance; without this the
+            // constraint surfaced as an opaque database error.
+            if let Some(email) = email {
+                let taken: Option<(Uuid,)> = sqlx::query_as(
+                    "SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2",
+                )
+                .bind(email)
+                .bind(user_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+                if taken.is_some() {
+                    return Err(AppError::conflict("cette adresse est déjà prise"));
+                }
+            }
+
             let hash = auth::hash_password(pw).map_err(AppError::Internal)?;
             sqlx::query(
                 "UPDATE users SET password_hash = $2, email = COALESCE($3, email), updated_at = now()
@@ -211,7 +248,7 @@ async fn accept_invitation(
             )
             .bind(user_id)
             .bind(hash)
-            .bind(&body.email)
+            .bind(email)
             .execute(&mut *tx)
             .await?;
         }
