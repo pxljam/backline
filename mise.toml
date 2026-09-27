@@ -1,11 +1,17 @@
 [tools]
 rust = "1.90.0"
 node = "22"
-pnpm = "9"
+pnpm = "9.15.9"
 typst = "0.15.1"
 
 [env]
 _.file = ".env"
+# Which stack the ops tasks act on. The production one lives on the VPS and is
+# driven by `vps:*`, never from here.
+COMPOSE_FILES = "-f docker-compose.yml -f compose.local.yml"
+VPS_HOST = "ubuntu@92.222.171.209"
+BACKLINE_DOMAIN = "backline.betafactory.co"
+BACKLINE_MEDIA_DOMAIN = "backline-media.betafactory.co"
 DATABASE_URL = "postgres://backline:backline@localhost:5433/backline"
 RUST_LOG = "info,backline=debug,sqlx=warn"
 
@@ -51,20 +57,59 @@ run = [
 description = "Database backup — timestamped archive in infra/backups/"
 run = """
 mkdir -p infra/backups
-docker compose exec -T db pg_dump -U "${POSTGRES_USER:-backline}" "${POSTGRES_DB:-backline}" \
+docker compose ${COMPOSE_FILES} exec -T db pg_dump -U "${POSTGRES_USER:-backline}" "${POSTGRES_DB:-backline}" \
   | gzip > "infra/backups/backline-$(date +%Y%m%d-%H%M%S).sql.gz"
 """
 
 [tasks."db:restore"]
-description = "Restore — mise run db:restore -- infra/backups/<archive>.sql.gz"
+description = "Restore INTO THE LOCAL STACK — mise run db:restore -- <archive>.sql.gz"
 run = """
 test -f "$1" || { echo "archive not found: $1" >&2; exit 1; }
-gunzip -c "$1" | docker compose exec -T db psql -U "${POSTGRES_USER:-backline}" -d "${POSTGRES_DB:-backline}"
+# Writes over whatever the local database holds. It never points at production:
+# the VPS is reached through vps:* only.
+gunzip -c "$1" | docker compose ${COMPOSE_FILES} exec -T db psql -U "${POSTGRES_USER:-backline}" -d "${POSTGRES_DB:-backline}"
 """
 
 [tasks."storage:sync"]
 description = "Mirror the media bucket into infra/backups/storage/"
 run = """
 mkdir -p infra/backups/storage
-docker compose run --rm -v "$PWD/infra/backups/storage:/mirror" --entrypoint /bin/sh storage-init   -c "mc alias set local http://storage:9000 ${MINIO_ROOT_USER:-backline} ${MINIO_ROOT_PASSWORD:-backline-dev-secret} && mc mirror --overwrite local/${S3_BUCKET:-backline} /mirror"
+docker compose ${COMPOSE_FILES} run --rm -v "$PWD/infra/backups/storage:/mirror" --entrypoint /bin/sh storage-init   -c "mc alias set local http://storage:9000 ${MINIO_ROOT_USER:-backline} ${MINIO_ROOT_PASSWORD:-backline-dev-secret} && mc mirror --overwrite local/${S3_BUCKET:-backline} /mirror"
 """
+
+# --- Production on the shared VPS -------------------------------------------
+# Ports 80/443, TLS and the firewall belong to the machine (see the `vps-infra`
+# repository). This application joins the shared `edge` network, declares its
+# hostname with labels, and publishes nothing.
+
+[tasks."vps:check"]
+description = "Is the VPS ready? Read-only: access, resources, edge, DNS"
+run = "node scripts/vps.mjs check"
+
+[tasks."vps:deploy"]
+description = "Ship, build, start, bootstrap the admin, verify over HTTPS"
+run = "node scripts/vps.mjs deploy"
+
+[tasks."vps:status"]
+description = "What is running on the VPS, and is it answering"
+run = "node scripts/vps.mjs status"
+
+[tasks."vps:logs"]
+description = "Tail production (append a service name to narrow it)"
+run = "node scripts/vps.mjs logs"
+
+[tasks."vps:stop"]
+description = "Take the instance down"
+run = "node scripts/vps.mjs stop"
+
+[tasks."vps:backup"]
+description = "Dump, mirror the bucket, and pull everything here"
+run = "node scripts/vps.mjs backup"
+
+[tasks."vps:shell"]
+description = "A shell on the VPS, for when none of the above is the answer"
+run = "ssh ${VPS_HOST}"
+
+[tasks."backup:verify"]
+description = "Restore the newest dump into a throwaway database and count rows"
+run = "node scripts/verify-backup.mjs"

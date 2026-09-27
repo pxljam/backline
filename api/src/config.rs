@@ -1,4 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+
+/// The value the application falls back to when `SESSION_SECRET` is unset. It
+/// is published in `docker-compose.yml`, so anyone could forge a session with
+/// it — `check_production` refuses to start with it behind https.
+const DEV_SESSION_SECRET: &str = "dev-session-secret-change-me-in-production-please";
+const DEV_S3_SECRET: &str = "backline-dev-secret";
+const MIN_SESSION_SECRET_LEN: usize = 32;
 
 /// All configuration comes from environment variables (§15); `.env.example` is
 /// the reference.
@@ -43,11 +50,10 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         let database_url = var("DATABASE_URL").context("DATABASE_URL est obligatoire")?;
         let endpoint = var("S3_ENDPOINT").unwrap_or_else(|| "http://localhost:9100".into());
-        Ok(Self {
+        let config = Self {
             database_url,
             bind_addr: var("BIND_ADDR").unwrap_or_else(|| "0.0.0.0:8080".into()),
-            session_secret: var("SESSION_SECRET")
-                .unwrap_or_else(|| "dev-session-secret-change-me-in-production-please".into()),
+            session_secret: var("SESSION_SECRET").unwrap_or_else(|| DEV_SESSION_SECRET.into()),
             public_base_url: var("PUBLIC_BASE_URL")
                 .unwrap_or_else(|| "http://localhost:8088".into()),
             s3: S3Config {
@@ -56,14 +62,41 @@ impl Config {
                 bucket: var("S3_BUCKET").unwrap_or_else(|| "backline".into()),
                 region: var("S3_REGION").unwrap_or_else(|| "us-east-1".into()),
                 access_key: var("S3_ACCESS_KEY").unwrap_or_else(|| "backline".into()),
-                secret_key: var("S3_SECRET_KEY").unwrap_or_else(|| "backline-dev-secret".into()),
+                secret_key: var("S3_SECRET_KEY").unwrap_or_else(|| DEV_S3_SECRET.into()),
             },
             telegram_bot_token: var("TELEGRAM_BOT_TOKEN"),
             telegram_bot_username: var("TELEGRAM_BOT_USERNAME"),
             stills_url: var("STILLS_URL"),
             run_migrations: flag("RUN_MIGRATIONS", true),
             run_seed: flag("RUN_SEED", false),
-        })
+        };
+        config.check_production()?;
+        Ok(config)
+    }
+
+    /// Refuses to start on a deployment that kept a development value.
+    ///
+    /// Every rule is conditioned on an https base URL: a local stack keeps
+    /// working untouched, and a real deployment cannot silently sign its
+    /// sessions with a secret that is printed in the repository.
+    fn check_production(&self) -> Result<()> {
+        if !self.public_base_url.starts_with("https://") {
+            return Ok(());
+        }
+        if self.session_secret == DEV_SESSION_SECRET {
+            bail!("SESSION_SECRET est resté à la valeur de développement");
+        }
+        if self.session_secret.len() < MIN_SESSION_SECRET_LEN {
+            bail!("SESSION_SECRET doit faire au moins {MIN_SESSION_SECRET_LEN} caractères");
+        }
+        if self.s3.secret_key == DEV_S3_SECRET {
+            bail!("S3_SECRET_KEY est resté à la valeur de développement");
+        }
+        if self.public_base_url.ends_with('/') {
+            // It is concatenated into invitation and iCal links.
+            bail!("PUBLIC_BASE_URL ne doit pas finir par /");
+        }
+        Ok(())
     }
 
     /// Minimal configuration used by the integration tests.

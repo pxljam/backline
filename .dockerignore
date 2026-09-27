@@ -1,0 +1,30 @@
+# What must never enter a build context.
+#
+# Not only about upload size: `web/Dockerfile` and `stills/Dockerfile` copy
+# their sources *after* `pnpm install --frozen-lockfile`, so a local
+# `node_modules/` would be laid over the freshly installed tree and produce a
+# silently wrong image.
+
+.git/
+.gitignore
+
+# Rust build output — gigabytes, and the wrong architecture half the time.
+target/
+api/target/
+
+# Node
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.pnpm-store/
+
+# Secrets stay on the machine that holds them (§15).
+.env
+.env.*
+!.env.example
+
+# Local state
+infra/backups/
+*.log
+.claude/

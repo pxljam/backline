@@ -3,6 +3,10 @@
 
 FROM rust:1.90-bookworm AS build
 WORKDIR /src
+# The VPS has 4 GB of RAM (§15). rustc defaults to one job per core and the
+# release build of every binary is what pushes it into swap — or into the OOM
+# killer, which picks whatever is already serving.
+ENV CARGO_BUILD_JOBS=2
 COPY api/Cargo.toml api/Cargo.lock ./
 COPY api/src src
 COPY api/migrations migrations
@@ -12,7 +16,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --bins && \
     mkdir -p /out && \
     cp target/release/server target/release/bot target/release/migrate \
-       target/release/seed target/release/healthcheck /out/
+       target/release/seed target/release/healthcheck \
+       target/release/bootstrap-admin target/release/accounts /out/
 
 FROM debian:bookworm-slim
 ARG TYPST_VERSION=0.15.1
