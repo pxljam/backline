@@ -24,12 +24,12 @@ export const Events: React.FC = () => {
   return (
     <>
       <PageTitle
-        title="Evenements"
-        subtitle="Soirees, concerts, residences et streams."
+        title="Événements"
+        subtitle="Soirées, concerts, résidences et streams."
         action={
           isAdmin && (
             <Button variant="primary" onClick={() => setCreating((v) => !v)}>
-              {creating ? "Annuler" : "Nouvel evenement"}
+              {creating ? "Annuler" : "Nouvel événement"}
             </Button>
           )
         }
@@ -48,7 +48,7 @@ export const Events: React.FC = () => {
 
       <div className="grid gap-4">
         <Card title="A venir">
-          {upcoming.length === 0 ? <Empty>Rien de prevu.</Empty> : <EventList events={upcoming} />}
+          {upcoming.length === 0 ? <Empty>Rien de prévu.</Empty> : <EventList events={upcoming} />}
         </Card>
         {past.length > 0 && (
           <Card title="Passes">
@@ -67,7 +67,7 @@ const EventList: React.FC<{ events: BacklineEvent[] }> = ({ events }) => (
       const missingRider = e.tech_riders.filter((r) => !r.tech_rider_id).length;
       return (
         <li key={e.id}>
-          <Link to={`/evenements/${e.id}`} className="flex flex-wrap items-center gap-3 py-3">
+          <Link to={`/événements/${e.id}`} className="flex flex-wrap items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="font-medium">{e.title}</p>
               <p className="text-xs text-ink-soft">
@@ -115,10 +115,10 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
   return (
     <Card
-      title="Nouvel evenement"
+      title="Nouvel événement"
       action={
         <span className="text-xs text-ink-soft">
-          Un concert se cree normalement depuis une opportunite.
+          Un concert se crée normalement depuis une opportunité.
         </span>
       }
     >
@@ -154,7 +154,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
         </Field>
 
-        <Field label="Debut">
+        <Field label="Début">
           <Input
             type="datetime-local"
             value={startsAt}
@@ -165,7 +165,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 
         <Field
           label={type?.is_range ? "Fin (obligatoire)" : "Fin"}
-          hint={type?.is_range ? "Une residence porte une plage fixe." : undefined}
+          hint={type?.is_range ? "Une résidence porte une plage fixe." : undefined}
         >
           <Input
             type="datetime-local"
@@ -186,7 +186,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           </Select>
         </Field>
 
-        <Field label="Porteur" hint="Vide = le collectif porte l'evenement.">
+        <Field label="Porteur" hint="Vide = le collectif porte l'événement.">
           <Select value={hostGroupId} onChange={(e) => setHostGroupId(e.target.value)}>
             <option value="">le collectif</option>
             {groups?.map((g) => (
@@ -250,7 +250,7 @@ const NewEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <div className="md:col-span-2">
           <ErrorNote>{error}</ErrorNote>
           <Button type="submit" variant="primary" disabled={busy} className="mt-2">
-            {busy ? "…" : "Creer"}
+            {busy ? "…" : "Créer"}
           </Button>
         </div>
       </form>

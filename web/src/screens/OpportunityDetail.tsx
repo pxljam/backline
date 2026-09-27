@@ -13,7 +13,7 @@ type Answer = "yes" | "maybe" | "no";
 
 const BUTTONS: { value: Answer; label: string; title: string }[] = [
   { value: "yes", label: "✅", title: "dispo" },
-  { value: "maybe", label: "❔", title: "peut-etre" },
+  { value: "maybe", label: "❔", title: "peut-être" },
   { value: "no", label: "❌", title: "non" },
 ];
 
@@ -126,17 +126,17 @@ export const OpportunityDetail: React.FC = () => {
       {o.event_id && (
         <div className="mb-5">
           <Card title="Date arretee">
-            <Button variant="primary" onClick={() => navigate(`/evenements/${o.event_id}`)}>
-              Voir l'evenement
+            <Button variant="primary" onClick={() => navigate(`/événements/${o.event_id}`)}>
+              Voir l'événement
             </Button>
           </Card>
         </div>
       )}
 
-      {/* Ma reponse : seule la personne concernee ecrit sa disponibilite. */}
+      {/* Ma réponse : seule la personne concernée ecrit sa disponibilité. */}
       {o.poll_open && myRow && (
         <div className="mb-5">
-          <Card title="Mes disponibilites">
+          <Card title="Mes disponibilités">
             <div className="space-y-2">
               {m.dates.map((d) => {
                 const reply = myRow.answers[d.id];
@@ -157,7 +157,7 @@ export const OpportunityDetail: React.FC = () => {
                           disabled={busy}
                           onClick={() => answer(d.id, { status: b.value })}
                           className={`rounded-lg border px-2.5 py-1 text-sm ${
-                            reply?.status === b.value ? "border-ink bg-ink text-paper" : "border-line"
+                            reply?.status === b.value ? "border-accent bg-accent text-on-accent" : "border-line"
                           }`}
                         >
                           {b.label}
@@ -168,7 +168,7 @@ export const OpportunityDetail: React.FC = () => {
                       disabled={busy}
                       onClick={() => answer(d.id, { wants_to_play: !reply?.wants_to_play })}
                       className={`rounded-lg border px-2.5 py-1 text-sm ${
-                        reply?.wants_to_play ? "border-ink bg-ink text-paper" : "border-line"
+                        reply?.wants_to_play ? "border-accent bg-accent text-on-accent" : "border-line"
                       }`}
                     >
                       🎸 je veux jouer
@@ -183,7 +183,7 @@ export const OpportunityDetail: React.FC = () => {
       )}
 
       {/* La matrice. Visible par tous les membres du collectif (§5.2). */}
-      <Card title="Matrice des disponibilites">
+      <Card title="Matrice des disponibilités">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[32rem] border-collapse text-sm">
             <thead>
@@ -216,17 +216,17 @@ export const OpportunityDetail: React.FC = () => {
                     const a = membre.answers[d.id];
                     const background =
                       a?.status === "yes"
-                        ? "bg-emerald-100"
+                        ? "bg-good-quiet"
                         : a?.status === "maybe"
-                          ? "bg-amber-100"
+                          ? "bg-warn-quiet"
                           : a?.status === "no"
-                            ? "bg-accent-soft"
+                            ? "bg-danger-quiet"
                             : "";
                     return (
                       <td
                         key={d.id}
                         className={`border-b border-line px-2 py-2 text-center ${background}`}
-                        title={a ? a.status : "sans reponse"}
+                        title={a ? a.status : "sans réponse"}
                       >
                         {a?.status === "yes" ? "✅" : a?.status === "maybe" ? "❔" : a?.status === "no" ? "❌" : "·"}
                         {a?.wants_to_play && <span className="ml-0.5">🎸</span>}
@@ -245,7 +245,7 @@ export const OpportunityDetail: React.FC = () => {
             <div key={d.id} className="rounded-lg border border-line px-3 py-3">
               <p className="font-medium">{shortDate(d.day)}</p>
               <p className="mt-1 text-xs text-ink-soft">
-                {d.yes} dispo · {d.maybe} peut-etre · {d.no} non · {d.no_answer} sans reponse
+                {d.yes} dispo · {d.maybe} peut-être · {d.no} non · {d.no_answer} sans réponse
               </p>
               {d.complete_groups.length > 0 ? (
                 <p className="mt-2 text-sm">
@@ -279,7 +279,7 @@ export const OpportunityDetail: React.FC = () => {
           <Arbitration
             opportunityId={id}
             matrix={m}
-            onDone={(eventId) => navigate(`/evenements/${eventId}`)}
+            onDone={(eventId) => navigate(`/événements/${eventId}`)}
           />
         </div>
       )}
@@ -318,7 +318,7 @@ const Arbitration: React.FC<{
           </Select>
         </Field>
 
-        <Field label="Type d'evenement">
+        <Field label="Type d'événement">
           <Select value={typeKey} onChange={(e) => setTypeKey(e.target.value)}>
             {collective?.event_types
               .filter((t) => t.key !== "stream")
@@ -330,7 +330,7 @@ const Arbitration: React.FC<{
           </Select>
         </Field>
 
-        <Field label="Line-up" hint="Les groupes complets a cette date sont marques.">
+        <Field label="Line-up" hint="Les groupes complets à cette date sont marques.">
           <div className="flex flex-wrap gap-2">
             {groups.map((g) => {
               const full = date?.complete_groups.includes(g.id);
@@ -339,7 +339,7 @@ const Arbitration: React.FC<{
                 <label
                   key={g.id}
                   className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                    chosen ? "border-ink bg-ink text-paper" : full ? "border-emerald-500" : "border-line"
+                    chosen ? "border-accent bg-accent text-on-accent" : full ? "border-good" : "border-line"
                   }`}
                 >
                   <input
@@ -362,7 +362,7 @@ const Arbitration: React.FC<{
       <ErrorNote>{error}</ErrorNote>
 
       <p className="mt-3 text-xs text-ink-soft">
-        Confirmer cree l'evenement, les postes logistiques, le plan de com, rattache les fiches
+        Confirmer crée l'événement, les postes logistiques, le plan de com, rattache les fiches
         techniques, et previent les retenus comme les non-retenus.
       </p>
 

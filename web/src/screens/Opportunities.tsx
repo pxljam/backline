@@ -29,12 +29,12 @@ export const Opportunities: React.FC = () => {
   return (
     <>
       <PageTitle
-        title="Opportunites"
+        title="Opportunités"
         subtitle="Un lieu, des dates possibles, un sondage. C'est ici que la date se decide."
         action={
           isAdmin && (
             <Button variant="primary" onClick={() => setCreating((v) => !v)}>
-              {creating ? "Annuler" : "Nouvelle opportunite"}
+              {creating ? "Annuler" : "Nouvelle opportunité"}
             </Button>
           )
         }
@@ -53,13 +53,25 @@ export const Opportunities: React.FC = () => {
 
       <Card>
         {!data || data.length === 0 ? (
-          <Empty>Aucune opportunite pour l'instant.</Empty>
+          <Empty
+            icon="opportunity"
+            hint="Une opportunité, c'est une date possible. Le sondage de dispos tranche à ta place."
+            action={
+              isAdmin && (
+                <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
+                  Ouvrir une opportunité
+                </Button>
+              )
+            }
+          >
+            Aucune opportunité pour l'instant.
+          </Empty>
         ) : (
           <ul className="divide-y divide-line">
             {data.map((o) => (
               <li key={o.id}>
                 <Link
-                  to={`/opportunites/${o.id}`}
+                  to={`/opportunités/${o.id}`}
                   className="flex flex-wrap items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0">
@@ -100,7 +112,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   ]);
 
   return (
-    <Card title="Nouvelle opportunite">
+    <Card title="Nouvelle opportunité">
       <form
         className="grid gap-4 md:grid-cols-2"
         onSubmit={(e) => {
@@ -122,7 +134,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           });
         }}
       >
-        <Field label="Intitule">
+        <Field label="Intitulé">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
         </Field>
 
@@ -145,7 +157,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 <label
                   key={g.id}
                   className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                    hosts.includes(g.id) ? "border-ink bg-ink text-paper" : "border-line"
+                    hosts.includes(g.id) ? "border-accent bg-accent text-on-accent" : "border-line"
                   }`}
                 >
                   <input
@@ -207,7 +219,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         </div>
 
         <div className="md:col-span-2">
-          <Field label="Conditions" hint="Texte libre. L'argent est hors perimetre.">
+          <Field label="Conditions" hint="Texte libre. L'argent est hors périmètre.">
             <Textarea rows={2} value={conditions} onChange={(e) => setConditions(e.target.value)} />
           </Field>
         </div>
@@ -215,7 +227,7 @@ const NewOpportunity: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         <div className="md:col-span-2">
           <ErrorNote>{error}</ErrorNote>
           <Button type="submit" variant="primary" disabled={busy} className="mt-2">
-            {busy ? "…" : "Creer"}
+            {busy ? "…" : "Créer"}
           </Button>
         </div>
       </form>

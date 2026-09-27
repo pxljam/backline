@@ -149,7 +149,7 @@ export const TemplateEditor: React.FC = () => {
           <h1 className="text-2xl font-semibold tracking-tight">{template.data?.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
             v{template.data?.version} · {variant?.width} × {variant?.height} ({variant?.ratio})
-            {variant?.is_master && " · format maitre"}
+            {variant?.is_master && " · format maître"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export const TemplateEditor: React.FC = () => {
             key={v.format_id}
             onClick={() => setFormatId(v.format_id)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              v.format_id === formatId ? "bg-ink text-paper" : "border border-line"
+              v.format_id === formatId ? "bg-accent text-on-accent" : "border border-line"
             }`}
           >
             {v.format_key} <span className="opacity-70">{v.ratio}</span>
@@ -183,7 +183,7 @@ export const TemplateEditor: React.FC = () => {
             value=""
             onChange={(e) => e.target.value && addFormat(e.target.value)}
           >
-            <option value="">+ decliner…</option>
+            <option value="">+ décliner…</option>
             {remainingFormats.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.platform} — {f.label} ({f.ratio})
@@ -236,9 +236,9 @@ export const TemplateEditor: React.FC = () => {
           />
 
           <div className="mt-3">
-            <Field label="Apercu avec un evenement" hint="Les champs automatiques se remplissent.">
+            <Field label="Aperçu avec un événement" hint="Les champs automatiques se remplissent.">
               <Select value={eventId} onChange={(e) => setEventId(e.target.value)}>
-                <option value="">donnees d'exemple</option>
+                <option value="">données d'exemple</option>
                 {events.data?.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.title}
@@ -271,7 +271,7 @@ export const TemplateEditor: React.FC = () => {
                     <button
                       onClick={() => setSelection(b.id)}
                       className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm ${
-                        b.id === selection ? "bg-ink text-paper" : "hover:bg-paper"
+                        b.id === selection ? "bg-accent text-on-accent" : "hover:bg-raised"
                       }`}
                     >
                       <span className="truncate">
@@ -279,7 +279,7 @@ export const TemplateEditor: React.FC = () => {
                         {b.type === "text" &&
                           ` — ${String((b.props as { content?: string }).content ?? "").slice(0, 18)}`}
                       </span>
-                      {b.locked && <span className="text-xs">verrouille</span>}
+                      {b.locked && <span className="text-xs">verrouillé</span>}
                     </button>
                   </li>
                 ))}
@@ -342,7 +342,7 @@ export const BackgroundEditor: React.FC<{
         >
           <option value="">transparent</option>
           <option value="color">couleur</option>
-          <option value="gradient">degrade</option>
+          <option value="gradient">dégradé</option>
           <option value="image">image</option>
         </Select>
       </Field>
@@ -397,7 +397,7 @@ export const BackgroundEditor: React.FC<{
             value={background.assetId ?? ""}
             onChange={(e) => onChange({ ...background, assetId: e.target.value })}
           >
-            <option value="">— a choisir —</option>
+            <option value="">— à choisir —</option>
             {assets
               .filter((a) => a.kind === "image")
               .map((a) => (

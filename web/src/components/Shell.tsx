@@ -3,24 +3,48 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { useResource } from "../lib/hooks";
 import type { Dashboard } from "../lib/types";
+import { Icon, type IconName } from "./icons";
+import { Badge, Select, cx } from "./ui";
 
 /**
  * Application shell. Responsive: admins work from a phone too (§14).
+ *
+ * The active item is a raised slab with an accent bar rather than a filled
+ * block: on a dark chrome a solid fill shouts, and the only thing allowed to
+ * shout is the thing you should act on.
+ *
+ * `tourId` anchors the walkthrough to this list instead of letting it hunt the
+ * DOM for a label — copy changes, anchors should not.
  */
 
-const LIENS: { to: string; label: string; adminOnly?: boolean }[] = [
-  { to: "/", label: "Tableau de bord" },
-  { to: "/opportunites", label: "Opportunites" },
-  { to: "/evenements", label: "Evenements" },
-  { to: "/calendrier", label: "Calendrier" },
-  { to: "/groupes", label: "Groupes" },
-  { to: "/membres", label: "Membres" },
-  { to: "/lieux", label: "Lieux" },
-  { to: "/studio", label: "Studio" },
-  { to: "/rendus", label: "Rendus" },
-  { to: "/charte", label: "Charte" },
-  { to: "/reglages", label: "Reglages" },
+const LIENS: {
+  to: string;
+  label: string;
+  icon: IconName;
+  tourId?: string;
+  adminOnly?: boolean;
+}[] = [
+  { to: "/", label: "Tableau de bord", icon: "dashboard", tourId: "dashboard" },
+  { to: "/opportunites", label: "Opportunités", icon: "opportunity", tourId: "opportunites" },
+  { to: "/evenements", label: "Événements", icon: "event", tourId: "evenements" },
+  { to: "/calendrier", label: "Calendrier", icon: "calendar" },
+  { to: "/groupes", label: "Groupes", icon: "group", tourId: "groupes" },
+  { to: "/membres", label: "Membres", icon: "member", tourId: "membres" },
+  { to: "/lieux", label: "Lieux", icon: "venue" },
+  { to: "/studio", label: "Studio", icon: "studio", tourId: "studio" },
+  { to: "/rendus", label: "Rendus", icon: "render" },
+  { to: "/charte", label: "Charte", icon: "brand", tourId: "charte" },
+  { to: "/reglages", label: "Réglages", icon: "settings" },
 ];
+
+const link = ({ isActive }: { isActive: boolean }) =>
+  cx(
+    "relative flex min-h-11 items-center gap-2.5 rounded-control px-3 py-2 text-sm transition",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+    isActive
+      ? "bg-raised font-medium text-ink before:absolute before:inset-y-1.5 before:-left-0.5 before:w-0.5 before:rounded-full before:bg-accent"
+      : "text-ink-soft hover:bg-raised hover:text-ink",
+  );
 
 export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { me, collectiveId, setCollectiveId, logout, isAdmin } = useSession();
@@ -34,19 +58,26 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
-      <header className="flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-stage/80 px-4 py-3 backdrop-blur lg:hidden">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="rounded-lg border border-line px-3 py-1.5 text-sm"
+          className="flex min-h-11 items-center rounded-control border border-line-strong px-3 text-sm"
           aria-label="Menu"
+          aria-expanded={open}
         >
-          ☰
+          <Icon name="menu" className="h-5 w-5" />
         </button>
-        <span className="font-semibold tracking-[0.2em]">BCKLN</span>
-        <NavLink to="/notifications" className="relative text-sm">
-          🔔
+        <span className="font-display font-semibold tracking-[0.2em]">
+          BCKLN<span className="text-accent">_</span>
+        </span>
+        <NavLink
+          to="/notifications"
+          className="relative flex min-h-11 items-center px-2 text-ink-soft"
+          aria-label="Notifications"
+        >
+          <Icon name="bell" className="h-5 w-5" />
           {nonLues > 0 && (
-            <span className="absolute -right-2 -top-1 rounded-full bg-accent px-1.5 text-[10px] text-white">
+            <span className="tabular absolute right-0 top-1.5 rounded-full bg-accent px-1.5 text-[10px] font-medium text-on-accent">
               {nonLues}
             </span>
           )}
@@ -54,28 +85,33 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       </header>
 
       <nav
-        className={`${open ? "block" : "hidden"} border-b border-line bg-panel lg:block lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r`}
+        className={cx(
+          open ? "block" : "hidden",
+          "border-b border-line bg-panel lg:block lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r",
+        )}
       >
         <div className="hidden px-5 py-5 lg:block">
-          <span className="text-lg font-semibold tracking-[0.25em]">BCKLN</span>
+          <span className="font-display text-lg font-semibold tracking-[0.25em]">
+            BCKLN<span className="text-accent">_</span>
+          </span>
           <p className="mt-0.5 text-xs text-ink-soft">Backline</p>
         </div>
 
         <div className="px-3 pb-2 pt-3 lg:pt-0">
-          <select
+          <Select
+            aria-label="Collectif courant"
             value={collectiveId ?? ""}
             onChange={(e) => {
               setCollectiveId(e.target.value);
               navigate("/");
             }}
-            className="w-full rounded-lg border border-line bg-panel px-2.5 py-2 text-sm"
           >
             {me?.collectives.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <ul className="space-y-0.5 px-3 pb-4">
@@ -84,13 +120,11 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               <NavLink
                 to={l.to}
                 end={l.to === "/"}
+                data-tour={l.tourId}
                 onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `block rounded-lg px-3 py-2 text-sm ${
-                    isActive ? "bg-ink text-paper" : "text-ink-soft hover:bg-paper"
-                  }`
-                }
+                className={link}
               >
+                <Icon name={l.icon} />
                 {l.label}
               </NavLink>
             </li>
@@ -99,15 +133,14 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             <NavLink
               to="/notifications"
               onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-                  isActive ? "bg-ink text-paper" : "text-ink-soft hover:bg-paper"
-                }`
-              }
+              className={(state) => cx(link(state), "justify-between")}
             >
-              Notifications
+              <span className="flex items-center gap-2.5">
+                <Icon name="bell" />
+                Notifications
+              </span>
               {nonLues > 0 && (
-                <span className="rounded-full bg-accent px-1.5 text-[10px] text-white">
+                <span className="tabular rounded-full bg-accent px-1.5 text-[10px] font-medium text-on-accent">
                   {nonLues}
                 </span>
               )}
@@ -115,15 +148,8 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           </li>
           {me?.is_instance_admin && (
             <li>
-              <NavLink
-                to="/instance"
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `block rounded-lg px-3 py-2 text-sm ${
-                    isActive ? "bg-ink text-paper" : "text-ink-soft hover:bg-paper"
-                  }`
-                }
-              >
+              <NavLink to="/instance" onClick={() => setOpen(false)} className={link}>
+                <Icon name="instance" />
                 Instance
               </NavLink>
             </li>
@@ -132,15 +158,18 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
         <div className="border-t border-line px-4 py-3 text-xs text-ink-soft">
           <p className="font-medium text-ink">{me?.display_name}</p>
-          <p>{isAdmin ? "admin du collectif" : "membre"}</p>
+          <p className="flex flex-wrap items-center gap-1.5">
+            {me?.is_instance_admin && <Badge tone="accent">super admin</Badge>}
+            <span>{isAdmin ? "admin du collectif" : "membre"}</span>
+          </p>
           <button
             onClick={async () => {
               await logout();
               navigate("/connexion");
             }}
-            className="mt-2 underline"
+            className="mt-2 rounded px-0.5 underline hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            se deconnecter
+            se déconnecter
           </button>
         </div>
       </nav>

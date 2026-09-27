@@ -137,7 +137,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             onChange={(e) => onChange({ rotation: Number(e.target.value) })}
           />
         </Field>
-        <Field label="Opacite">
+        <Field label="Opacité">
           <Input
             type="number"
             min={0}
@@ -204,7 +204,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             value={(p as unknown as ShapeProps).strokeToken}
             onChange={(key) => onProps({ strokeToken: key })}
           />
-          <Field label="Epaisseur du contour" hint="Fraction de la largeur du canevas.">
+          <Field label="Épaisseur du contour" hint="Fraction de la largeur du canevas.">
             <Input
               type="number"
               step={0.002}
@@ -252,7 +252,7 @@ const TextBlockProps: React.FC<{
   onProps: (patch: Record<string, unknown>) => void;
 }> = ({ props, tokens, onProps }) => (
   <>
-    <Field label="Contenu" hint="Les champs automatiques se remplissent a la generation.">
+    <Field label="Contenu" hint="Les champs automatiques se remplissent à la génération.">
       <Textarea
         rows={3}
         value={props.content ?? ""}
@@ -271,7 +271,7 @@ const TextBlockProps: React.FC<{
             type="button"
             title={c.label}
             onClick={() => onProps({ content: `${props.content ?? ""}${fieldToken(c.path)}` })}
-            className="rounded border border-line px-1.5 py-0.5 text-[11px] hover:border-ink"
+            className="rounded border border-line px-1.5 py-0.5 text-[11px] hover:border-line-strong"
           >
             {c.label}
           </button>
@@ -354,9 +354,9 @@ const MediaProps: React.FC<{
   onProps: (patch: Record<string, unknown>) => void;
 }> = ({ props, assets, kind, onProps }) => (
   <>
-    <Field label={kind === "image" ? "Image" : "Video"} hint="Bibliotheque du collectif.">
+    <Field label={kind === "image" ? "Image" : "Video"} hint="Bibliothèque du collectif.">
       <Select value={props.assetId ?? ""} onChange={(e) => onProps({ assetId: e.target.value })}>
-        <option value="">— a choisir —</option>
+        <option value="">— à choisir —</option>
         {assets
           .filter((a) => a.kind === kind)
           .map((a) => (
@@ -458,7 +458,7 @@ const TimingProps: React.FC<{ block: Block; onChange: (patch: Partial<Block>) =>
           </Field>
         )}
         {anim && (
-          <Field label="Duree (images)">
+          <Field label="Durée (images)">
             <Input
               type="number"
               value={anim.to ?? 18}

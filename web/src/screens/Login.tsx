@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useSession } from "../lib/session";
-import { Button, ErrorNote, Field, Input } from "../components/ui";
+import { Button, Card, ErrorNote, Field, Input } from "../components/ui";
 import { TelegramLogin } from "../components/TelegramLogin";
 
 interface PublicConfig {
@@ -30,15 +30,25 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto flex min-h-full max-w-sm flex-col justify-center px-6 py-16">
-      <div className="mb-8">
-        <p className="text-2xl font-semibold tracking-[0.3em]">BCKLN</p>
+    // The only screen a stranger ever sees. A single lit panel on a dark stage.
+    <div className="relative flex min-h-full items-center justify-center px-6 py-16">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(60%_100%_at_50%_0%,var(--color-accent-quiet),transparent)]"
+      />
+      <div className="relative w-full max-w-sm">
+      <div className="mb-6 text-center">
+        <p className="font-display text-2xl font-semibold tracking-[0.3em]">
+          BCKLN<span className="text-accent">_</span>
+        </p>
         <h1 className="mt-2 text-lg">Backline</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Pas d'inscription : un administrateur cree les comptes et envoie un lien
+          Pas d'inscription : un administrateur crée les comptes et envoie un lien
           d'invitation.
         </p>
       </div>
+
+      <Card>
 
       {config?.telegram_enabled && config.telegram_bot_username && (
         <div className="mb-6">
@@ -79,10 +89,12 @@ export const Login: React.FC = () => {
           />
         </Field>
         <ErrorNote>{error}</ErrorNote>
-        <Button type="submit" variant="primary" disabled={busy} className="w-full">
+        <Button type="submit" variant="primary" size="lg" disabled={busy}>
           {busy ? "…" : "Se connecter"}
         </Button>
       </form>
+      </Card>
+      </div>
     </div>
   );
 };

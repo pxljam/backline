@@ -60,7 +60,7 @@ export const Groups: React.FC = () => {
                 </Field>
               </div>
               <Button type="submit" variant="primary" disabled={busy}>
-                Creer
+                Créer
               </Button>
             </form>
             <ErrorNote>{actionError}</ErrorNote>
@@ -73,7 +73,19 @@ export const Groups: React.FC = () => {
 
       <Card>
         {!data || data.length === 0 ? (
-          <Empty>Aucun groupe.</Empty>
+          <Empty
+              icon="group"
+              hint="Un groupe, c'est un projet qui joue : sa charte locale, ses comptes sociaux, sa fiche technique."
+              action={
+                isAdmin && (
+                  <Button variant="primary" icon="plus" onClick={() => setOpen(true)}>
+                    Créer un groupe
+                  </Button>
+                )
+              }
+            >
+              Aucun groupe.
+            </Empty>
         ) : (
           <ul className="divide-y divide-line">
             {data.map((g) => (

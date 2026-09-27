@@ -4,7 +4,7 @@ import { useResource } from "../lib/hooks";
 import { useCollectiveBase } from "../lib/session";
 import type { CalendarEntry, Group } from "../lib/types";
 import { shortDate, time } from "../lib/format";
-import { Badge, Button, Card, Empty, ErrorNote, Loading, PageTitle, Select } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorNote, Loading, PageTitle, Select, Tabs} from "../components/ui";
 
 type View = "mois" | "semaine" | "liste";
 
@@ -41,21 +41,21 @@ export const Calendar: React.FC = () => {
     <>
       <PageTitle
         title="Calendrier"
-        subtitle="Evenements confirmes, dates candidates en arbitrage (en pointilles)."
+        subtitle="Événements confirmés, dates candidates en arbitrage (en pointilles)."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(["mois", "semaine", "liste"] as View[]).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`rounded-lg px-3 py-1.5 text-sm capitalize ${
-              view === v ? "bg-ink text-paper" : "border border-line"
-            }`}
-          >
-            {v}
-          </button>
-        ))}
+        <Tabs
+          value={view}
+          onChange={setView}
+          options={
+            [
+              ["mois", "Mois"],
+              ["semaine", "Semaine"],
+              ["liste", "Liste"],
+            ] as [View, string][]
+          }
+        />
         <Select
           className="w-auto"
           value={groupId}
@@ -70,7 +70,7 @@ export const Calendar: React.FC = () => {
         </Select>
         <label className="flex items-center gap-1.5 text-sm">
           <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-          mes evenements
+          mes événements
         </label>
         {view !== "liste" && (
           <div className="ml-auto flex items-center gap-2">
@@ -109,7 +109,7 @@ export const Calendar: React.FC = () => {
               <li key={f.url} className="flex flex-wrap items-center gap-2">
                 <Badge>{f.scope === "user" ? "moi" : f.scope === "group" ? "groupe" : "collectif"}</Badge>
                 <span className="text-sm">{f.label}</span>
-                <code className="min-w-0 flex-1 truncate rounded bg-paper px-2 py-1 text-xs">
+                <code className="min-w-0 flex-1 truncate rounded bg-raised px-2 py-1 text-xs">
                   {new URL(f.url, window.location.origin).href}
                 </code>
                 <Button
@@ -154,13 +154,13 @@ function startOfWeek(d: Date): Date {
 
 const ListView: React.FC<{ entries: CalendarEntry[] }> = ({ entries }) =>
   entries.length === 0 ? (
-    <Empty>Rien a afficher.</Empty>
+    <Empty icon="calendar">Rien à afficher sur cette période.</Empty>
   ) : (
     <ul className="divide-y divide-line">
       {entries.map((e) => (
         <li key={`${e.kind}-${e.id}`}>
           <Link
-            to={e.kind === "event" ? `/evenements/${e.id}` : `/opportunites/${e.opportunity_id}`}
+            to={e.kind === "event" ? `/événements/${e.id}` : `/opportunités/${e.opportunity_id}`}
             className="flex flex-wrap items-center justify-between gap-3 py-3"
           >
             <div>
@@ -227,7 +227,7 @@ const GridView: React.FC<{ entries: CalendarEntry[]; anchor: Date; week: boolean
               className={`min-h-24 bg-panel p-1.5 ${outsideMonth ? "opacity-40" : ""}`}
             >
               <span
-                className={`text-xs ${isToday ? "rounded bg-ink px-1.5 text-paper" : "text-ink-soft"}`}
+                className={`text-xs ${isToday ? "rounded bg-accent px-1.5 text-on-accent" : "text-ink-soft"}`}
               >
                 {d.getDate()}
               </span>
@@ -236,12 +236,12 @@ const GridView: React.FC<{ entries: CalendarEntry[]; anchor: Date; week: boolean
                   <li key={`${e.kind}-${e.id}`}>
                     <Link
                       to={
-                        e.kind === "event" ? `/evenements/${e.id}` : `/opportunites/${e.opportunity_id}`
+                        e.kind === "event" ? `/événements/${e.id}` : `/opportunités/${e.opportunity_id}`
                       }
                       className={`block truncate rounded px-1 py-0.5 text-[11px] ${
                         e.kind === "candidate_date"
                           ? "border border-dashed border-ink-soft text-ink-soft"
-                          : "bg-ink text-paper"
+                          : "bg-accent text-on-accent"
                       }`}
                       title={e.title}
                     >

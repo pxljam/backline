@@ -52,7 +52,7 @@ export const Notifications: React.FC = () => {
 
       <Card>
         {!data || data.length === 0 ? (
-          <Empty>Rien pour l'instant.</Empty>
+          <Empty icon="bell">Rien pour l'instant.</Empty>
         ) : (
           <ul className="divide-y divide-line">
             {data.map((n) => (

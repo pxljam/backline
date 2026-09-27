@@ -132,8 +132,8 @@ export const VideoEditor: React.FC = () => {
       setDirty(false);
       setQueueNotice(
         r.machines_online > 0
-          ? "Rendu en file — une machine va le reclamer."
-          : "Rendu en file, mais aucune machine connectee : un admin sera prevenu.",
+          ? "Rendu en file — une machine va le réclamer."
+          : "Rendu en file, mais aucune machine connectée : un admin sera prévenu.",
       );
     });
 
@@ -197,7 +197,7 @@ export const VideoEditor: React.FC = () => {
                   setSelection(null);
                 }}
                 className={`rounded-lg px-3 py-1.5 text-sm ${
-                  i === scene ? "bg-ink text-paper" : "border border-line"
+                  i === scene ? "bg-accent text-on-accent" : "border border-line"
                 }`}
               >
                 plan {i + 1}
@@ -250,7 +250,7 @@ export const VideoEditor: React.FC = () => {
           )}
 
           <div className="mt-4">
-            <Card title="Apercu">
+            <Card title="Aperçu">
               {duration > 0 ? (
                 <Player
                   component={VideoComposition}
@@ -264,7 +264,7 @@ export const VideoEditor: React.FC = () => {
                 />
               ) : (
                 <p className="py-6 text-center text-sm text-ink-soft">
-                  L'apercu se lit ici, dans le navigateur : aucun encodage n'est lance.
+                  L'aperçu se lit ici, dans le navigateur : aucun encodage n'est lance.
                 </p>
               )}
             </Card>
@@ -275,7 +275,7 @@ export const VideoEditor: React.FC = () => {
           {current && (
             <Card title={`Plan ${scene + 1}`}>
               <div className="space-y-2">
-                <Field label="Duree (secondes)">
+                <Field label="Durée (secondes)">
                   <Input
                     type="number"
                     step={0.1}
@@ -288,7 +288,7 @@ export const VideoEditor: React.FC = () => {
                     }
                   />
                 </Field>
-                <Field label="Transition d'entree">
+                <Field label="Transition d'entrée">
                   <Select
                     value={current.transition?.type ?? "cut"}
                     onChange={(e) =>
@@ -393,7 +393,7 @@ export const VideoEditor: React.FC = () => {
               </Field>
               {spec.audio && (
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Debut (images)">
+                  <Field label="Début (images)">
                     <Input
                       type="number"
                       value={spec.audio.startFrom ?? 0}
@@ -435,7 +435,7 @@ export const VideoEditor: React.FC = () => {
                       <button
                         onClick={() => setSelection(b.id)}
                         className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm ${
-                          b.id === selection ? "bg-ink text-paper" : "hover:bg-paper"
+                          b.id === selection ? "bg-accent text-on-accent" : "hover:bg-raised"
                         }`}
                       >
                         <span className="truncate">{BLOCK_NAMES[b.type]}</span>

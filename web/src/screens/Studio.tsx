@@ -6,7 +6,7 @@ import { useCollectiveBase, useSession } from "../lib/session";
 import type { Asset, BacklineEvent, Format, Group, Template, VideoCompositionRow } from "../lib/types";
 import { fileSize } from "../lib/format";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Tabs
 } from "../components/ui";
 
 type Tab = "gabarits" | "videos" | "medias";
@@ -18,27 +18,20 @@ export const Studio: React.FC = () => {
     <>
       <PageTitle
         title="Studio"
-        subtitle="Gabarits, videos et bibliotheque de medias. Aucune competence technique requise."
+        subtitle="Gabarits, vidéos et bibliothèque de médias. Aucune compétence technique requise."
       />
-      <nav className="mb-5 flex flex-wrap gap-1.5">
-        {(
+      <Tabs
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        options={
           [
             ["gabarits", "Gabarits"],
-            ["videos", "Videos"],
-            ["medias", "Medias"],
+            ["videos", "Vidéos"],
+            ["medias", "Médias"],
           ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`rounded-lg px-3 py-1.5 text-sm ${
-              tab === key ? "bg-ink text-paper" : "border border-line"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+        }
+      />
 
       {tab === "gabarits" && <Templates />}
       {tab === "videos" && <Videos />}
@@ -85,7 +78,7 @@ const Templates: React.FC = () => {
                 </Field>
               </div>
               <div className="min-w-48 flex-1">
-                <Field label="Format maitre" hint="Le ratio sera verrouille.">
+                <Field label="Format maître" hint="Le ratio sera verrouillé.">
                   <Select value={formatId} onChange={(e) => setFormatId(e.target.value)}>
                     {formats.data?.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -96,7 +89,7 @@ const Templates: React.FC = () => {
                 </Field>
               </div>
               <Button type="submit" variant="primary" disabled={busy}>
-                Creer
+                Créer
               </Button>
             </form>
           </Card>
@@ -106,7 +99,12 @@ const Templates: React.FC = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {!templates.data || templates.data.length === 0 ? (
           <Card>
-            <Empty>Aucun gabarit.</Empty>
+            <Empty
+              icon="studio"
+              hint="Un gabarit porte ses déclinaisons par format. Une affiche, une story, un post : une seule mise en page."
+            >
+              Aucun gabarit.
+            </Empty>
           </Card>
         ) : (
           templates.data.map((t) => (
@@ -130,7 +128,7 @@ const Templates: React.FC = () => {
               <div className="flex gap-2">
                 <Link to={`/studio/gabarits/${t.id}`}>
                   <Button variant="primary" size="sm">
-                    Ouvrir l'editeur
+                    Ouvrir l'éditeur
                   </Button>
                 </Link>
                 {isAdmin && (
@@ -208,7 +206,7 @@ const Videos: React.FC = () => {
               </Field>
             </div>
             <div className="min-w-44 flex-1">
-              <Field label="Evenement" hint="Pour remplir les champs automatiques.">
+              <Field label="Événement" hint="Pour remplir les champs automatiques.">
                 <Select value={eventId} onChange={(e) => setEventId(e.target.value)}>
                   <option value="">aucun</option>
                   {events.data?.map((ev) => (
@@ -220,7 +218,7 @@ const Videos: React.FC = () => {
               </Field>
             </div>
             <Button type="submit" variant="primary" disabled={busy}>
-              Creer
+              Créer
             </Button>
           </form>
         </Card>
@@ -228,7 +226,12 @@ const Videos: React.FC = () => {
 
       <Card>
         {!comps.data || comps.data.length === 0 ? (
-          <Empty>Aucune composition video.</Empty>
+          <Empty
+            icon="render"
+            hint="Décris la vidéo ici ; une machine connectée la rendra. Le serveur n'encode jamais."
+          >
+            Aucune composition vidéo.
+          </Empty>
         ) : (
           <ul className="divide-y divide-line">
             {comps.data.map((c) => (
@@ -253,7 +256,7 @@ const Videos: React.FC = () => {
   );
 };
 
-/** Upload only — no AI generation (§9.5). */
+/** Upload only — no AI génération (§9.5). */
 const MediaLibrary: React.FC = () => {
   const base = useCollectiveBase();
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
@@ -268,7 +271,7 @@ const MediaLibrary: React.FC = () => {
       <ErrorNote>{assets.error ?? error}</ErrorNote>
 
       <div className="mb-5">
-        <Card title="Televerser">
+        <Card title="Téléverser">
           <form
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
@@ -305,12 +308,12 @@ const MediaLibrary: React.FC = () => {
               </Field>
             </div>
             <div className="min-w-40">
-              <Field label="Etiquettes" hint="Separees par des virgules.">
+              <Field label="Étiquettes" hint="Séparées par des virgules.">
                 <Input value={tags} onChange={(e) => setTags(e.target.value)} />
               </Field>
             </div>
             <Button type="submit" variant="primary" disabled={busy}>
-              Televerser
+              Téléverser
             </Button>
           </form>
         </Card>
@@ -318,7 +321,12 @@ const MediaLibrary: React.FC = () => {
 
       <Card>
         {!assets.data || assets.data.length === 0 ? (
-          <Empty>Aucun media.</Empty>
+          <Empty
+            icon="brand"
+            hint="Photos, logos, fichiers de police : ce que les gabarits viendront chercher."
+          >
+            Aucun média.
+          </Empty>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {assets.data.map((a) => (
@@ -326,7 +334,7 @@ const MediaLibrary: React.FC = () => {
                 {a.kind === "image" ? (
                   <AssetPreview assetId={a.id} />
                 ) : (
-                  <div className="flex h-28 items-center justify-center rounded bg-paper text-xs uppercase text-ink-soft">
+                  <div className="flex h-28 items-center justify-center rounded bg-raised text-xs uppercase text-ink-soft">
                     {a.kind}
                   </div>
                 )}
@@ -349,6 +357,6 @@ const MediaLibrary: React.FC = () => {
 const AssetPreview: React.FC<{ assetId: string }> = ({ assetId }) => {
   const base = useCollectiveBase();
   const { data } = useResource<{ url: string }>(`${base}/studio/assets/${assetId}/url`);
-  if (!data) return <div className="h-28 rounded bg-paper" />;
+  if (!data) return <div className="h-28 rounded bg-raised" />;
   return <img src={data.url} alt="" className="h-28 w-full rounded object-cover" />;
 };

@@ -3,8 +3,9 @@ import { api } from "../lib/api";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { CollectiveDetail, EventType, Milestone } from "../lib/types";
+import { setTheme, storedTheme, type Theme } from "../lib/theme";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea, Tabs
 } from "../components/ui";
 
 /**
@@ -13,35 +14,30 @@ import {
  * (§11.1).
  */
 export const Settings: React.FC = () => {
-  const [tab, setTab] = useState<"types" | "bot" | "ical" | "sauvegardes">("types");
+  const [tab, setTab] = useState<"types" | "bot" | "ical" | "sauvegardes" | "affichage">("types");
 
   return (
     <>
       <PageTitle
-        title="Reglages"
-        subtitle="Types d'evenements, jalons de com, bot, flux iCal, sauvegardes."
+        title="Réglages"
+        subtitle="Types d'événements, jalons de com, bot, flux iCal, sauvegardes."
       />
-      <nav className="mb-5 flex flex-wrap gap-1.5">
-        {(
+      <Tabs
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        options={
           [
             ["types", "Types et jalons"],
             ["bot", "Bot et notifications"],
             ["ical", "Flux iCal"],
             ["sauvegardes", "Sauvegardes"],
-          ] as ["types" | "bot" | "ical" | "sauvegardes", string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`rounded-lg px-3 py-1.5 text-sm ${
-              tab === key ? "bg-ink text-paper" : "border border-line"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+            ["affichage", "Affichage"],
+          ] as ["types" | "bot" | "ical" | "sauvegardes" | "affichage", string][]
+        }
+      />
 
+      {tab === "affichage" && <Affichage />}
       {tab === "types" && <EventTypes />}
       {tab === "bot" && <BotEtNotifications />}
       {tab === "ical" && <IcalFeeds />}
@@ -128,7 +124,7 @@ const TypeCard: React.FC<{
       {!ouvert ? (
         <p className="text-sm text-ink-soft">
           {milestones.length === 0
-            ? "Aucun jalon : un evenement de ce type ne genere pas de plan de com."
+            ? "Aucun jalon : un événement de ce type ne génère pas de plan de com."
             : milestones.map((j) => j.label).join(" · ")}
         </p>
       ) : (
@@ -146,22 +142,22 @@ const TypeCard: React.FC<{
           </div>
 
           <p className="mb-3 text-xs text-ink-soft">
-            Le decalage se compte en jours par rapport au debut de l'evenement (negatif = avant).
-            Une residence communique depuis sa fin : choisir l'ancre « fin ».
+            Le decalage se compte en jours par rapport au début de l'événement (negatif = avant).
+            Une résidence communique depuis sa fin : choisir l'ancre « fin ».
           </p>
 
           <ul className="space-y-3">
             {milestones.map((j, i) => (
               <li key={i} className="rounded-lg border border-line p-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Cle">
+                  <Field label="Clé">
                     <Input
                       value={j.key}
                       disabled={!isAdmin}
                       onChange={(e) => updateMilestone(i, { key: e.target.value })}
                     />
                   </Field>
-                  <Field label="Intitule">
+                  <Field label="Intitulé">
                     <Input
                       value={j.label}
                       disabled={!isAdmin}
@@ -200,12 +196,12 @@ const TypeCard: React.FC<{
                         updateMilestone(i, { anchor: e.target.value as Milestone["anchor"] })
                       }
                     >
-                      <option value="start">debut</option>
+                      <option value="start">début</option>
                       <option value="end">fin</option>
                     </Select>
                   </Field>
                   <div className="lg:col-span-2">
-                    <Field label="Formats" hint="Cles du catalogue, separees par des virgules.">
+                    <Field label="Formats" hint="Clés du catalogue, séparées par des virgules.">
                       <Input
                         value={j.formats.join(", ")}
                         disabled={!isAdmin}
@@ -221,7 +217,7 @@ const TypeCard: React.FC<{
                     </Field>
                   </div>
                   <div className="sm:col-span-2 lg:col-span-4">
-                    <Field label="Legende par defaut" hint="Un humain la relit toujours.">
+                    <Field label="Légende par défaut" hint="Un humain la relit toujours.">
                       <Textarea
                         rows={2}
                         value={j.caption}
@@ -274,7 +270,7 @@ const TypeCard: React.FC<{
           )}
 
           <p className="mt-3 text-xs text-ink-soft">
-            Les evenements deja confirmes gardent le plan instancie a leur confirmation.
+            Les événements déjà confirmés gardent le plan instancie à leur confirmation.
           </p>
         </>
       )}
@@ -297,8 +293,8 @@ const TYPES_NOTIFICATION: [string, string][] = [
   ["logistics_vacant", "Poste logistique vacant"],
   ["tech_rider_missing", "Fiche technique manquante"],
   ["run_sheet", "Feuille de route de la veille"],
-  ["publication_due", "Tache de com a publier"],
-  ["publication_assigned", "Tache de com assignee"],
+  ["publication_due", "Tâche de com à publier"],
+  ["publication_assigned", "Tâche de com assignée"],
 ];
 
 const BotEtNotifications: React.FC = () => {
@@ -328,10 +324,10 @@ const BotEtNotifications: React.FC = () => {
             </p>
             <p className="mt-2 text-sm">
               {me?.telegram_linked ? (
-                <Badge tone="good">votre compte est lie</Badge>
+                <Badge tone="good">votre compte est lié</Badge>
               ) : (
                 <>
-                  <Badge tone="warn">compte non lie</Badge>
+                  <Badge tone="warn">compte non lié</Badge>
                   <span className="ml-2 text-ink-soft">
                     Envoyez <code>/start</code> au bot avec le code de votre invitation.
                   </span>
@@ -347,16 +343,16 @@ const BotEtNotifications: React.FC = () => {
         )}
         <ul className="mt-3 space-y-1 text-xs text-ink-soft">
           <li>
-            <code>/dispos</code> — repondre au sondage en cours
+            <code>/dispos</code> — répondre au sondage en cours
           </li>
           <li>
-            <code>/agenda</code> — les prochains evenements
+            <code>/agenda</code> — les prochains événements
           </li>
           <li>
             <code>/postes</code> — prendre un poste vacant
           </li>
           <li>
-            <code>/publier</code> — mes taches de com
+            <code>/publier</code> — mes tâches de com
           </li>
           <li>
             <code>/fiche</code> — envoyer une fiche technique
@@ -404,7 +400,7 @@ const BotEtNotifications: React.FC = () => {
             </Field>
           </div>
           <p className="text-xs text-ink-soft">
-            Les alertes critiques — « on est en ligne », alerte admin, publication ratee —
+            Les alertes critiques — « on est en ligne », alerte admin, publication ratée —
             traversent le silence nocturne.
           </p>
 
@@ -464,18 +460,23 @@ const IcalFeeds: React.FC = () => {
     <Card title="Flux iCal">
       <ErrorNote>{feeds.error}</ErrorNote>
       <p className="mb-3 text-sm text-ink-soft">
-        A coller dans Google Calendar ou Apple Calendrier. Le flux personnel ne doit pas etre
+        A coller dans Google Calendar ou Apple Calendrier. Le flux personnel ne doit pas être
         partage : il porte votre jeton.
       </p>
       {!feeds.data || feeds.data.length === 0 ? (
-        <Empty>Aucun flux.</Empty>
+        <Empty
+          icon="calendar"
+          hint="Un flux iCal s'ajoute à ton agenda et se met à jour tout seul."
+        >
+          Aucun flux.
+        </Empty>
       ) : (
         <ul className="space-y-2">
           {feeds.data.map((f) => (
             <li key={f.url} className="flex flex-wrap items-center gap-2">
               <Badge>{label[f.scope] ?? f.scope}</Badge>
               <span className="text-sm font-medium">{f.label}</span>
-              <code className="min-w-0 flex-1 truncate rounded bg-paper px-2 py-1 text-xs">
+              <code className="min-w-0 flex-1 truncate rounded bg-raised px-2 py-1 text-xs">
                 {f.url}
               </code>
               <Button size="sm" onClick={() => void navigator.clipboard?.writeText(f.url)}>
@@ -494,9 +495,9 @@ const IcalFeeds: React.FC = () => {
 const Backups: React.FC = () => (
   <Card title="Sauvegardes">
     <p className="text-sm">
-      La sauvegarde est une tache d'exploitation, pas un bouton dans l'application : un
+      La sauvegarde est une tâche d'exploitation, pas un bouton dans l'application : un
       <code className="mx-1">pg_dump</code> quotidien et la synchronisation du bucket vers un
-      stockage objet distant, avec retention et <strong>restauration testee</strong> (§15).
+      stockage objet distant, avec retention et <strong>restauration testée</strong> (§15).
     </p>
     <ul className="mt-3 space-y-1 text-sm text-ink-soft">
       <li>
@@ -504,14 +505,59 @@ const Backups: React.FC = () => (
         <code>infra/backups/</code>
       </li>
       <li>
-        medias : <code>mise run storage:sync</code> — miroir du bucket
+        médias : <code>mise run storage:sync</code> — miroir du bucket
       </li>
       <li>
         restauration : <code>mise run db:restore -- infra/backups/&lt;archive&gt;.sql.gz</code>
       </li>
     </ul>
     <p className="mt-3 text-xs text-ink-soft">
-      Une sauvegarde dont la restauration n'a jamais ete testee n'est pas une sauvegarde.
+      Une sauvegarde dont la restauration n'a jamais été testée n'est pas une sauvegarde.
     </p>
   </Card>
 );
+
+/**
+ * Dark by default; this is where someone says otherwise.
+ *
+ * Per device, in localStorage — a theme is about the screen in front of you,
+ * not about the account, and a phone at a venue and a laptop in daylight do not
+ * want the same thing.
+ */
+const Affichage: React.FC = () => {
+  const [theme, setLocal] = useState<Theme>(storedTheme);
+
+  const options: [Theme, string, string][] = [
+    ["dark", "Sombre", "Lumière de scène. Le plan de travail du Studio reste clair."],
+    ["light", "Clair", "Pour le plein jour, et pour qui lit mal le pâle sur fond noir."],
+    ["system", "Système", "Suit le réglage de l'appareil."],
+  ];
+
+  return (
+    <Card title="Thème">
+      <div className="space-y-2">
+        {options.map(([value, label, why]) => (
+          <label
+            key={value}
+            className="flex cursor-pointer items-start gap-3 rounded-control border border-line p-3 transition hover:bg-raised has-[:checked]:border-accent"
+          >
+            <input
+              type="radio"
+              name="theme"
+              className="mt-1"
+              checked={theme === value}
+              onChange={() => {
+                setLocal(value);
+                setTheme(value);
+              }}
+            />
+            <span>
+              <span className="block text-sm font-medium">{label}</span>
+              <span className="block text-xs text-ink-soft">{why}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </Card>
+  );
+};

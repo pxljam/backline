@@ -272,7 +272,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   return (
     <div
       ref={frame}
-      className="relative w-full select-none overflow-hidden rounded-lg border border-line bg-[repeating-conic-gradient(#e9e6e1_0%_25%,#f7f5f2_0%_50%)] bg-[length:16px_16px]"
+      data-surface="art"
+      className="relative w-full select-none overflow-hidden rounded-lg border border-line bg-[repeating-conic-gradient(var(--color-art-line)_0%_25%,var(--color-art-paper)_0%_50%)] bg-[length:16px_16px]"
       style={{ aspectRatio: `${layout.width} / ${layout.height}` }}
       onPointerDown={() => onSelect(null)}
     >
@@ -323,7 +324,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             key={block.id}
             onPointerDown={(e) => startGesture(e, block, "move")}
             className={`absolute ${block.locked ? "cursor-not-allowed" : "cursor-move"} ${
-              active ? "outline outline-2 outline-ink" : "hover:outline hover:outline-1 hover:outline-ink/40"
+              active
+                ? "outline outline-2 outline-art-ink"
+                : "hover:outline hover:outline-1 hover:outline-art-ink/40"
             }`}
             style={{
               left: `${block.x * 100}%`,
@@ -339,7 +342,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <span
                     key={p}
                     onPointerDown={(e) => startGesture(e, block, p)}
-                    className="absolute h-3 w-3 rounded-sm border border-ink bg-paper"
+                    className="absolute h-3 w-3 rounded-sm border border-art-ink bg-art-paper"
                     style={{
                       left: p.endsWith("w") ? -6 : undefined,
                       right: p.endsWith("e") ? -6 : undefined,
@@ -351,7 +354,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 ))}
                 <span
                   onPointerDown={(e) => startGesture(e, block, "rotate")}
-                  className="absolute left-1/2 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border border-ink bg-paper"
+                  className="absolute left-1/2 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border border-art-ink bg-art-paper"
                   style={{ top: -22 }}
                   title="Rotation"
                 />

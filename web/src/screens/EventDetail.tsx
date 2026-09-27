@@ -10,16 +10,16 @@ import {
   dateAndTime, longDate, time, RESIDENCY_PRESENCE_LABELS, relativeTime, EVENT_STATUS_LABELS, TASK_STATUS_LABELS,
 } from "../lib/format";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea, Tabs
 } from "../components/ui";
 
-type Tab = "apercu" | "logistique" | "com" | "feuille";
+type Tab = "aperçu" | "logistique" | "com" | "feuille";
 
 export const EventDetail: React.FC = () => {
   const { id = "" } = useParams();
   const base = useCollectiveBase();
   const { isAdmin, me } = useSession();
-  const [tab, setTab] = useState<Tab>("apercu");
+  const [tab, setTab] = useState<Tab>("aperçu");
 
   const ev = useResource<BacklineEvent>(`${base}/events/${id}`);
   const { run, busy, error } = useAction();
@@ -30,7 +30,7 @@ export const EventDetail: React.FC = () => {
   if (!e) return null;
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "apercu", label: "Apercu" },
+    { key: "aperçu", label: "Aperçu" },
     { key: "logistique", label: "Logistique" },
     { key: "com", label: "Plan de com" },
     { key: "feuille", label: "Feuille de route" },
@@ -55,21 +55,14 @@ export const EventDetail: React.FC = () => {
 
       <ErrorNote>{error}</ErrorNote>
 
-      <nav className="mb-5 flex flex-wrap gap-1.5">
-        {tabs.map((o) => (
-          <button
-            key={o.key}
-            onClick={() => setTab(o.key)}
-            className={`rounded-lg px-3 py-1.5 text-sm ${
-              tab === o.key ? "bg-ink text-paper" : "border border-line"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </nav>
+      <Tabs
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        options={tabs.map((o) => [o.key, o.label] as const)}
+      />
 
-      {tab === "apercu" && (
+      {tab === "aperçu" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card
             title="Line-up"
@@ -92,7 +85,7 @@ export const EventDetail: React.FC = () => {
                     <span className="text-xs text-ink-soft">
                       {p.slot_start
                         ? `${p.slot_start.slice(0, 5)}${p.slot_end ? `–${p.slot_end.slice(0, 5)}` : ""}`
-                        : "creneau non defini"}
+                        : "créneau non défini"}
                       {!e.set_times_public && p.slot_start && " · non publiable"}
                     </span>
                   </li>
@@ -110,7 +103,7 @@ export const EventDetail: React.FC = () => {
                   <li key={r.group_id} className="flex items-center justify-between gap-3">
                     <span className="text-sm">{r.group_name}</span>
                     {r.tech_rider_id ? (
-                      <Badge tone="good">v{r.version}{r.sent_at ? " · envoyee" : ""}</Badge>
+                      <Badge tone="good">v{r.version}{r.sent_at ? " · envoyée" : ""}</Badge>
                     ) : (
                       <Badge tone="warn">manquante</Badge>
                     )}
@@ -156,7 +149,7 @@ export const EventDetail: React.FC = () => {
           {e.stream && <StreamCard event={e} onDone={() => void ev.reload()} />}
 
           {e.residency && (
-            <Card title="Presences">
+            <Card title="Présences">
               <ResidencyPresence event={e} onDone={() => void ev.reload()} />
             </Card>
           )}
@@ -193,7 +186,8 @@ const SetTimesToggle: React.FC<{ event: BacklineEvent; onDone: () => void }> = (
       <Select
         value={event.set_times_state}
         disabled={busy}
-        className="w-auto py-1 text-xs"
+        size="sm"
+                      className="w-auto"
         onChange={(ev2) =>
           void run(async () => {
             await api.patch(`${base}/events/${event.id}`, { set_times_state: ev2.target.value });
@@ -201,9 +195,9 @@ const SetTimesToggle: React.FC<{ event: BacklineEvent; onDone: () => void }> = (
           })
         }
       >
-        <option value="undefined">creneaux non definis</option>
+        <option value="undefined">créneaux non définis</option>
         <option value="to_confirm">a confirmer</option>
-        <option value="defined">definis</option>
+        <option value="defined">définis</option>
       </Select>
       <label className="flex items-center gap-1">
         <input
@@ -285,8 +279,8 @@ const StreamCard: React.FC<{ event: BacklineEvent; onDone: () => void }> = ({ ev
       )}
       <p className="mt-2 text-xs text-ink-soft">
         {event.stream?.live_alert_sent_at
-          ? `Alerte « on est en ligne » envoyee ${relativeTime(event.stream.live_alert_sent_at)}.`
-          : "L'alerte « on est en ligne » partira 15 min avant, a tous les membres."}
+          ? `Alerte « on est en ligne » envoyée ${relativeTime(event.stream.live_alert_sent_at)}.`
+          : "L'alerte « on est en ligne » partira 15 min avant, à tous les membres."}
       </p>
 
       {isAdmin && (
@@ -335,7 +329,7 @@ const ResidencyPresence: React.FC<{ event: BacklineEvent; onDone: () => void }> 
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                await api.post(`${base}/events/${event.id}/presence`, { answer: r });
+                await api.post(`${base}/events/${event.id}/présence`, { answer: r });
                 onDone();
               })
             }
@@ -345,7 +339,7 @@ const ResidencyPresence: React.FC<{ event: BacklineEvent; onDone: () => void }> 
         ))}
       </div>
       <p className="mb-3 text-xs text-ink-soft">
-        Les jours precis sont facultatifs : l'app ne les reclame jamais.
+        Les jours precis sont facultatifs : l'app ne les réclame jamais.
       </p>
       <ul className="divide-y divide-line">
         {event.residency?.presences.map((p) => (
@@ -450,7 +444,7 @@ const Logistics: React.FC<{ event: BacklineEvent; onDone: () => void; meId: stri
               });
             }}
           >
-            <Field label="Libelle" hint="Texte libre : « transport backline », « photo »…">
+            <Field label="Libellé" hint="Texte libre : « transport backline », « photo »…">
               <Input
                 list="labels-logistique"
                 value={label}
@@ -463,7 +457,7 @@ const Logistics: React.FC<{ event: BacklineEvent; onDone: () => void; meId: stri
                 ))}
               </datalist>
             </Field>
-            <Field label="Quantite">
+            <Field label="Quantité">
               <Input
                 type="number"
                 min={1}
@@ -569,7 +563,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                               className="inline-block rounded-lg border border-line px-2 py-1 text-xs text-ink-soft"
                               title={v.error ?? undefined}
                             >
-                              {v.format_key} — {v.status === "failed" ? "echec" : v.status}
+                              {v.format_key} — {v.status === "failed" ? "échec" : v.status}
                             </span>
                           )}
                         </li>
@@ -578,7 +572,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                   )}
 
                   {(t.caption || t.hashtags) && (
-                    <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-paper px-3 py-2 text-xs">
+                    <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-raised px-3 py-2 text-xs">
                       {t.caption}
                       {t.hashtags ? `\n\n${t.hashtags}` : ""}
                     </pre>
@@ -587,7 +581,8 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {isAdmin && t.social_account && (
                       <Select
-                        className="w-auto py-1 text-xs"
+                        size="sm"
+                      className="w-auto"
                         value={t.assignee_id ?? ""}
                         disabled={busy}
                         onChange={(e) =>
@@ -623,7 +618,7 @@ const Comms: React.FC<{ eventId: string; eventTypeKey: string }> = ({ eventId })
                           });
                         }}
                       >
-                        ✅ publie
+                        ✅ publié
                       </Button>
                     )}
 
@@ -683,7 +678,7 @@ const CaptionEditor: React.FC<{ task: PublicationTask; onDone: () => void }> = (
         });
       }}
     >
-      <Textarea rows={3} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legende" />
+      <Textarea rows={3} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Légende" />
       <Input value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#hashtags" />
       <div className="flex gap-2">
         <Button type="submit" size="sm" variant="primary" disabled={busy}>
@@ -728,7 +723,7 @@ const RunSheetView: React.FC<{ eventId: string }> = ({ eventId }) => {
         <ul className="mt-2 space-y-1 text-sm text-ink-soft">
           {data.soundcheck_at && <li>Balance : {time(data.soundcheck_at)}</li>}
           {data.doors_at && <li>Ouverture : {time(data.doors_at)}</li>}
-          <li>Debut : {time(data.starts_at)}</li>
+          <li>Début : {time(data.starts_at)}</li>
         </ul>
         {data.venue && (
           <div className="mt-4">

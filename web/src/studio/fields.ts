@@ -4,11 +4,11 @@
  * `GET /studio/preview-fields/:event_id` returns.
  */
 export const EVENT_FIELDS: { path: string; label: string }[] = [
-  { path: "event.title", label: "Titre de l'evenement" },
+  { path: "event.title", label: "Titre de l'événement" },
   { path: "event.date", label: "Date (12.06.2026)" },
   { path: "event.date_long", label: "Date en toutes lettres" },
   { path: "event.weekday", label: "Jour de la semaine" },
-  { path: "event.time", label: "Heure de debut" },
+  { path: "event.time", label: "Heure de début" },
   { path: "event.end_time", label: "Heure de fin" },
   { path: "venue.name", label: "Lieu" },
   { path: "venue.city", label: "Ville" },

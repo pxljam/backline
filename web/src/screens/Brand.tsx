@@ -130,11 +130,11 @@ export const Brand: React.FC = () => {
             })}
           </ul>
           <p className="mt-3 text-xs text-ink-soft">
-            Les fichiers de police se televersent dans la bibliotheque de medias.
+            Les fichiers de police se téléversent dans la bibliothèque de médias.
           </p>
         </Card>
 
-        <Card title="Regles">
+        <Card title="Règles">
           <ul className="space-y-2 text-sm">
             {rules.map((t) => (
               <li key={t.key} className="flex items-start justify-between gap-3">
@@ -144,7 +144,7 @@ export const Brand: React.FC = () => {
             ))}
           </ul>
           <p className="mt-3 text-xs text-ink-soft">
-            Zone de securite, placement du logo, casse des titres : l'editeur les applique.
+            Zone de sécurité, placement du logo, casse des titres : l'éditeur les applique.
           </p>
         </Card>
       </div>
