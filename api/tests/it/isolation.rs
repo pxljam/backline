@@ -173,3 +173,34 @@ async fn a_missing_or_invalid_session_is_refused() {
     let (status, _) = crate::harness::anonymous_get(&app.base, "/api/me").await;
     assert_eq!(status, 401);
 }
+
+/// The technical health page once worked on an empty instance and broke on the
+/// first upload: `sum()` over a bigint yields NUMERIC in PostgreSQL, and a NULL
+/// sum decoded fine whatever the declared type. So the defect only existed
+/// once a single asset did.
+#[tokio::test]
+async fn technical_health_survives_the_first_media() {
+    let app = TestApp::seeded().await;
+    let root = app.user_id("Admin instance").await;
+    let client = app.login_as(root).await;
+
+    let res = client.get("/api/instance/health").await;
+    let health = res.expect_ok();
+    assert_eq!(health["storage"]["assets"], 0);
+    assert_eq!(health["storage"]["bytes"], 0);
+
+    let cid = app.collective_id("bonsoir-techno").await;
+    sqlx::query(
+        "INSERT INTO assets (collective_id, kind, filename, mime, bytes, storage_key)
+         VALUES ($1, 'image', 'photo.png', 'image/png', 4096, 'k/1.png')",
+    )
+    .bind(cid)
+    .execute(&app.db)
+    .await
+    .unwrap();
+
+    let res = client.get("/api/instance/health").await;
+    let health = res.expect_ok();
+    assert_eq!(health["storage"]["assets"], 1);
+    assert_eq!(health["storage"]["bytes"], 4096);
+}

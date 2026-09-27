@@ -313,15 +313,19 @@ async fn technical_health(
             .fetch_one(&state.db)
             .await?;
 
-    let (assets, bytes): (i64, Option<i64>) =
-        sqlx::query_as("SELECT count(*), sum(bytes) FROM assets")
+    // `sum()` over a bigint returns NUMERIC in PostgreSQL, not BIGINT — and the
+    // decode only failed once a single asset existed, since NULL decodes to
+    // None whatever the type. Hence a screen that worked on an empty instance
+    // and broke on the first upload.
+    let (assets, bytes): (i64, i64) =
+        sqlx::query_as("SELECT count(*), COALESCE(sum(bytes), 0)::bigint FROM assets")
             .fetch_one(&state.db)
             .await?;
 
     Ok(Json(json!({
         "jobs": { "pending": pending, "failed": failed },
         "render": { "machines_online": machines, "queued": queued_renders },
-        "storage": { "assets": assets, "bytes": bytes.unwrap_or(0) },
+        "storage": { "assets": assets, "bytes": bytes },
         "telegram": state.telegram.enabled(),
         "pdf": crate::services::pdf::available(),
     })))
