@@ -26,6 +26,20 @@ export const VideoEditor: React.FC = () => {
 
   const comp = useResource<VideoCompositionRow>(`${base}/video-compositions/${id}`, [id]);
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
+
+  /** Adds a file to the collective's library and returns its id. */
+  const uploadAsset = async (file: File): Promise<string | null> => {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const created = await api.upload<{ id: string }>(`${base}/studio/assets`, form);
+      await assets.reload();
+      return created.id;
+    } catch {
+      return null;
+    }
+  };
+
   const { run, busy, error } = useAction();
 
   const [spec, setSpec] = useState<VideoSpec | null>(null);
@@ -310,6 +324,7 @@ export const VideoEditor: React.FC = () => {
                   background={current.background ?? null}
                   tokens={tokens}
                   assets={assets.data ?? []}
+                onUpload={uploadAsset}
                   onChange={(background) => updateScene({ background })}
                 />
 
@@ -452,6 +467,7 @@ export const VideoEditor: React.FC = () => {
                 block={block}
                 tokens={tokens}
                 assets={assets.data ?? []}
+                onUpload={uploadAsset}
                 timeline
                 onChange={(patch) =>
                   updateBlocks(current.blocks.map((b) => (b.id === block.id ? { ...b, ...patch } : b)))

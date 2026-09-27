@@ -7,6 +7,7 @@ import { useCollectiveBase, useSession } from "../lib/session";
 import type { Asset, BacklineEvent, BrandView, Format, Template } from "../lib/types";
 import { Badge, Button, Card, ErrorNote, Field, Loading, Select } from "../components/ui";
 import { Canvas } from "./Canvas";
+import { MediaPicker } from "./MediaPicker";
 import { Inspector } from "./Inspector";
 import { toBrand, useMediaMap } from "./brand";
 import { SAMPLE_DATA } from "./fields";
@@ -25,6 +26,20 @@ export const TemplateEditor: React.FC = () => {
   const template = useResource<Template>(`${base}/studio/templates/${id}`, [id]);
   const formats = useResource<Format[]>(`${base}/studio/formats`);
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
+
+  /** Adds a file to the collective's library and returns its id. */
+  const uploadAsset = async (file: File): Promise<string | null> => {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const created = await api.upload<{ id: string }>(`${base}/studio/assets`, form);
+      await assets.reload();
+      return created.id;
+    } catch {
+      return null;
+    }
+  };
+
   const events = useResource<BacklineEvent[]>(`${base}/events`);
   const { run, busy, error } = useAction();
 
@@ -255,6 +270,7 @@ export const TemplateEditor: React.FC = () => {
               background={layout.background ?? null}
               tokens={tokens}
               assets={assets.data ?? []}
+                onUpload={uploadAsset}
               onChange={(background) => {
                 setLayout({ ...layout, background });
                 setDirty(true);
@@ -292,6 +308,7 @@ export const TemplateEditor: React.FC = () => {
                 block={block}
                 tokens={tokens}
                 assets={assets.data ?? []}
+                onUpload={uploadAsset}
                 onChange={patchBlock}
                 onProps={patchProps}
                 onDelete={() => {
@@ -318,7 +335,8 @@ export const BackgroundEditor: React.FC<{
   tokens: { kind: string; key: string; label: string }[];
   assets: Asset[];
   onChange: (background: Background | null) => void;
-}> = ({ background, tokens, assets, onChange }) => {
+  onUpload?: (file: File) => Promise<string | null>;
+}> = ({ background, tokens, assets, onChange, onUpload }) => {
   const colors = tokens.filter((t) => t.kind === "color");
 
   return (
@@ -392,21 +410,14 @@ export const BackgroundEditor: React.FC<{
       )}
 
       {background?.type === "image" && (
-        <Field label="Image">
-          <Select
-            value={background.assetId ?? ""}
-            onChange={(e) => onChange({ ...background, assetId: e.target.value })}
-          >
-            <option value="">— à choisir —</option>
-            {assets
-              .filter((a) => a.kind === "image")
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.filename}
-                </option>
-              ))}
-          </Select>
-        </Field>
+        <MediaPicker
+          label="Image"
+          kind="image"
+          value={background.assetId}
+          assets={assets}
+          onChange={(assetId) => onChange({ ...background, assetId })}
+          onUpload={onUpload}
+        />
       )}
     </div>
   );

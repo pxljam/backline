@@ -6,6 +6,7 @@ import type { Asset, BrandToken } from "../lib/types";
 import { Button, Field, Input, Select, Textarea } from "../components/ui";
 import { EVENT_FIELDS, fieldToken } from "./fields";
 import { align } from "./blocks";
+import { MediaPicker } from "./MediaPicker";
 
 /**
  * Properties panel. **Only brand tokens are offered** in the colour and font
@@ -16,6 +17,8 @@ export interface InspectorProps {
   block: Block;
   tokens: BrandToken[];
   assets: Asset[];
+  /** Lets the editor add a file to the library without leaving the page. */
+  onUpload?: (file: File) => Promise<string | null>;
   onChange: (patch: Partial<Block>) => void;
   onProps: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
@@ -50,6 +53,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   block,
   tokens,
   assets,
+  onUpload,
   onChange,
   onProps,
   onDelete,
@@ -154,7 +158,7 @@ export const Inspector: React.FC<InspectorProps> = ({
       )}
 
       {(block.type === "image" || block.type === "video") && (
-        <MediaProps props={p as unknown as ImageProps} assets={assets} kind={block.type} onProps={onProps} />
+        <MediaProps props={p as unknown as ImageProps} assets={assets} kind={block.type} onProps={onProps} onUpload={onUpload} />
       )}
 
       {block.type === "logo" && (
@@ -352,20 +356,17 @@ const MediaProps: React.FC<{
   assets: Asset[];
   kind: "image" | "video";
   onProps: (patch: Record<string, unknown>) => void;
-}> = ({ props, assets, kind, onProps }) => (
+  onUpload?: (file: File) => Promise<string | null>;
+}> = ({ props, assets, kind, onProps, onUpload }) => (
   <>
-    <Field label={kind === "image" ? "Image" : "Video"} hint="Bibliothèque du collectif.">
-      <Select value={props.assetId ?? ""} onChange={(e) => onProps({ assetId: e.target.value })}>
-        <option value="">— à choisir —</option>
-        {assets
-          .filter((a) => a.kind === kind)
-          .map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.filename}
-            </option>
-          ))}
-      </Select>
-    </Field>
+    <MediaPicker
+      label={kind === "image" ? "Image" : "Vidéo"}
+      kind={kind}
+      value={props.assetId}
+      assets={assets}
+      onChange={(assetId) => onProps({ assetId })}
+      onUpload={onUpload}
+    />
     <div className="grid grid-cols-2 gap-2">
       <Field label="Cadrage">
         <Select value={props.fit ?? "cover"} onChange={(e) => onProps({ fit: e.target.value })}>
