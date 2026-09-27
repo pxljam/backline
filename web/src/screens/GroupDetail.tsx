@@ -6,7 +6,7 @@ import { useCollectiveBase, useSession } from "../lib/session";
 import type { Group, Member, SocialAccount, TechRider } from "../lib/types";
 import { shortDate } from "../lib/format";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Textarea,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, Modal, PageTitle, Select, Textarea,
 } from "../components/ui";
 
 export const GroupDetail: React.FC = () => {
@@ -25,6 +25,8 @@ export const GroupDetail: React.FC = () => {
   }>(`${base}/groups/${id}/press-kit`);
 
   const { run, busy, error } = useAction();
+  const [editing, setEditing] = useState(false);
+  const [edit, setEdit] = useState({ name: "", description: "" });
   const [nouveauMembre, setNouveauMembre] = useState("");
   const [roleLibre, setRoleLibre] = useState("");
 
@@ -39,8 +41,64 @@ export const GroupDetail: React.FC = () => {
 
   return (
     <>
-      <PageTitle title={g.name} subtitle={g.description ?? undefined} />
+      <PageTitle
+        title={g.name}
+        subtitle={g.description ?? undefined}
+        action={
+          isAdmin && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEdit({ name: g.name, description: g.description ?? "" });
+                setEditing(true);
+              }}
+            >
+              Modifier
+            </Button>
+          )
+        }
+      />
       <ErrorNote>{error}</ErrorNote>
+
+      <Modal open={editing} onClose={() => setEditing(false)} title="Modifier le groupe">
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(async () => {
+              await api.patch(`${base}/groups/${id}`, {
+                name: edit.name,
+                description: edit.description || null,
+              });
+              setEditing(false);
+              await group.reload();
+            });
+          }}
+        >
+          <Field label="Nom">
+            <Input
+              value={edit.name}
+              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Description" hint="Ce que le groupe joue, en une ligne.">
+            <Textarea
+              rows={3}
+              value={edit.description}
+              onChange={(e) => setEdit({ ...edit, description: e.target.value })}
+            />
+          </Field>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" onClick={() => setEditing(false)}>
+              Annuler
+            </Button>
+            <Button type="submit" variant="primary" disabled={busy}>
+              {busy ? "…" : "Enregistrer"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Membres">
@@ -52,7 +110,7 @@ export const GroupDetail: React.FC = () => {
                   {m.role_label && <span className="text-ink-soft"> — {m.role_label}</span>}
                 </span>
                 <div className="flex items-center gap-2">
-                  {m.is_admin && <Badge>referent</Badge>}
+                  {m.is_admin && <Badge>référent</Badge>}
                   {canEdit && (
                     <Button
                       size="sm"
@@ -120,7 +178,12 @@ export const GroupDetail: React.FC = () => {
 
         <Card title="Comptes sociaux">
           {groupAccounts.length === 0 ? (
-            <Empty>Aucun compte declare.</Empty>
+            <Empty
+              icon="member"
+              hint="On recense qui a accès à quel compte, jamais les mots de passe."
+            >
+              Aucun compte déclaré.
+            </Empty>
           ) : (
             <ul className="divide-y divide-line">
               {groupAccounts.map((a) => (
@@ -129,23 +192,55 @@ export const GroupDetail: React.FC = () => {
                     {a.platform} <span className="font-normal text-ink-soft">{a.handle}</span>
                   </p>
                   <p className="text-xs text-ink-soft">
-                    acces :{" "}
+                    accès :{" "}
                     {a.access
                       .map((u) => members.data?.find((m) => m.user_id === u)?.display_name ?? "?")
                       .join(", ") || "personne"}
                   </p>
+                  {canEdit && (
+                    // The route existed and nothing ever called it: who holds an
+                    // account is exactly what changes when someone leaves (§11.3).
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(members.data ?? []).map((m) => {
+                        const has = a.access.includes(m.user_id);
+                        return (
+                          <button
+                            key={m.user_id}
+                            type="button"
+                            disabled={busy}
+                            className={`rounded-control border px-2 py-1 text-xs transition ${
+                              has
+                                ? "border-accent bg-accent text-on-accent"
+                                : "border-line-strong hover:bg-raised"
+                            }`}
+                            onClick={() =>
+                              void run(async () => {
+                                const access = has
+                                  ? a.access.filter((u) => u !== m.user_id)
+                                  : [...a.access, m.user_id];
+                                await api.put(`${base}/social-accounts/${a.id}/access`, { access });
+                                await accounts.reload();
+                              })
+                            }
+                          >
+                            {m.display_name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
           )}
           <p className="mt-3 text-xs text-ink-soft">
-            L'application recense **qui a acces**, jamais les mots de passe.
+            L'application recense qui a accès, jamais les mots de passe.
           </p>
         </Card>
 
         <Card title="Fiches techniques">
           {!riders.data || riders.data.length === 0 ? (
-            <Empty>Aucune fiche. Rien n'est bloque pour autant.</Empty>
+            <Empty>Aucune fiche. Rien n'est bloqué pour autant.</Empty>
           ) : (
             <ul className="divide-y divide-line">
               {riders.data.map((r) => (
@@ -156,7 +251,7 @@ export const GroupDetail: React.FC = () => {
                   </span>
                   <div className="flex items-center gap-2">
                     <Badge tone={r.status === "published" ? "good" : "neutral"}>
-                      {r.status === "published" ? "publiee" : "brouillon"}
+                      {r.status === "published" ? "publiée" : "brouillon"}
                     </Badge>
                     <a
                       className="text-xs underline"
@@ -237,7 +332,7 @@ const RiderEditor: React.FC<{ groupId: string; rider: TechRider; onDone: () => v
   return (
     <Card title={`Fiche technique — brouillon v${rider.version}`}>
       <p className="mb-2 text-xs text-ink-soft">
-        Sections : identite, line-up scene, plan de scene, input list, backline, son, lumiere,
+        Sections : identite, line-up scène, plan de scène, input list, backline, son, lumiere,
         loges, arrivee, contacts.
       </p>
       <Textarea

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { api } from "../lib/api";
+import { InvitationLink } from "../components/InvitationLink";
 import { useAction, useResource } from "../lib/hooks";
 import { useCollectiveBase, useSession } from "../lib/session";
 import type { Group, Member } from "../lib/types";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select,
+  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, Modal, PageTitle, Select,
 } from "../components/ui";
 
 /** Member administration (§3). No public sign-up. */
@@ -19,6 +20,7 @@ export const Members: React.FC = () => {
 
   const [form, setForm] = useState({ display_name: "", phone: "", email: "", role: "member" });
   const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [editing, setEditing] = useState<Member | null>(null);
 
   if (loading) return <Loading />;
   if (error) return <ErrorNote>{error}</ErrorNote>;
@@ -53,6 +55,7 @@ export const Members: React.FC = () => {
                   setLien(res.invitation_url);
                   setForm({ display_name: "", phone: "", email: "", role: "member" });
                   setGroupIds([]);
+                  setOpen(false);
                   await reload();
                 });
               }}
@@ -64,7 +67,7 @@ export const Members: React.FC = () => {
                   required
                 />
               </Field>
-              <Field label="Telephone" hint="Visible des admins et des membres du meme evenement.">
+              <Field label="Téléphone" hint="Visible des admins et des membres du même événement.">
                 <Input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -93,7 +96,7 @@ export const Members: React.FC = () => {
                       <label
                         key={g.id}
                         className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                          groupIds.includes(g.id) ? "border-ink bg-ink text-paper" : "border-line"
+                          groupIds.includes(g.id) ? "border-accent bg-accent text-on-accent" : "border-line"
                         }`}
                       >
                         <input
@@ -115,29 +118,29 @@ export const Members: React.FC = () => {
               <div className="md:col-span-2">
                 <ErrorNote>{actionError}</ErrorNote>
                 <Button type="submit" variant="primary" disabled={busy} className="mt-2">
-                  Creer et generer le lien
+                  Créer et generer le lien
                 </Button>
               </div>
             </form>
-
-            {lien && (
-              <div className="mt-4 rounded-lg border border-line bg-paper px-3 py-3">
-                <p className="text-xs uppercase tracking-wide text-ink-soft">
-                  Lien d'invitation — a usage unique
-                </p>
-                <code className="mt-1 block break-all text-sm">{lien}</code>
-                <Button size="sm" className="mt-2" onClick={() => void navigator.clipboard.writeText(lien)}>
-                  copier
-                </Button>
-              </div>
-            )}
           </Card>
         </div>
       )}
 
       <Card>
         {!data || data.length === 0 ? (
-          <Empty>Aucun membre.</Empty>
+          <Empty
+            icon="member"
+            hint="Chaque personne reçoit un lien d'invitation à usage unique. Il n'y a pas d'inscription libre."
+            action={
+              isAdmin && (
+                <Button variant="primary" icon="plus" onClick={() => setOpen(true)}>
+                  Inviter quelqu'un
+                </Button>
+              )
+            }
+          >
+            Aucun membre.
+          </Empty>
         ) : (
           <ul className="divide-y divide-line">
             {data.map((m) => (
@@ -150,18 +153,20 @@ export const Members: React.FC = () => {
                     )}
                   </p>
                   <p className="text-xs text-ink-soft">
-                    {m.phone ?? "sans telephone"}
+                    {m.phone ?? "sans téléphone"}
                     {m.email && ` · ${m.email}`}
                     {m.groups.length > 0 &&
                       ` · ${m.groups.map((gid) => groups?.find((g) => g.id === gid)?.name ?? "?").join(", ")}`}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {!m.telegram_linked && <Badge tone="warn">Telegram non lie</Badge>}
+                  {m.is_instance_admin && <Badge tone="accent">super admin</Badge>}
+                  {!m.telegram_linked && <Badge tone="warn">Telegram non lié</Badge>}
                   {m.pending_invitation && <Badge tone="neutral">invitation en attente</Badge>}
                   {isAdmin ? (
                     <Select
-                      className="w-auto py-1 text-xs"
+                      size="sm"
+                      className="w-auto"
                       value={m.role}
                       disabled={busy || m.user_id === me?.id}
                       onChange={(e) =>
@@ -180,6 +185,11 @@ export const Members: React.FC = () => {
                     <Badge>{m.role === "admin" ? "admin" : "membre"}</Badge>
                   )}
                   {isAdmin && (
+                    <Button size="sm" disabled={busy} onClick={() => setEditing(m)}>
+                      Modifier
+                    </Button>
+                  )}
+                  {isAdmin && (
                     <Button
                       size="sm"
                       disabled={busy}
@@ -189,7 +199,6 @@ export const Members: React.FC = () => {
                             `${base}/members/${m.user_id}/invitation`,
                           );
                           setLien(res.invitation_url);
-                          setOpen(true);
                           await reload();
                         })
                       }
@@ -203,6 +212,134 @@ export const Members: React.FC = () => {
           </ul>
         )}
       </Card>
+
+      <InvitationLink url={lien} onClose={() => setLien(null)} />
+
+      <EditMember
+        member={editing}
+        groups={groups ?? []}
+        base={base}
+        onClose={() => setEditing(null)}
+        onSaved={async () => {
+          setEditing(null);
+          await reload();
+        }}
+      />
     </>
+  );
+};
+
+/**
+ * Editing a person, not just promoting them.
+ *
+ * Until now the only thing an admin could change was the role: a name typed
+ * wrong at invitation time, or an address that locks someone out of the
+ * password fallback, had to be fixed in the database.
+ */
+const EditMember: React.FC<{
+  member: Member | null;
+  groups: Group[];
+  base: string;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}> = ({ member, groups, base, onClose, onSaved }) => {
+  const { run, busy, error } = useAction();
+  const [form, setForm] = useState({ display_name: "", stage_name: "", phone: "", email: "" });
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+
+  // Re-seeded whenever another member is opened.
+  React.useEffect(() => {
+    if (!member) return;
+    setForm({
+      display_name: member.display_name,
+      stage_name: member.stage_name ?? "",
+      phone: member.phone ?? "",
+      email: member.email ?? "",
+    });
+    setGroupIds(member.groups);
+  }, [member]);
+
+  if (!member) return null;
+
+  return (
+    <Modal open={!!member} onClose={onClose} title={`Modifier ${member.display_name}`}>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(async () => {
+            await api.patch(`${base}/members/${member.user_id}`, {
+              display_name: form.display_name,
+              stage_name: form.stage_name || null,
+              phone: form.phone || null,
+              email: form.email || null,
+              group_ids: groupIds,
+            });
+            await onSaved();
+          });
+        }}
+      >
+        <Field label="Nom">
+          <Input
+            value={form.display_name}
+            onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+            required
+          />
+        </Field>
+        <Field label="Nom de scène" hint="Optionnel.">
+          <Input
+            value={form.stage_name}
+            onChange={(e) => setForm({ ...form, stage_name: e.target.value })}
+          />
+        </Field>
+        <Field label="Téléphone" hint="Visible des admins et des membres du même événement (§3).">
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </Field>
+        <Field label="E-mail" hint="Sert à la connexion de secours, sans Telegram.">
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </Field>
+        {groups.length > 0 && (
+          <Field label="Groupes">
+            <div className="flex flex-wrap gap-2">
+              {groups.map((g) => (
+                <label
+                  key={g.id}
+                  className={`cursor-pointer rounded-control border px-3 py-1.5 text-sm ${
+                    groupIds.includes(g.id)
+                      ? "border-accent bg-accent text-on-accent"
+                      : "border-line-strong"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={groupIds.includes(g.id)}
+                    onChange={() =>
+                      setGroupIds((v) =>
+                        v.includes(g.id) ? v.filter((x) => x !== g.id) : [...v, g.id],
+                      )
+                    }
+                  />
+                  {g.name}
+                </label>
+              ))}
+            </div>
+          </Field>
+        )}
+        <ErrorNote>{error}</ErrorNote>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="submit" variant="primary" disabled={busy}>
+            {busy ? "…" : "Enregistrer"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 };

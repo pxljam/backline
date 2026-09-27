@@ -57,6 +57,8 @@ export interface Member {
   email: string | null;
   role: "admin" | "member";
   telegram_linked: boolean;
+  /** Only ever true for a viewer who is a collective admin (§3). */
+  is_instance_admin: boolean;
   groups: string[];
   pending_invitation: string | null;
 }
@@ -359,6 +361,15 @@ export interface RenderMachine {
 }
 
 export interface Dashboard {
+  /** What a new collective still has to set up — see components/FirstSteps. */
+  setup?: {
+    members: number;
+    groups: number;
+    venues: number;
+    opportunities: number;
+    templates: number;
+    brand_has_logo: boolean;
+  };
   pending_polls: { opportunity_id: string; title: string; dates: number; mine_missing: boolean }[];
   vacant_slots: {
     event_id: string;

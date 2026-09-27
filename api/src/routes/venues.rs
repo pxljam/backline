@@ -4,7 +4,7 @@ use crate::error::{AppError, AppResult};
 use crate::extract::Auth;
 use crate::state::AppState;
 use axum::extract::{Path, State};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -13,8 +13,9 @@ use uuid::Uuid;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(list).post(create))
-        .route("/:venue_id", get(show))
+        .route("/:venue_id", get(show).patch(update))
         .route("/:venue_id/contacts", post(add_contact))
+        .route("/:venue_id/contacts/:contact_id", delete(remove_contact))
 }
 
 #[derive(Serialize)]
@@ -170,6 +171,88 @@ async fn create(
     .fetch_one(&state.db)
     .await?;
     Ok(Json(json!({ "id": id })))
+}
+
+#[derive(Deserialize)]
+struct VenueChange {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    address: Option<String>,
+    #[serde(default)]
+    city: Option<String>,
+    #[serde(default)]
+    country: Option<String>,
+    #[serde(default)]
+    capacity: Option<i32>,
+    #[serde(default)]
+    notes: Option<String>,
+}
+
+/// An address book that cannot be corrected is a liability: a capacity, a
+/// contact or a loading note is exactly the kind of thing learnt on the night
+/// and written down afterwards.
+async fn update(
+    State(state): State<AppState>,
+    Auth(actor): Auth,
+    Path((cid, vid)): Path<(Uuid, Uuid)>,
+    Json(body): Json<VenueChange>,
+) -> AppResult<Json<serde_json::Value>> {
+    let scope = state.scope(actor, cid).await?;
+    scope.require_admin()?;
+
+    if let Some(name) = body.name.as_deref() {
+        if name.trim().is_empty() {
+            return Err(AppError::bad_request(
+                "le nom du lieu ne peut pas être vide",
+            ));
+        }
+    }
+
+    let done = sqlx::query(
+        "UPDATE venues SET name = COALESCE($3, name), address = COALESCE($4, address),
+                           city = COALESCE($5, city), country = COALESCE($6, country),
+                           capacity = COALESCE($7, capacity), notes = COALESCE($8, notes)
+         WHERE id = $1 AND collective_id = $2",
+    )
+    .bind(vid)
+    .bind(cid)
+    .bind(body.name.as_deref().map(str::trim))
+    .bind(&body.address)
+    .bind(&body.city)
+    .bind(&body.country)
+    .bind(body.capacity)
+    .bind(&body.notes)
+    .execute(&state.db)
+    .await?;
+    if done.rows_affected() == 0 {
+        return Err(AppError::not_found("lieu introuvable"));
+    }
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn remove_contact(
+    State(state): State<AppState>,
+    Auth(actor): Auth,
+    Path((cid, vid, contact_id)): Path<(Uuid, Uuid, Uuid)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let scope = state.scope(actor, cid).await?;
+    scope.require_admin()?;
+    // The venue is checked through the collective, so a contact of another
+    // collective cannot be reached by guessing its id.
+    let done = sqlx::query(
+        "DELETE FROM venue_contacts vc USING venues v
+         WHERE vc.venue_id = v.id AND vc.id = $1 AND v.id = $2 AND v.collective_id = $3",
+    )
+    .bind(contact_id)
+    .bind(vid)
+    .bind(cid)
+    .execute(&state.db)
+    .await?;
+    if done.rows_affected() == 0 {
+        return Err(AppError::not_found("contact introuvable"));
+    }
+    Ok(Json(json!({ "ok": true })))
 }
 
 #[derive(Deserialize)]

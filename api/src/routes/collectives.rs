@@ -7,7 +7,6 @@ use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -156,7 +155,7 @@ async fn update_event_type(
     .await?;
 
     if done.rows_affected() == 0 {
-        return Err(AppError::not_found("type d'evenement introuvable"));
+        return Err(AppError::not_found("type d'événement introuvable"));
     }
     // Already-confirmed events keep their plan: a poster that is already
     // scheduled must not move because a milestone changed (§11.1).
@@ -173,6 +172,9 @@ struct MemberRow {
     email: Option<String>,
     role: String,
     telegram_linked: bool,
+    /// Holds the instance-wide right (§3). Shown to the collective's admins so
+    /// they know who can already reach everything anyway.
+    is_instance_admin: bool,
     groups: Vec<Uuid>,
     pending_invitation: Option<String>,
 }
@@ -193,8 +195,10 @@ async fn list_members(
         Option<String>,
         String,
         Option<i64>,
+        bool,
     )> = sqlx::query_as(
-        "SELECT u.id, u.display_name, u.stage_name, u.phone, u.email, m.role, u.telegram_id
+        "SELECT u.id, u.display_name, u.stage_name, u.phone, u.email, m.role, u.telegram_id,
+                    u.is_instance_admin
              FROM memberships m JOIN users u ON u.id = m.user_id
              WHERE m.collective_id = $1 ORDER BY u.display_name",
     )
@@ -224,23 +228,26 @@ async fn list_members(
     Ok(Json(
         rows.into_iter()
             .map(
-                |(user_id, display_name, stage_name, phone, email, role, tg)| MemberRow {
-                    user_id,
-                    display_name,
-                    stage_name,
-                    phone: phone.filter(|_| admin),
-                    email: email.filter(|_| admin),
-                    role,
-                    telegram_linked: tg.is_some(),
-                    groups: group_rows
-                        .iter()
-                        .filter(|(u, _)| *u == user_id)
-                        .map(|(_, g)| *g)
-                        .collect(),
-                    pending_invitation: invites
-                        .iter()
-                        .find(|(u, _)| *u == user_id)
-                        .map(|(_, c)| c.clone()),
+                |(user_id, display_name, stage_name, phone, email, role, tg, instance_admin)| {
+                    MemberRow {
+                        user_id,
+                        display_name,
+                        stage_name,
+                        phone: phone.filter(|_| admin),
+                        email: email.filter(|_| admin),
+                        role,
+                        telegram_linked: tg.is_some(),
+                        is_instance_admin: instance_admin && admin,
+                        groups: group_rows
+                            .iter()
+                            .filter(|(u, _)| *u == user_id)
+                            .map(|(_, g)| *g)
+                            .collect(),
+                        pending_invitation: invites
+                            .iter()
+                            .find(|(u, _)| *u == user_id)
+                            .map(|(_, c)| c.clone()),
+                    }
                 },
             )
             .collect(),
@@ -337,17 +344,8 @@ async fn create_member(
         .await?;
     }
 
-    let code = crate::auth::session::random_token();
-    sqlx::query(
-        "INSERT INTO invitations (user_id, code, created_by, expires_at)
-         VALUES ($1, $2, $3, $4)",
-    )
-    .bind(user_id)
-    .bind(&code)
-    .bind(scope.user_id())
-    .bind(Utc::now() + Duration::days(30))
-    .execute(&mut *tx)
-    .await?;
+    let code =
+        crate::services::invitations::issue(&mut *tx, user_id, Some(scope.user_id())).await?;
 
     crate::services::ical::ensure_token(&state.db, "user", user_id)
         .await
@@ -357,7 +355,7 @@ async fn create_member(
     Ok(Json(json!({
         "user_id": user_id,
         "invitation_code": code,
-        "invitation_url": format!("{}/invitation/{code}", state.config.public_base_url),
+        "invitation_url": crate::services::invitations::url(&state.config.public_base_url, &code),
     })))
 }
 
@@ -369,10 +367,21 @@ struct UpdateMember {
     phone: Option<String>,
     #[serde(default)]
     stage_name: Option<String>,
+    #[serde(default)]
+    display_name: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    /// Replaces the member's groups wholesale when present.
+    #[serde(default)]
+    group_ids: Option<Vec<Uuid>>,
 }
 
 /// The admin role is **a right laid on a membership**, grantable to anyone and
 /// revocable (§3, §20).
+///
+/// A person is editable, not just promotable: names change, phones change, and
+/// an address typed wrong at invitation time locked the account out of the
+/// password fallback until now.
 async fn update_member(
     State(state): State<AppState>,
     Auth(actor): Auth,
@@ -433,6 +442,83 @@ async fn update_member(
         .await?;
     }
 
+    // Name and address are the identity of the account, so only an admin
+    // rewrites them — and an empty name would leave a nameless row everywhere
+    // it is displayed.
+    if body.display_name.is_some() || body.email.is_some() {
+        scope.require_admin()?;
+        if let Some(name) = body.display_name.as_deref() {
+            if name.trim().is_empty() {
+                return Err(AppError::bad_request("le nom ne peut pas être vide"));
+            }
+        }
+        let email = body
+            .email
+            .as_deref()
+            .map(str::trim)
+            .filter(|e| !e.is_empty());
+        if let Some(email) = email {
+            let taken: Option<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2")
+                    .bind(email)
+                    .bind(user_id)
+                    .fetch_optional(&state.db)
+                    .await?;
+            if taken.is_some() {
+                return Err(AppError::conflict("cette adresse est déjà prise"));
+            }
+        }
+        sqlx::query(
+            "UPDATE users SET display_name = COALESCE($2, display_name),
+                              email = COALESCE($3, email), updated_at = now()
+             WHERE id = $1",
+        )
+        .bind(user_id)
+        .bind(body.display_name.as_deref().map(str::trim))
+        .bind(email)
+        .execute(&state.db)
+        .await?;
+    }
+
+    // Groups are replaced wholesale: the form shows every group with a box, so
+    // what it sends is the whole answer, not a delta.
+    if let Some(group_ids) = &body.group_ids {
+        scope.require_admin()?;
+        let mut tx = state.db.begin().await?;
+        for gid in group_ids {
+            let ok: Option<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM groups WHERE id = $1 AND collective_id = $2")
+                    .bind(gid)
+                    .bind(cid)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            if ok.is_none() {
+                return Err(AppError::bad_request("groupe hors du collectif"));
+            }
+        }
+        sqlx::query(
+            "DELETE FROM group_members gm USING groups g
+             WHERE gm.group_id = g.id AND g.collective_id = $1 AND gm.user_id = $2
+               AND NOT (gm.group_id = ANY($3))",
+        )
+        .bind(cid)
+        .bind(user_id)
+        .bind(group_ids)
+        .execute(&mut *tx)
+        .await?;
+        for gid in group_ids {
+            sqlx::query(
+                "INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)
+                 ON CONFLICT DO NOTHING",
+            )
+            .bind(gid)
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+    }
+
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -452,25 +538,13 @@ async fn regenerate_invitation(
             .await?;
     member.ok_or_else(|| AppError::not_found("membre introuvable"))?;
 
-    sqlx::query("UPDATE invitations SET expires_at = now() WHERE user_id = $1 AND used_at IS NULL")
-        .bind(user_id)
-        .execute(&state.db)
-        .await?;
-
-    let code = crate::auth::session::random_token();
-    sqlx::query(
-        "INSERT INTO invitations (user_id, code, created_by, expires_at) VALUES ($1, $2, $3, $4)",
-    )
-    .bind(user_id)
-    .bind(&code)
-    .bind(scope.user_id())
-    .bind(Utc::now() + Duration::days(30))
-    .execute(&state.db)
-    .await?;
+    crate::services::invitations::expire_pending(&state.db, user_id).await?;
+    let code =
+        crate::services::invitations::issue(&state.db, user_id, Some(scope.user_id())).await?;
 
     Ok(Json(json!({
         "invitation_code": code,
-        "invitation_url": format!("{}/invitation/{code}", state.config.public_base_url),
+        "invitation_url": crate::services::invitations::url(&state.config.public_base_url, &code),
     })))
 }
 
