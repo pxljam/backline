@@ -161,7 +161,7 @@ export const TemplateEditor: React.FC = () => {
             </Link>{" "}
             / gabarit
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{template.data?.name}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">{template.data?.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
             v{template.data?.version} · {variant?.width} × {variant?.height} ({variant?.ratio})
             {variant?.is_master && " · format maître"}

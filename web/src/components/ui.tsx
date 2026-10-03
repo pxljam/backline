@@ -59,7 +59,11 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-control font-medium transition " +
+    // The press sinks a pixel: a console key gives under the finger, it does not
+    // only change colour.
+    "inline-flex items-center justify-center gap-2 rounded-control font-medium " +
+    "transition-[background-color,border-color,box-shadow,translate,scale] duration-200 ease-out-quick " +
+    "enabled:active:translate-y-px enabled:active:scale-[0.98] " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 " +
     "focus-visible:ring-offset-stage disabled:cursor-not-allowed disabled:opacity-50";
   // 44px tall from `md` up: an admin works from a phone too (§14).
@@ -72,8 +76,8 @@ export const Button: React.FC<ButtonProps> = ({
   }[size];
   const variants = {
     primary: "bg-accent text-on-accent hover:shadow-[var(--shadow-glow)]",
-    ghost: "border border-line-strong bg-panel text-ink hover:bg-raised",
-    danger: "border border-danger/40 bg-danger-quiet text-danger hover:border-danger",
+    ghost: "border border-line-strong bg-panel text-ink hover:border-ink-faint hover:bg-raised",
+    danger: "border border-danger/40 bg-danger-quiet text-danger hover:border-danger hover:bg-danger/15",
   }[variant];
   return (
     <button className={cx(base, sizes, variants, className)} {...props}>
@@ -97,8 +101,8 @@ export const Field: React.FC<{
    */
   inline?: boolean;
 }> = ({ label, hint, children, inline }) => (
-  <label className={cx("block", inline && "relative")}>
-    <span className="mb-1 block font-display text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
+  <label className={cx("block", inline && "sm:relative")}>
+    <span className="mb-1.5 block text-[0.8125rem] font-medium text-ink-soft">
       {label}
     </span>
     {children}
@@ -106,7 +110,9 @@ export const Field: React.FC<{
       <span
         className={cx(
           "block text-xs text-ink-soft",
-          inline ? "absolute left-0 top-full mt-1" : "mt-1",
+          // On a phone the row stacks one field per line, so the hint simply
+          // flows; it only hangs once fields share a line.
+          inline ? "mt-1 sm:absolute sm:left-0 sm:top-full" : "mt-1",
         )}
       >
         {hint}
@@ -114,6 +120,16 @@ export const Field: React.FC<{
     )}
   </label>
 );
+
+/**
+ * The row that holds `Field inline` controls.
+ *
+ * From `sm` up their hints hang out of the flow, so the row has to make room
+ * for them itself: below the last line (`pb-5`), and between lines if it wraps
+ * (`gap-y-8`), or a hint sits on the card's edge and on the next label. Below
+ * `sm` the hints flow and an ordinary stacking gap is enough.
+ */
+export const INLINE_ROW = "flex flex-wrap items-end gap-x-3 gap-y-4 sm:gap-y-8 sm:pb-5";
 
 /**
  * The one height scale in the interface.
@@ -198,7 +214,7 @@ export function Tabs<T extends string>({
           aria-current={value === key ? "page" : undefined}
           onClick={() => onChange(key)}
           className={cx(
-            "rounded-control px-3.5 text-sm transition",
+            "rounded-control px-3.5 text-sm transition-[background-color,translate] duration-200 active:translate-y-px",
             CONTROL_H.md,
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
             value === key
@@ -227,7 +243,7 @@ export const Badge: React.FC<{
   return (
     <span
       className={cx(
-        "inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular",
+        "inline-block rounded-[0.3125rem] px-1.5 py-0.5 text-xs font-medium tabular",
         tones,
       )}
     >
@@ -371,7 +387,7 @@ export const Modal: React.FC<{
         // Clicking the backdrop lands on the dialog élément itself.
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-line bg-panel p-0 text-ink shadow-[var(--shadow-panel)] backdrop:bg-black/60"
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-line bg-panel p-0 text-ink shadow-[var(--shadow-panel)] backdrop:bg-stage/75 backdrop:backdrop-blur-[2px]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
         <h2 className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-ink-soft">

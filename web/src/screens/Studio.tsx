@@ -6,7 +6,7 @@ import { useCollectiveBase, useSession } from "../lib/session";
 import type { Asset, BacklineEvent, Format, Group, Template, VideoCompositionRow } from "../lib/types";
 import { fileSize } from "../lib/format";
 import {
-  Badge, Button, Card, Empty, ErrorNote, Field, Input, Loading, PageTitle, Select, Tabs
+  Badge, Button, Card, Empty, ErrorNote, Field, INLINE_ROW, Input, Loading, Modal, PageTitle, Select, Tabs
 } from "../components/ui";
 
 type Tab = "gabarits" | "videos" | "medias";
@@ -59,7 +59,7 @@ const Templates: React.FC = () => {
         <div className="mb-5">
           <Card title="Nouveau gabarit">
             <form
-              className="flex flex-wrap items-end gap-3"
+              className={INLINE_ROW}
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(async () => {
@@ -88,7 +88,7 @@ const Templates: React.FC = () => {
                   </Select>
                 </Field>
               </div>
-              <Button type="submit" variant="primary" disabled={busy}>
+              <Button type="submit" variant="primary" disabled={busy} className="w-full sm:w-auto">
                 Créer
               </Button>
             </form>
@@ -175,7 +175,7 @@ const Videos: React.FC = () => {
       <div className="mb-5">
         <Card title="Nouvelle composition">
           <form
-            className="flex flex-wrap items-end gap-3"
+            className={INLINE_ROW}
             onSubmit={(e) => {
               e.preventDefault();
               void run(async () => {
@@ -217,7 +217,7 @@ const Videos: React.FC = () => {
                 </Select>
               </Field>
             </div>
-            <Button type="submit" variant="primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy} className="w-full sm:w-auto">
               Créer
             </Button>
           </form>
@@ -262,19 +262,67 @@ const MediaLibrary: React.FC = () => {
   const { isAdmin } = useSession();
   const assets = useResource<Asset[]>(`${base}/studio/assets`);
   const { data: groups } = useResource<Group[]>(`${base}/groups`);
-  const { run, busy, error } = useAction();
+  const { run, busy, error, setError } = useAction();
   const fileRef = useRef<HTMLInputElement>(null);
   const [groupId, setGroupId] = useState("");
   const [tags, setTags] = useState("");
+  const [doomed, setDoomed] = useState<Asset | null>(null);
 
   return (
     <>
-      <ErrorNote>{assets.error ?? error}</ErrorNote>
+      <ErrorNote>{assets.error ?? (doomed ? null : error)}</ErrorNote>
+
+      {/* Uploaded media never come back on their own (§15): the file is gone
+          for good, so it is worth one question. */}
+      <Modal
+        open={doomed !== null}
+        onClose={() => {
+          setDoomed(null);
+          setError(null);
+        }}
+        title="Supprimer le média"
+      >
+        <p className="text-sm">
+          « <span className="font-medium break-all">{doomed?.filename}</span> » sera supprimé
+          définitivement. S'il sert encore à un gabarit, une vidéo ou la charte, la suppression
+          sera refusée.
+        </p>
+        {/* A refusal says what still uses the file; it belongs next to the
+            button that triggered it, not behind the dialog. */}
+        <div className="mt-3">
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            onClick={() => {
+              setDoomed(null);
+              setError(null);
+            }}
+          >
+            Annuler
+          </Button>
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => {
+              const target = doomed;
+              if (!target) return;
+              void run(async () => {
+                await api.del(`${base}/studio/assets/${target.id}`);
+                await assets.reload();
+                return true;
+              }).then((ok) => ok && setDoomed(null));
+            }}
+          >
+            Supprimer
+          </Button>
+        </div>
+      </Modal>
 
       <div className="mb-5">
         <Card title="Téléverser">
           <form
-            className="flex flex-wrap items-end gap-3"
+            className={INLINE_ROW}
             onSubmit={(e) => {
               e.preventDefault();
               const file = fileRef.current?.files?.[0];
@@ -293,10 +341,17 @@ const MediaLibrary: React.FC = () => {
           >
             <div className="min-w-48 flex-1">
               <Field inline label="Fichier" hint="Photos, captations, visuels produits ailleurs.">
-                <input ref={fileRef} type="file" className="text-sm" required />
+                {/* Dressed as a field holding a button, same height as its
+                    neighbours; the native look sat on its own baseline. */}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  required
+                  className="block min-h-11 w-full rounded-control border border-line-strong bg-panel p-1.5 text-sm text-ink-soft transition-colors file:mr-3 file:cursor-pointer file:rounded-[0.3125rem] file:border-0 file:bg-raised file:px-3 file:py-1 file:text-sm file:font-medium file:text-ink hover:file:bg-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                />
               </Field>
             </div>
-            <div className="min-w-40">
+            <div className="w-full sm:w-44">
               <Field inline label="Groupe">
                 <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
                   <option value="">collectif</option>
@@ -308,12 +363,12 @@ const MediaLibrary: React.FC = () => {
                 </Select>
               </Field>
             </div>
-            <div className="min-w-40">
+            <div className="w-full sm:w-52">
               <Field inline label="Étiquettes" hint="Séparées par des virgules.">
                 <Input value={tags} onChange={(e) => setTags(e.target.value)} />
               </Field>
             </div>
-            <Button type="submit" variant="primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy} className="w-full sm:w-auto">
               Téléverser
             </Button>
           </form>
@@ -331,7 +386,7 @@ const MediaLibrary: React.FC = () => {
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {assets.data.map((a) => (
-              <li key={a.id} className="rounded-lg border border-line p-2">
+              <li key={a.id} className="rounded-control border border-line p-2">
                 {a.kind === "image" ? (
                   <AssetPreview assetId={a.id} />
                 ) : (
@@ -352,15 +407,7 @@ const MediaLibrary: React.FC = () => {
                     variant="danger"
                     className="mt-2 w-full"
                     disabled={busy}
-                    onClick={() => {
-                      // Uploaded media never come back on their own (§15): the
-                      // file is gone for good, so it is worth one question.
-                      if (!confirm(`Supprimer « ${a.filename} » définitivement ?`)) return;
-                      void run(async () => {
-                        await api.del(`${base}/studio/assets/${a.id}`);
-                        await assets.reload();
-                      });
-                    }}
+                    onClick={() => setDoomed(a)}
                   >
                     supprimer
                   </Button>

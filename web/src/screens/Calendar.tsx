@@ -160,7 +160,7 @@ const ListView: React.FC<{ entries: CalendarEntry[] }> = ({ entries }) =>
       {entries.map((e) => (
         <li key={`${e.kind}-${e.id}`}>
           <Link
-            to={e.kind === "event" ? `/événements/${e.id}` : `/opportunités/${e.opportunity_id}`}
+            to={e.kind === "event" ? `/evenements/${e.id}` : `/opportunites/${e.opportunity_id}`}
             className="flex flex-wrap items-center justify-between gap-3 py-3"
           >
             <div>
@@ -236,7 +236,7 @@ const GridView: React.FC<{ entries: CalendarEntry[]; anchor: Date; week: boolean
                   <li key={`${e.kind}-${e.id}`}>
                     <Link
                       to={
-                        e.kind === "event" ? `/événements/${e.id}` : `/opportunités/${e.opportunity_id}`
+                        e.kind === "event" ? `/evenements/${e.id}` : `/opportunites/${e.opportunity_id}`
                       }
                       className={`block truncate rounded px-1 py-0.5 text-[11px] ${
                         e.kind === "candidate_date"

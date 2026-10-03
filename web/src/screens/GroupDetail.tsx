@@ -165,7 +165,7 @@ export const GroupDetail: React.FC = () => {
                 </Field>
               </div>
               <div className="min-w-40 flex-1">
-                <Field inline label="Role" hint="Texte libre : « MAO », « batterie »…">
+                <Field inline label="Rôle" hint="Texte libre : « MAO », « batterie »…">
                   <Input value={roleLibre} onChange={(e) => setRoleLibre(e.target.value)} />
                 </Field>
               </div>

@@ -29,7 +29,7 @@ export const Members: React.FC = () => {
     <>
       <PageTitle
         title="Membres"
-        subtitle="Un compte par personne, transverse aux collectifs. Le role d'admin est un droit, attribuable et retirable."
+        subtitle="Un compte par personne, transverse aux collectifs. Le rôle d'admin est un droit, attribuable et retirable."
         action={
           isAdmin && (
             <Button variant="primary" onClick={() => setOpen((v) => !v)}>
@@ -80,7 +80,7 @@ export const Members: React.FC = () => {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </Field>
-              <Field label="Role">
+              <Field label="Rôle">
                 <Select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -118,7 +118,7 @@ export const Members: React.FC = () => {
               <div className="md:col-span-2">
                 <ErrorNote>{actionError}</ErrorNote>
                 <Button type="submit" variant="primary" disabled={busy} className="mt-2">
-                  Créer et generer le lien
+                  Créer et générer le lien
                 </Button>
               </div>
             </form>

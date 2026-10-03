@@ -248,7 +248,7 @@ export const Instance: React.FC = () => {
                   Super admin de l'instance
                 </label>
                 <Button type="submit" variant="primary" disabled={busy} className="mt-3">
-                  Créer et generer le lien
+                  Créer et générer le lien
                 </Button>
               </div>
             </form>

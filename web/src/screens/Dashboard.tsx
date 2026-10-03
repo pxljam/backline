@@ -8,6 +8,17 @@ import { Badge, Button, Card, Empty, ErrorNote, Loading, Note, PageTitle } from 
 import { FirstSteps } from "../components/FirstSteps";
 import { Tour } from "../components/Tour";
 
+/** A list entry that leads somewhere: the border firms up and the slab lifts
+ *  a shade, the same answer the shell's navigation gives to a pointer. */
+const ROW =
+  "flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2 " +
+  "transition-colors duration-200 hover:border-line-strong hover:bg-raised " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+/** Evening is when a collective's admin opens this, but not the only time. */
+const greeting = (hour = new Date().getHours()) =>
+  hour >= 5 && hour < 18 ? "Bonjour" : "Bonsoir";
+
 /** "What is blocking" (§14) — not a list of information, a list of actions. */
 export const Dashboard: React.FC = () => {
   const base = useCollectiveBase();
@@ -32,7 +43,7 @@ export const Dashboard: React.FC = () => {
   return (
     <>
       <PageTitle
-        title={`Bonsoir, ${me?.display_name ?? ""}`}
+        title={`${greeting()}, ${me?.display_name ?? ""}`}
         subtitle={nothingBlocking ? "Rien ne bloque." : "Ce qui demande une décision."}
         action={
           <Button size="sm" icon="spark" onClick={() => setTour(true)}>
@@ -66,12 +77,12 @@ export const Dashboard: React.FC = () => {
               {data.pending_polls.map((p) => (
                 <li key={p.opportunity_id}>
                   <Link
-                    to={`/opportunités/${p.opportunity_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
+                    to={`/opportunites/${p.opportunity_id}`}
+                    className={ROW}
                   >
                     <span className="text-sm">{p.title}</span>
                     {p.mine_missing ? (
-                      <Badge tone="warn">a toi de répondre</Badge>
+                      <Badge tone="warn">à toi de répondre</Badge>
                     ) : (
                       <Badge tone="good">tu as répondu</Badge>
                     )}
@@ -90,8 +101,8 @@ export const Dashboard: React.FC = () => {
               {data.vacant_slots.slice(0, 8).map((s, i) => (
                 <li key={`${s.event_id}-${s.label}-${i}`}>
                   <Link
-                    to={`/événements/${s.event_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
+                    to={`/evenements/${s.event_id}`}
+                    className={ROW}
                   >
                     <span className="text-sm">
                       <span className="font-medium">{s.label}</span>
@@ -114,16 +125,15 @@ export const Dashboard: React.FC = () => {
             <ul className="space-y-2">
               {data.late_tasks.slice(0, 8).map((t) => (
                 <li key={t.task_id}>
-                  <Link
-                    to={`/événements/${t.task_id && ""}`}
-                    className="pointer-events-none block rounded-lg border border-line px-3 py-2"
-                  >
+                  {/* No event id comes with a late task, so the row informs
+                      rather than pretending to be a link. */}
+                  <div className="rounded-control border border-line px-3 py-2">
                     <span className="text-sm font-medium">{t.label}</span>
                     <span className="block text-xs text-ink-soft">
                       {t.event_title} · prévu {relativeTime(t.scheduled_at)}
                       {!t.assignee_id && " · personne d'assigné"}
                     </span>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -138,8 +148,8 @@ export const Dashboard: React.FC = () => {
               {data.upcoming.map((e) => (
                 <li key={e.id}>
                   <Link
-                    to={`/événements/${e.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 hover:border-line-strong"
+                    to={`/evenements/${e.id}`}
+                    className={ROW}
                   >
                     <span className="text-sm">
                       <span className="font-medium">{e.title}</span>
@@ -166,7 +176,7 @@ export const Dashboard: React.FC = () => {
               ))}
             </ul>
             <p className="mt-3 text-xs text-ink-soft">
-              Rien n'est bloque : un concert se joue très bien sans PDF.
+              Rien n'est bloqué : un concert se joue très bien sans PDF.
             </p>
           </Card>
         )}

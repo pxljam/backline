@@ -47,11 +47,11 @@ export const Events: React.FC = () => {
       )}
 
       <div className="grid gap-4">
-        <Card title="A venir">
+        <Card title="À venir">
           {upcoming.length === 0 ? <Empty>Rien de prévu.</Empty> : <EventList events={upcoming} />}
         </Card>
         {past.length > 0 && (
-          <Card title="Passes">
+          <Card title="Passés">
             <EventList events={past} />
           </Card>
         )}
@@ -67,7 +67,7 @@ const EventList: React.FC<{ events: BacklineEvent[] }> = ({ events }) => (
       const missingRider = e.tech_riders.filter((r) => !r.tech_rider_id).length;
       return (
         <li key={e.id}>
-          <Link to={`/événements/${e.id}`} className="flex flex-wrap items-center gap-3 py-3">
+          <Link to={`/evenements/${e.id}`} className="flex flex-wrap items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="font-medium">{e.title}</p>
               <p className="text-xs text-ink-soft">
@@ -80,7 +80,11 @@ const EventList: React.FC<{ events: BacklineEvent[] }> = ({ events }) => (
               <Badge tone={e.status === "confirmed" ? "good" : "neutral"}>
                 {EVENT_STATUS_LABELS[e.status]}
               </Badge>
-              {vacant > 0 && <Badge tone="warn">{vacant} poste(s) vacant(s)</Badge>}
+              {vacant > 0 && (
+                <Badge tone="warn">
+                  {vacant} poste{vacant > 1 ? "s" : ""} vacant{vacant > 1 ? "s" : ""}
+                </Badge>
+              )}
               {e.comms_summary.late > 0 && (
                 <Badge tone="bad">{e.comms_summary.late} com en retard</Badge>
               )}

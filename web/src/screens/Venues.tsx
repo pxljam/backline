@@ -282,7 +282,7 @@ const AddContact: React.FC<{ venueId: string; onDone: () => void }> = ({ venueId
       }}
     >
       <Input placeholder="Nom" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-      <Input placeholder="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
+      <Input placeholder="Rôle" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
       <Input placeholder="Téléphone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       <Input placeholder="E-mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
       <Button type="submit" size="sm" variant="primary" disabled={busy}>

@@ -39,7 +39,7 @@ const LIENS: {
 
 const link = ({ isActive }: { isActive: boolean }) =>
   cx(
-    "relative flex min-h-11 items-center gap-2.5 rounded-control px-3 py-2 text-sm transition",
+    "relative flex min-h-11 items-center gap-2.5 rounded-control px-3 py-2 text-sm transition-colors duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
     isActive
       ? "bg-raised font-medium text-ink before:absolute before:inset-y-1.5 before:-left-0.5 before:w-0.5 before:rounded-full before:bg-accent"
@@ -58,6 +58,13 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
+      {/* Eleven links stand between a keyboard and the page on every screen. */}
+      <a
+        href="#contenu"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-on-accent"
+      >
+        Aller au contenu
+      </a>
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-stage/80 px-4 py-3 backdrop-blur lg:hidden">
         <button
           onClick={() => setOpen((v) => !v)}
@@ -77,7 +84,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         >
           <Icon name="bell" className="h-5 w-5" />
           {nonLues > 0 && (
-            <span className="tabular absolute right-0 top-1.5 rounded-full bg-accent px-1.5 text-[10px] font-medium text-on-accent">
+            <span className="tabular absolute right-0 top-1.5 rounded-[0.25rem] bg-accent px-1 text-[10px] font-medium text-on-accent">
               {nonLues}
             </span>
           )}
@@ -140,7 +147,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 Notifications
               </span>
               {nonLues > 0 && (
-                <span className="tabular rounded-full bg-accent px-1.5 text-[10px] font-medium text-on-accent">
+                <span className="tabular rounded-[0.25rem] bg-accent px-1 text-[10px] font-medium text-on-accent">
                   {nonLues}
                 </span>
               )}
@@ -174,7 +181,11 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         </div>
       </nav>
 
-      <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
+      {/* Capped at 1440px: past that, a list row is a line the eye cannot
+          follow back. The editors fit comfortably inside it. */}
+      <main id="contenu" tabIndex={-1} className="min-w-0 flex-1 px-4 pb-10 pt-6 outline-none lg:px-8 lg:pb-12 lg:pt-8">
+        <div className="mx-auto w-full max-w-[90rem]">{children}</div>
+      </main>
     </div>
   );
 };

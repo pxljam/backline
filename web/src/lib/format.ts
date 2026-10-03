@@ -22,7 +22,7 @@ export function time(iso: string): string {
 }
 
 export function dateAndTime(iso: string): string {
-  return `${shortDate(iso)} a ${time(iso)}`;
+  return `${shortDate(iso)} à ${time(iso)}`;
 }
 
 /** "dans 12 jours", "il y a 3 h" — useful for saying what is pressing. */
@@ -53,30 +53,30 @@ export function fileSize(bytes: number): string {
 
 export const EVENT_STATUS_LABELS: Record<string, string> = {
   draft: "brouillon",
-  confirmed: "confirme",
-  past: "passe",
-  cancelled: "annule",
+  confirmed: "confirmé",
+  past: "passé",
+  cancelled: "annulé",
 };
 
 export const OPPORTUNITY_STATUS_LABELS: Record<string, string> = {
   discussing: "en discussion",
   poll_open: "sondage ouvert",
   date_chosen: "date retenue",
-  confirmed: "confirmee",
-  abandoned: "abandonnee",
+  confirmed: "confirmée",
+  abandoned: "abandonnée",
 };
 
 export const TASK_STATUS_LABELS: Record<string, string> = {
   draft: "brouillon",
-  ready: "pret",
-  assigned: "assigne",
-  published: "publie",
-  missed: "rate",
+  ready: "prêt",
+  assigned: "assigné",
+  published: "publié",
+  missed: "raté",
 };
 
 export const AVAILABILITY_LABELS: Record<string, string> = {
   yes: "dispo",
-  maybe: "peut-etre",
+  maybe: "peut-être",
   no: "non",
 };
 

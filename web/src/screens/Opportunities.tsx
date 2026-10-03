@@ -71,7 +71,7 @@ export const Opportunities: React.FC = () => {
             {data.map((o) => (
               <li key={o.id}>
                 <Link
-                  to={`/opportunités/${o.id}`}
+                  to={`/opportunites/${o.id}`}
                   className="flex flex-wrap items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0">

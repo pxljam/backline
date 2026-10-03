@@ -172,7 +172,7 @@ export const VideoEditor: React.FC = () => {
             </Link>{" "}
             / video
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{comp.data?.name}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">{comp.data?.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
             {spec.width} × {spec.height} · {spec.fps} img/s · {spec.scenes.length} plan(s) ·{" "}
             {(duration / spec.fps).toFixed(1)} s · v{comp.data?.version}

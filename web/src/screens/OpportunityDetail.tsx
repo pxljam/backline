@@ -126,7 +126,7 @@ export const OpportunityDetail: React.FC = () => {
       {o.event_id && (
         <div className="mb-5">
           <Card title="Date arretee">
-            <Button variant="primary" onClick={() => navigate(`/événements/${o.event_id}`)}>
+            <Button variant="primary" onClick={() => navigate(`/evenements/${o.event_id}`)}>
               Voir l'événement
             </Button>
           </Card>
@@ -279,7 +279,7 @@ export const OpportunityDetail: React.FC = () => {
           <Arbitration
             opportunityId={id}
             matrix={m}
-            onDone={(eventId) => navigate(`/événements/${eventId}`)}
+            onDone={(eventId) => navigate(`/evenements/${eventId}`)}
           />
         </div>
       )}
