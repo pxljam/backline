@@ -23,6 +23,7 @@ import { Brand } from "./screens/Brand";
 import { Settings } from "./screens/Settings";
 import { Instance } from "./screens/Instance";
 import { Notifications } from "./screens/Notifications";
+import { NotFound } from "./screens/NotFound";
 
 const Protected: React.FC = () => {
   const { me, loading, collectiveId } = useSession();
@@ -83,7 +84,7 @@ const Protected: React.FC = () => {
         <Route path="/reglages" element={<Settings />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/instance" element={<Instance />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Shell>
   );
